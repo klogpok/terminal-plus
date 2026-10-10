@@ -239,6 +239,12 @@ export interface Commands {
   startService: { payload: ServiceRef; result: null };
   stopService: { payload: ServiceRef; result: null };
   restartService: { payload: ServiceRef; result: null };
+  /** "Start all": starts every Service of the Repo in dependsOn order (Services only, never Sessions). */
+  startAll: { payload: { repoId: string }; result: null };
+  /** "Stop all": stops every Service of the Repo (Services only, never Sessions). */
+  stopAll: { payload: { repoId: string }; result: null };
+  /** "Stop all in all Repos": stops every Service in the Workspace (never Sessions). */
+  stopAllRepos: { payload: Record<string, never>; result: null };
   /** Without `path` the Server shows a folder picker; `null` result = the user cancelled it. */
   addRepo: { payload: { path?: string; name?: string }; result: RepoView | null };
   /** Stops every process of the Repo, removes it and its Local Config; never touches the folder. */

@@ -7,6 +7,8 @@
  * details)` in `core`, and add the message to `errors` in `packages/web/src/app/strings.ts`.
  */
 
+import type { ServiceStatus } from './index.js';
+
 /** Error codes and the parameters their messages need. */
 export interface ErrorParams {
   /** A command named a Repo id that is not in the Workspace. */
@@ -15,6 +17,16 @@ export interface ErrorParams {
   serviceNotFound: { repoName: string; serviceId: string };
   /** The Service process could not be spawned. */
   spawnFailed: { repoName: string; serviceName: string };
+  /**
+   * A Service was not started because one of its dependencies (dependsOn) did not become `running`:
+   * it ended up `crashed`, `exited` or `unhealthy`, or was stopped while starting.
+   */
+  dependencyFailed: {
+    repoName: string;
+    serviceName: string;
+    dependencyName: string;
+    dependencyStatus: ServiceStatus;
+  };
   /** The Repo uses pnpm (has `pnpm-lock.yaml`) but `pnpm` is not on PATH. */
   pnpmMissing: { repoName: string };
   /** `installDependencies` was asked for a Repo that is not a pnpm Repo. */

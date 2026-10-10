@@ -67,7 +67,37 @@ const repoConfigSchema = z
         }
       }
     });
+    const cycle = findDependencyCycle(config.services);
+    if (cycle) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['services'],
+        message: `dependsOn forms a cycle: ${cycle.join(' -> ')}`,
+      });
+    }
   });
+
+/** A dependsOn cycle as a list of Service ids (first id repeated at the end), or undefined. */
+function findDependencyCycle(services: { id: string; dependsOn?: string[] }[]): string[] | undefined {
+  const deps = new Map(services.map((s) => [s.id, s.dependsOn ?? []]));
+  const done = new Set<string>();
+  const visit = (id: string, trail: string[]): string[] | undefined => {
+    const loop = trail.indexOf(id);
+    if (loop >= 0) return [...trail.slice(loop), id];
+    if (done.has(id)) return undefined;
+    for (const dep of deps.get(id) ?? []) {
+      const cycle = visit(dep, [...trail, id]);
+      if (cycle) return cycle;
+    }
+    done.add(id);
+    return undefined;
+  };
+  for (const { id } of services) {
+    const cycle = visit(id, []);
+    if (cycle) return cycle;
+  }
+  return undefined;
+}
 
 export type ServiceDefinition = z.infer<typeof serviceSchema>;
 export type RepoConfig = z.infer<typeof repoConfigSchema>;

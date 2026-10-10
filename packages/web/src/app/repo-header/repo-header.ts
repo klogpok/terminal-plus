@@ -5,6 +5,8 @@ import { STRINGS } from '../strings';
 
 /** Statuses in which a Service has a live process that removing the Repo would stop. */
 const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy', 'stopping']);
+/** Statuses from which a Service can be started. */
+const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'exited']);
 
 /**
  * Top of a Repo card: name, git branch, "Открыть папку", "Удалить" with a confirmation listing what
@@ -31,6 +33,24 @@ const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unheal
         >✕</button>
       </span>
     </div>
+    @if (repo().services.length) {
+      <div class="run-actions">
+        <button
+          type="button"
+          [disabled]="!anyStartable()"
+          [title]="strings.actions.repoAction(strings.actions.startAll, repo().name)"
+          [attr.aria-label]="strings.actions.repoAction(strings.actions.startAll, repo().name)"
+          (click)="backend.startAll(repo().id)"
+        >▶ {{ strings.actions.startAll }}</button>
+        <button
+          type="button"
+          [disabled]="!anyStoppable()"
+          [title]="strings.actions.repoAction(strings.actions.stopAll, repo().name)"
+          [attr.aria-label]="strings.actions.repoAction(strings.actions.stopAll, repo().name)"
+          (click)="backend.stopAll(repo().id)"
+        >■ {{ strings.actions.stopAll }}</button>
+      </div>
+    }
     @if (repo().folderMissing) {
       <div class="missing">
         <strong>{{ strings.repos.folderMissing }}</strong>
@@ -57,7 +77,9 @@ const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unheal
     .repo-branch { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .repo-actions { margin-left: auto; display: flex; gap: 2px; flex: none; }
     button { border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 2px 6px; }
-    button:hover { border-color: var(--accent); }
+    button:not(:disabled):hover { border-color: var(--accent); }
+    button:disabled { opacity: 0.35; cursor: default; }
+    .run-actions { margin-top: 4px; display: flex; gap: 4px; }
     .missing, .remove-confirm { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; align-items: flex-start; }
     .remove-confirm { padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
     .form-actions { display: flex; gap: 6px; }
@@ -72,6 +94,13 @@ export class RepoHeader {
   protected readonly confirming = signal(false);
   /** Names of the Services that removing the Repo will stop. Ticket 09 adds Sessions here. */
   protected readonly running = computed(() => this.repo().services.filter((s) => LIVE.has(s.status)).map((s) => s.name));
+
+  /** "Start all" is enabled while some Service can be started (and the folder exists). */
+  protected readonly anyStartable = computed(
+    () => !this.repo().folderMissing && this.repo().services.some((s) => STARTABLE.has(s.status) && !s.removedFromConfig),
+  );
+  /** "Stop all" is enabled while some Service has a live process. */
+  protected readonly anyStoppable = computed(() => this.repo().services.some((s) => LIVE.has(s.status)));
 
   protected remove(): void {
     this.confirming.set(false);

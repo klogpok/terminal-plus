@@ -83,6 +83,21 @@ describe('loading the Workspace and Repo Configs', () => {
     expect(core.listRepos().find((r) => r.name === 'auth')!.configError).toBeUndefined();
   });
 
+  it('reports a Repo-level error when dependsOn forms a cycle', async () => {
+    h.addRepo({
+      name: 'billing',
+      config: {
+        services: [
+          { id: 'api', command: 'a', dependsOn: ['db'] },
+          { id: 'db', command: 'b', dependsOn: ['cache'] },
+          { id: 'cache', command: 'c', dependsOn: ['api'] },
+        ],
+      },
+    });
+    const core = await h.createCore();
+    expect(core.listRepos()[0]!.configError).toMatch(/cycle/i);
+  });
+
   it('reports a Repo-level error for an invalid Repo Config', async () => {
     h.addRepo({ name: 'billing', configText: 'services:\n  - id: api\n' });
     const core = await h.createCore();

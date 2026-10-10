@@ -21,6 +21,17 @@ export type UiErrorInfo = {
   [C in UiErrorCode]: { code: C; params: AllErrorParams[C]; details: string };
 }[UiErrorCode];
 
+/** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */
+const DEPENDENCY_OUTCOME: Record<ServiceStatus, string> = {
+  crashed: 'упал',
+  exited: 'завершился сам',
+  unhealthy: 'запустился, но не отвечает',
+  stopped: 'был остановлен',
+  stopping: 'был остановлен',
+  starting: 'ещё не запустился',
+  running: 'не запустился',
+};
+
 export const STRINGS = {
   appTitle: 'DevPanel',
 
@@ -91,6 +102,11 @@ export const STRINGS = {
     /** Accessible name of a Service button, e.g. "Запустить API". */
     serviceAction: (action: string, serviceName: string) => `${action} ${serviceName}`,
     dismiss: 'Закрыть',
+    startAll: 'Запустить всё',
+    stopAll: 'Остановить всё',
+    /** Accessible name of a Repo header button, e.g. "Запустить всё в репо Billing". */
+    repoAction: (action: string, repoName: string) => `${action} в репо ${repoName}`,
+    stopAllRepos: 'Остановить всё во всех репо',
   },
 
   error: {
@@ -139,6 +155,9 @@ export const STRINGS = {
     repoNotFound: () => 'Этого Репо больше нет в списке. Обновите страницу.',
     serviceNotFound: (p) => `В репо ${p.repoName} больше нет сервиса «${p.serviceId}». Обновите страницу.`,
     spawnFailed: (p) => `Не удалось запустить сервис ${p.serviceName} из репо ${p.repoName}.`,
+    dependencyFailed: (p) =>
+      `Сервис ${p.serviceName} из репо ${p.repoName} не запущен: сначала должен заработать сервис ` +
+      `${p.dependencyName}, а он ${DEPENDENCY_OUTCOME[p.dependencyStatus]}.`,
     pnpmMissing: (p) =>
       `Репо ${p.repoName} работает через pnpm, но pnpm на этом компьютере не найден. ` +
       'Выполните в терминале «corepack enable» или установите pnpm, затем перезапустите DevPanel.',

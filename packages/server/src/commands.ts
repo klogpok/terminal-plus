@@ -41,6 +41,15 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: serviceRef,
     run: async (core, p) => (await core.restartService(p.repoId, p.serviceId), null),
   },
+  startAll: {
+    payload: z.object({ repoId: z.string().min(1) }),
+    run: async (core, p) => (await core.startAll(p.repoId), null),
+  },
+  stopAll: {
+    payload: z.object({ repoId: z.string().min(1) }),
+    run: async (core, p) => (await core.stopAll(p.repoId), null),
+  },
+  stopAllRepos: { payload: empty, run: async (core) => (await core.stopAllRepos(), null) },
   addRepo: {
     payload: z.object({ path: z.string().min(1).optional(), name: z.string().trim().min(1).max(100).optional() }),
     run: (core, p) => core.addRepo(p),

@@ -212,17 +212,29 @@ describe('Sessions and the rest of DevPanel', () => {
     await expect(core.relocateRepo(repo.id, elsewhere)).rejects.toMatchObject({ code: 'repoBusy' });
   });
 
-  it('stopping Services leaves Sessions running; shutdown (Exit) ends them', async () => {
+  it('"Stop all" and "Stop all in all Repos" leave Sessions running; shutdown (Exit) ends them', async () => {
     h.addRepo({ name: 'billing', config: { services: [{ id: 'api', command: fixtureCommand('spawn-grandchild.mjs') }] } });
+    h.addRepo({ name: 'docs', config: { services: [{ id: 'web', command: fixtureCommand('spawn-grandchild.mjs') }] } });
     const core = await h.createCore();
-    const repo = core.listRepos()[0]!;
-    await core.startService(repo.id, 'api');
-    const session = await core.openTerminal(repo.id);
+    const [billing, docs] = core.listRepos();
+    await core.startService(billing!.id, 'api');
+    await core.startService(docs!.id, 'web');
+    const session = await core.openTerminal(billing!.id);
+    const other = await core.openTerminal(docs!.id);
     const pids = await spawnGrandchildIn(core, session.id);
+    const closed: unknown[] = [];
+    core.on('sessionClosed', (e) => closed.push(e));
 
-    await core.stopService(repo.id, 'api');
-    expect(core.snapshot().sessions).toEqual([session]);
+    await core.stopAll(billing!.id);
+    await core.stopAllRepos();
+
+    expect(core.listRepos().flatMap((r) => r.services.map((s) => s.status))).toEqual(['stopped', 'stopped']);
+    expect(closed).toEqual([]);
+    expect(core.snapshot().sessions).toEqual([session, other]);
     expect(pids.every(isAlive)).toBe(true);
+    const stillTyping = waitForSessionOutput(core, other.id, /STILL_HERE/);
+    core.writeToSession(other.id, 'echo STILL_^HERE\r');
+    await stillTyping;
 
     await core.shutdown();
     await waitUntil(() => pids.every((pid) => !isAlive(pid)));

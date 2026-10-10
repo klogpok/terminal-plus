@@ -4,14 +4,14 @@
 
 **Blocked by:** 04 (Readiness and the full Service Status model).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `startService` on a Service with dependsOn starts each not-yet-running dependency first (transitively) and waits for `running` before spawning the dependent.
-- [ ] If a dependency becomes `crashed`, `exited` or `unhealthy`, the dependent is not started and a plain-Russian reason names the dependency.
-- [ ] Stopping or crashing a dependency leaves running dependents untouched (test).
-- [ ] "Start all" respects dependency order; "Stop all" stops every Service of the Repo.
-- [ ] "Stop all in all Repos" stops every Service in the Workspace.
-- [ ] None of these commands stops a Session (asserted once Sessions exist; until then, the command API accepts only Services).
+- [x] `startService` on a Service with dependsOn starts each not-yet-running dependency first (transitively) and waits for `running` before spawning the dependent.
+- [x] If a dependency becomes `crashed`, `exited` or `unhealthy`, the dependent is not started and a plain-Russian reason names the dependency.
+- [x] Stopping or crashing a dependency leaves running dependents untouched (test).
+- [x] "Start all" respects dependency order; "Stop all" stops every Service of the Repo.
+- [x] "Stop all in all Repos" stops every Service in the Workspace.
+- [x] None of these commands stops a Session (asserted once Sessions exist; until then, the command API accepts only Services).
 
 ---
 
@@ -23,11 +23,11 @@
 
 **Блокируется:** 04 (Готовность и полная модель Статусов сервиса).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] `startService` для Сервиса с dependsOn сначала запускает каждую ещё не работающую Зависимость (транзитивно) и ждёт `running`, прежде чем запустить зависящий Сервис.
-- [ ] Если Зависимость становится `crashed`, `exited` или `unhealthy`, зависящий Сервис не запускается, а причина на понятном русском называет Зависимость.
-- [ ] Остановка или падение Зависимости не трогает работающие зависящие Сервисы (тест).
-- [ ] «Запустить всё» соблюдает порядок зависимостей; «Остановить всё» останавливает каждый Сервис Репо.
-- [ ] «Остановить всё во всех репо» останавливает каждый Сервис в Workspace.
-- [ ] Ни одна из этих команд не останавливает Сессию (проверяется, когда появятся Сессии; до тех пор API команды принимает только Сервисы).
+- [x] `startService` для Сервиса с dependsOn сначала запускает каждую ещё не работающую Зависимость (транзитивно) и ждёт `running`, прежде чем запустить зависящий Сервис.
+- [x] Если Зависимость становится `crashed`, `exited` или `unhealthy`, зависящий Сервис не запускается, а причина на понятном русском называет Зависимость.
+- [x] Остановка или падение Зависимости не трогает работающие зависящие Сервисы (тест).
+- [x] «Запустить всё» соблюдает порядок зависимостей; «Остановить всё» останавливает каждый Сервис Репо.
+- [x] «Остановить всё во всех репо» останавливает каждый Сервис в Workspace.
+- [x] Ни одна из этих команд не останавливает Сессию (проверяется, когда появятся Сессии; до тех пор API команды принимает только Сервисы).

@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
-const BOM = '﻿';
+const BOM = String.fromCharCode(0xfeff);
 
 /** Parses JSON text, ignoring a leading UTF-8 byte order mark. */
 export function parseJson(text: string): unknown {

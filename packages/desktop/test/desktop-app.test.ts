@@ -4,9 +4,10 @@
  * by `electron.e2e.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
+import { HOST_STRINGS } from '@devpanel/shared';
 import {
-  DESKTOP_MESSAGES,
   runDesktop,
+  type DesktopError,
   type DesktopHost,
   type DesktopOptions,
   type DesktopTray,
@@ -74,7 +75,7 @@ class FakeHost implements DesktopHost {
   autostartEnabled = false;
   window?: FakeWindow;
   tray?: FakeTray;
-  errors: { title: string; message: string }[] = [];
+  errors: DesktopError[] = [];
   exitCode?: number;
   quitRequests = 0;
   private secondInstance?: () => void;
@@ -97,8 +98,8 @@ class FakeHost implements DesktopHost {
     this.tray = new FakeTray();
     return this.tray;
   }
-  showError(title: string, message: string): void {
-    this.errors.push({ title, message });
+  async showError(error: DesktopError): Promise<void> {
+    this.errors.push(error);
   }
   isAutostartEnabled(): boolean {
     return this.autostartEnabled;
@@ -151,8 +152,10 @@ class FakeServer implements RunningServer {
   completeClose(): void {
     this.finishClose?.();
   }
+  stopAllFailure?: Error;
   async stopAllRepos(): Promise<void> {
     this.stopAllCalls++;
+    if (this.stopAllFailure) throw this.stopAllFailure;
   }
 }
 
@@ -220,7 +223,7 @@ describe('window', () => {
     expect(host.window!.visible).toBe(false);
     expect(server.closeCalls).toBe(0);
     expect(host.exitCode).toBeUndefined();
-    host.tray!.item(DESKTOP_MESSAGES.show).click!();
+    host.tray!.item(HOST_STRINGS.desktop.show).click!();
     expect(host.window!.visible).toBe(true);
   });
 });
@@ -240,23 +243,39 @@ describe('tray', () => {
   it('"Stop all in all Repos" stops the Services and keeps DevPanel running', async () => {
     const { host, options, server } = setup();
     await runDesktop(options);
-    host.tray!.item(DESKTOP_MESSAGES.stopAllRepos).click!();
+    host.tray!.item(HOST_STRINGS.desktop.stopAllRepos).click!();
     await flush();
     expect(server.stopAllCalls).toBe(1);
     expect(server.closeCalls).toBe(0);
     expect(host.exitCode).toBeUndefined();
   });
 
+  it('a failed "Stop all in all Repos" explains in plain Russian with the technical details apart', async () => {
+    const server = new FakeServer();
+    server.stopAllFailure = new Error('taskkill failed for PID 4242');
+    const { host, options } = setup({ server });
+    await runDesktop(options);
+    host.tray!.item(HOST_STRINGS.desktop.stopAllRepos).click!();
+    await flush();
+    expect(host.errors).toEqual([
+      {
+        title: HOST_STRINGS.desktop.stopAllFailedTitle,
+        message: HOST_STRINGS.desktop.stopAllFailed,
+        details: expect.stringContaining('taskkill failed for PID 4242'),
+      },
+    ]);
+  });
+
   it('start with Windows is off by default and toggles from the tray', async () => {
     const { host, options } = setup();
     await runDesktop(options);
-    expect(host.tray!.item(DESKTOP_MESSAGES.autostart)).toMatchObject({ type: 'checkbox', checked: false });
-    host.tray!.item(DESKTOP_MESSAGES.autostart).click!();
+    expect(host.tray!.item(HOST_STRINGS.desktop.autostart)).toMatchObject({ type: 'checkbox', checked: false });
+    host.tray!.item(HOST_STRINGS.desktop.autostart).click!();
     expect(host.autostartEnabled).toBe(true);
-    expect(host.tray!.item(DESKTOP_MESSAGES.autostart).checked).toBe(true);
-    host.tray!.item(DESKTOP_MESSAGES.autostart).click!();
+    expect(host.tray!.item(HOST_STRINGS.desktop.autostart).checked).toBe(true);
+    host.tray!.item(HOST_STRINGS.desktop.autostart).click!();
     expect(host.autostartEnabled).toBe(false);
-    expect(host.tray!.item(DESKTOP_MESSAGES.autostart).checked).toBe(false);
+    expect(host.tray!.item(HOST_STRINGS.desktop.autostart).checked).toBe(false);
   });
 });
 
@@ -265,7 +284,7 @@ describe('quit', () => {
     const server = new FakeServer(false);
     const { host, options } = setup({ server });
     await runDesktop(options);
-    host.tray!.item(DESKTOP_MESSAGES.quit).click!();
+    host.tray!.item(HOST_STRINGS.desktop.quit).click!();
     expect(server.closeCalls).toBe(1);
     await flush();
     expect(host.exitCode).toBeUndefined();
@@ -308,7 +327,7 @@ describe('start failures', () => {
       probePort: async () => ({ kind: 'devpanel', keyValid: true }),
     });
     expect(await runDesktop(options)).toBe('startFailed');
-    expect(host.errors).toEqual([{ title: 'DevPanel не запустился', message: DESKTOP_MESSAGES.alreadyRunning }]);
+    expect(host.errors).toEqual([{ title: 'DevPanel не запустился', message: HOST_STRINGS.desktop.alreadyRunning }]);
     expect(host.errors[0]!.message).toContain('DevPanel уже запущен');
     expect(host.exitCode).toBe(1);
     expect(host.window).toBeUndefined();
@@ -322,18 +341,36 @@ describe('start failures', () => {
       probePort: async () => ({ kind: 'foreign' }),
     });
     await runDesktop(options);
-    expect(host.errors[0]!.message).toContain('Порт 7777 занят другой программой');
+    expect(host.errors[0]!.message).toContain('порт 7777 занят другой программой');
     expect(host.exitCode).toBe(1);
   });
 
-  it('any other failure: shows the technical details', async () => {
+  it('a DevPanel with another app data folder holds the port: says so, exits', async () => {
+    const { host, options } = setup({
+      startServer: async () => {
+        throw inUse();
+      },
+      probePort: async () => ({ kind: 'devpanel', keyValid: false }),
+    });
+    await runDesktop(options);
+    expect(host.errors).toEqual([{ title: 'DevPanel не запустился', message: HOST_STRINGS.keyMismatch }]);
+    expect(host.exitCode).toBe(1);
+  });
+
+  it('any other failure: a plain message, with the technical details apart under "Details"', async () => {
     const { host, options } = setup({
       startServer: async () => {
         throw new Error('workspace.json is broken');
       },
     });
     await runDesktop(options);
-    expect(host.errors[0]!.message).toContain('workspace.json is broken');
+    expect(host.errors).toEqual([
+      {
+        title: 'DevPanel не запустился',
+        message: HOST_STRINGS.desktop.unexpected,
+        details: expect.stringContaining('workspace.json is broken'),
+      },
+    ]);
     expect(host.exitCode).toBe(1);
   });
 });

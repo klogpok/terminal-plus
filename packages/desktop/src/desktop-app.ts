@@ -6,9 +6,15 @@
  * 127.0.0.1 WebSocket transport as the web version (ADR-0002); the window just loads the Server's
  * URL with the Access Key in the fragment, so the `web` build runs unchanged.
  */
+import { HOST_STRINGS } from '@devpanel/shared';
+import { isAddressInUse, portBlocker, portBlockerMessage, type PortProbe } from '@devpanel/server';
 
-/** Whatever answers on the port (see `probePort` in `@devpanel/server`). */
-export type PortProbe = { kind: 'free' } | { kind: 'devpanel'; keyValid: boolean } | { kind: 'foreign' };
+/** An error dialog: a plain-Russian `message`, technical `details` folded away under "Details". */
+export interface DesktopError {
+  title: string;
+  message: string;
+  details?: string;
+}
 
 /** The DevPanel Server running inside this process. */
 export interface RunningServer {
@@ -57,7 +63,8 @@ export interface DesktopHost {
   /** The window starts hidden; `show()` reveals it. */
   createWindow(url: string): DesktopWindow;
   createTray(): DesktopTray;
-  showError(title: string, message: string): void;
+  /** Resolves once the user has dismissed the error. */
+  showError(error: DesktopError): Promise<void>;
   isAutostartEnabled(): boolean;
   setAutostartEnabled(enabled: boolean): void;
 }
@@ -70,30 +77,13 @@ export interface DesktopOptions {
   startHidden: boolean;
   /** Starts the Server; `onExit` is called after "Exit DevPanel" in the UI has stopped everything. */
   startServer(onExit: () => void): Promise<RunningServer>;
+  /** Asks whatever holds the port whether it is DevPanel (with the stored Access Key, see `probePort`). */
   probePort(port: number): Promise<PortProbe>;
 }
 
 export type DesktopResult = 'running' | 'secondInstance' | 'startFailed';
 
-/** Everything the desktop shell itself says, in plain Russian. */
-export const DESKTOP_MESSAGES = {
-  tooltip: 'DevPanel',
-  show: 'Показать DevPanel',
-  stopAllRepos: 'Остановить всё во всех репо',
-  autostart: 'Запускать вместе с Windows',
-  quit: 'Выйти из DevPanel',
-  startFailedTitle: 'DevPanel не запустился',
-  alreadyRunning:
-    'DevPanel уже запущен в другом окне (например, через start-devpanel.bat).\n\n' +
-    'Закройте его кнопкой «Выйти из DevPanel» (или закройте его чёрное окно) и откройте приложение снова.',
-  portTaken: (port: number) =>
-    `Порт ${port} занят другой программой (это не DevPanel).\n\n` +
-    `Закройте программу, которая использует порт ${port}, или перезагрузите компьютер, и откройте DevPanel снова.`,
-  unexpected: (details: string) => `Что-то пошло не так при запуске.\n\nПодробности для разработчика:\n${details}`,
-  stopAllFailedTitle: 'Не удалось остановить всё',
-} as const;
-
-const isAddressInUse = (error: unknown) => (error as { code?: unknown }).code === 'EADDRINUSE';
+const strings = HOST_STRINGS.desktop;
 const describe = (error: unknown) => (error instanceof Error ? (error.stack ?? error.message) : String(error));
 
 /** Starts the desktop app: single-instance lock, Server, window, tray, and Exit on quit. */
@@ -117,7 +107,7 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
       host.quit();
     });
   } catch (error) {
-    host.showError(DESKTOP_MESSAGES.startFailedTitle, await startFailureMessage(options, error));
+    await host.showError({ title: strings.startFailedTitle, ...(await explainStartFailure(options, error)) });
     host.exit(1);
     return 'startFailed';
   }
@@ -148,16 +138,18 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
   const tray = host.createTray();
   const renderMenu = () =>
     tray.setMenu([
-      { label: DESKTOP_MESSAGES.show, click: () => window.show() },
+      { label: strings.show, click: () => window.show() },
       {
-        label: DESKTOP_MESSAGES.stopAllRepos,
+        label: strings.stopAllRepos,
         click: () => {
-          server.stopAllRepos().catch((error: unknown) => host.showError(DESKTOP_MESSAGES.stopAllFailedTitle, describe(error)));
+          server.stopAllRepos().catch((error: unknown) => {
+            void host.showError({ title: strings.stopAllFailedTitle, message: strings.stopAllFailed, details: describe(error) });
+          });
         },
       },
       { label: '', type: 'separator' },
       {
-        label: DESKTOP_MESSAGES.autostart,
+        label: strings.autostart,
         type: 'checkbox',
         checked: host.isAutostartEnabled(),
         click: () => {
@@ -166,19 +158,20 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
         },
       },
       { label: '', type: 'separator' },
-      { label: DESKTOP_MESSAGES.quit, click: () => host.quit() },
+      { label: strings.quit, click: () => host.quit() },
     ]);
   renderMenu();
   tray.onClick(() => window.show());
   return 'running';
 }
 
-/** Explains in plain Russian why the Server did not start. */
-async function startFailureMessage(options: DesktopOptions, error: unknown): Promise<string> {
-  if (isAddressInUse(error)) {
-    const probe = await options.probePort(options.port).catch((): PortProbe => ({ kind: 'foreign' }));
-    if (probe.kind === 'devpanel') return DESKTOP_MESSAGES.alreadyRunning;
-    if (probe.kind === 'foreign') return DESKTOP_MESSAGES.portTaken(options.port);
-  }
-  return DESKTOP_MESSAGES.unexpected(describe(error));
+/** Explains in plain Russian why the Server did not start; technical details only when unexpected. */
+async function explainStartFailure(
+  options: DesktopOptions,
+  error: unknown,
+): Promise<Pick<DesktopError, 'message' | 'details'>> {
+  if (!isAddressInUse(error)) return { message: strings.unexpected, details: describe(error) };
+  const probe = await options.probePort(options.port).catch((): PortProbe => ({ kind: 'foreign' }));
+  const blocker = portBlocker(probe);
+  return { message: blocker ? portBlockerMessage(blocker, options.port) : strings.alreadyRunning };
 }

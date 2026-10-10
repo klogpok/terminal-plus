@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PID_FILE, WORKSPACE_FILE, listProcesses } from '../src/index.js';
 import { Harness } from './harness.js';
 
-const BOM = '﻿';
+const BOM = String.fromCharCode(0xfeff);
 
 let h: Harness;
 const children: ChildProcess[] = [];

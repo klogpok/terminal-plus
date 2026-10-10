@@ -1,6 +1,8 @@
 /**
  * Every user-facing UI string lives here (Russian now; English later goes in a sibling file with the
  * same shape). Components read `STRINGS` only; never put user-facing text in templates or code.
+ * Text shown outside the web UI (launcher console, desktop tray and dialogs, the restart separator
+ * in Service output) sits beside this file in `HOST_STRINGS` (packages/shared/src/strings.ts).
  *
  * Error messages are keyed by `ErrorCode` (packages/shared/src/errors.ts) plus client-side codes;
  * a new code fails to compile until its message is added here.

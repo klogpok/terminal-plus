@@ -10,6 +10,7 @@
  */
 
 export * from './errors.js';
+export * from './strings.js';
 import type { ErrorInfo } from './errors.js';
 
 // ---------------------------------------------------------------------------------------------

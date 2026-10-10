@@ -9,9 +9,9 @@
  */
 import path from 'node:path';
 import { BrowserWindow, Menu, Tray, app, dialog, nativeImage, shell, type NativeImage } from 'electron';
-import { probePort, startDevPanel } from '@devpanel/server';
-import { DEFAULT_PORT } from '@devpanel/shared';
-import { DESKTOP_MESSAGES, runDesktop, type DesktopHost, type DesktopTray, type DesktopWindow } from './desktop-app.js';
+import { probePort, readStoredAccessKey, startDevPanel } from '@devpanel/server';
+import { DEFAULT_PORT, HOST_STRINGS } from '@devpanel/shared';
+import { runDesktop, type DesktopError, type DesktopHost, type DesktopTray, type DesktopWindow } from './desktop-app.js';
 
 const APP_ID = 'com.devpanel.desktop';
 const HIDDEN_ARG = '--hidden';
@@ -71,11 +71,24 @@ function createWindow(url: string): DesktopWindow {
 
 function createTray(): DesktopTray {
   const tray = new Tray(icon());
-  tray.setToolTip(DESKTOP_MESSAGES.tooltip);
+  tray.setToolTip(HOST_STRINGS.desktop.tooltip);
   return {
     setMenu: (items) => tray.setContextMenu(Menu.buildFromTemplate(items)),
     onClick: (listener) => tray.on('click', listener),
   };
+}
+
+/**
+ * A plain-Russian error box. Technical details stay folded away: a "Подробности" button opens them
+ * in a second box (Windows message boxes have no expandable section).
+ */
+async function showError({ title, message, details }: DesktopError): Promise<void> {
+  const { ok, details: detailsButton, detailsTitle } = HOST_STRINGS.desktop;
+  const buttons = details ? [ok, detailsButton] : [ok];
+  const { response } = await dialog.showMessageBox({ type: 'error', title, message, buttons, defaultId: 0, noLink: true });
+  if (details && response === 1) {
+    await dialog.showMessageBox({ type: 'info', title: detailsTitle, message, detail: details, buttons: [ok], noLink: true });
+  }
 }
 
 const host: DesktopHost = {
@@ -86,7 +99,7 @@ const host: DesktopHost = {
   exit: (code) => app.exit(code),
   createWindow,
   createTray,
-  showError: (title, message) => dialog.showErrorBox(title, message),
+  showError,
   isAutostartEnabled: () => app.getLoginItemSettings(loginItem()).openAtLogin,
   setAutostartEnabled: (enabled) => app.setLoginItemSettings({ openAtLogin: enabled, ...loginItem() }),
 };
@@ -99,7 +112,7 @@ void app.whenReady().then(() =>
     host,
     port,
     startHidden: process.argv.includes(HIDDEN_ARG),
-    probePort: (p) => probePort(p, undefined),
+    probePort: async (p) => probePort(p, await readStoredAccessKey(appDataDir)),
     startServer: async (onExit) => {
       const devPanel = await startDevPanel({ appDataDir, port, webRoot, onExit });
       return {

@@ -5,5 +5,15 @@ export { ACCESS_KEY_FILE, generateAccessKey, readStoredAccessKey, storeAccessKey
 export { COMMAND_HANDLERS, dispatchCommand } from './commands.js';
 export { FORWARDED_EVENTS, createServer, type ServerOptions } from './server.js';
 export { EXIT_SIGNALS, onExitSignals, type ExitSignal } from './exit-signals.js';
-export { launch, probePort, type LaunchDeps, type LaunchResult, type PortProbe } from './launch.js';
+export {
+  isAddressInUse,
+  launch,
+  portBlocker,
+  portBlockerMessage,
+  probePort,
+  type LaunchDeps,
+  type LaunchResult,
+  type PortBlocker,
+  type PortProbe,
+} from './launch.js';
 export { HOST, browserUrl, startDevPanel, type RunningDevPanel, type StartOptions } from './start.js';

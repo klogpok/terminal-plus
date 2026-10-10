@@ -3,6 +3,7 @@
  * already runs on the port, then either start the Server, only open another browser tab (a normal
  * peer client, ADR-0001), or explain in plain Russian that another program holds the port.
  */
+import { HOST_STRINGS } from '@devpanel/shared';
 import { HOST, browserUrl } from './start.js';
 import { ACCESS_KEY_HEADER, DEVPANEL_APP_ID, HELLO_PATH } from './server.js';
 
@@ -55,32 +56,36 @@ export interface LaunchDeps {
  */
 export type LaunchResult = 'started' | 'openedExisting' | 'portTaken' | 'keyMismatch';
 
-/** Plain-Russian lines the launcher prints. */
-export const LAUNCH_MESSAGES = {
-  starting: 'DevPanel запускается...',
-  started: (url: string) =>
-    `DevPanel работает: ${url}\n` +
-    'Браузер открыт. Не закрывайте это окно, пока работаете: закрытие окна останавливает все сервисы и сессии DevPanel.',
-  alreadyRunning: 'DevPanel уже работает. Открываю ещё одну вкладку браузера.',
-  portTaken: (port: number) =>
-    `Не удалось запустить DevPanel: порт ${port} занят другой программой (это не DevPanel).\n` +
-    `Закройте программу, которая использует порт ${port}, или перезагрузите компьютер, и запустите DevPanel снова.`,
-  keyMismatch:
-    'DevPanel уже работает, но запущен с другой папкой данных, поэтому открыть его отсюда не получается.\n' +
-    'Закройте окно уже запущенного DevPanel (или нажмите в нём «Выйти из DevPanel») и запустите DevPanel снова.',
-} as const;
+/** Listening failed because something already holds the port. */
+export const isAddressInUse = (error: unknown) => (error as { code?: unknown }).code === 'EADDRINUSE';
 
-const isAddressInUse = (error: unknown) => (error as { code?: unknown }).code === 'EADDRINUSE';
+/** What keeps us from using a DevPanel port that is not free. */
+export type PortBlocker = 'portTaken' | 'keyMismatch';
+
+/**
+ * Something answers on the port: another program (`portTaken`), a DevPanel whose Access Key we do
+ * not hold (`keyMismatch`), or our own DevPanel (`undefined`, it can be opened). Used by the
+ * launcher and the desktop app.
+ */
+export function portBlocker(probe: PortProbe): PortBlocker | undefined {
+  if (probe.kind !== 'devpanel') return 'portTaken';
+  return probe.keyValid ? undefined : 'keyMismatch';
+}
+
+/** The plain-Russian explanation of a `PortBlocker`. */
+export function portBlockerMessage(blocker: PortBlocker, port: number): string {
+  return blocker === 'portTaken' ? HOST_STRINGS.portTaken(port) : HOST_STRINGS.keyMismatch;
+}
 
 /** Starts DevPanel, or opens another tab of the running one, or explains why neither is possible. */
 export async function launch(deps: LaunchDeps): Promise<LaunchResult> {
   const probe = await probePort(deps.port, await deps.readAccessKey());
   if (probe.kind === 'free') {
-    deps.print(LAUNCH_MESSAGES.starting);
+    deps.print(HOST_STRINGS.launcher.starting);
     try {
       const { openUrl } = await deps.startServer();
       await deps.openBrowser(openUrl);
-      deps.print(LAUNCH_MESSAGES.started(openUrl.split('#')[0]!));
+      deps.print(HOST_STRINGS.launcher.started(openUrl.split('#')[0]!));
       return 'started';
     } catch (error) {
       // Another launcher (a double double-click) or program took the port after our probe.
@@ -92,16 +97,14 @@ export async function launch(deps: LaunchDeps): Promise<LaunchResult> {
 }
 
 async function openExisting(deps: LaunchDeps, probe: PortProbe): Promise<LaunchResult> {
-  if (probe.kind !== 'devpanel') {
-    deps.print(LAUNCH_MESSAGES.portTaken(deps.port));
-    return 'portTaken';
-  }
   const key = await deps.readAccessKey();
-  if (!probe.keyValid || key === undefined) {
-    deps.print(LAUNCH_MESSAGES.keyMismatch);
-    return 'keyMismatch';
+  const blocker = portBlocker(probe);
+  if (blocker || key === undefined) {
+    const reason = blocker ?? 'keyMismatch';
+    deps.print(portBlockerMessage(reason, deps.port));
+    return reason;
   }
-  deps.print(LAUNCH_MESSAGES.alreadyRunning);
+  deps.print(HOST_STRINGS.launcher.alreadyRunning);
   await deps.openBrowser(browserUrl(deps.port, key));
   return 'openedExisting';
 }

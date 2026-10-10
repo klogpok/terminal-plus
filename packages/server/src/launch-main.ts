@@ -11,6 +11,7 @@
  */
 import { existsSync } from 'node:fs';
 import { windowsShell } from '@devpanel/core';
+import { HOST_STRINGS } from '@devpanel/shared';
 import { readStoredAccessKey } from './access-key.js';
 import { cliSettings, runServer } from './cli.js';
 import { launch } from './launch.js';
@@ -19,7 +20,7 @@ const settings = cliSettings();
 const print = (line: string) => console.log(line);
 
 if (!existsSync(settings.webRoot)) {
-  print('DevPanel не собран. Попросите разработчика выполнить в папке DevPanel: pnpm install, затем pnpm build.');
+  print(HOST_STRINGS.launcher.notBuilt);
   process.exit(1);
 }
 
@@ -28,16 +29,16 @@ const result = await launch({
   readAccessKey: () => readStoredAccessKey(settings.appDataDir),
   startServer: () => runServer(settings),
   openBrowser: async (url) => {
-    if (process.env.DEVPANEL_BROWSER === 'none') print(`URL: ${url}`);
+    if (process.env.DEVPANEL_BROWSER === 'none') print(HOST_STRINGS.launcher.url(url));
     else {
       await windowsShell.openUrl(url).catch(() => {
-        print(`Не удалось открыть браузер. Откройте этот адрес вручную: ${url}`);
+        print(HOST_STRINGS.launcher.browserFailed(url));
       });
     }
   },
   print,
 }).catch((error: unknown) => {
-  print('Не удалось запустить DevPanel. Покажите этот текст разработчику:');
+  print(HOST_STRINGS.launcher.failed);
   print(error instanceof Error ? (error.stack ?? error.message) : String(error));
   process.exit(1);
 });

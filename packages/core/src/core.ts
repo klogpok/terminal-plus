@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   DevPanelError,
   EXIT_TAIL_LINES,
+  HOST_STRINGS,
   type ConfigChangedEvent,
   type ConfigSource,
   type ExitDetails,
@@ -284,11 +285,11 @@ function sameRecord(a: PidRecord, b: PidRecord): boolean {
   return a.runId === b.runId && a.pid === b.pid && a.createdAt === b.createdAt;
 }
 
-/** Dimmed "── перезапуск HH:MM ──" line written into a Service's output before each new run. */
+/** Dimmed restart separator line written into a Service's output before each new run. */
 function restartSeparator(previousOutput: string, now = new Date()): string {
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const newline = previousOutput.endsWith('\n') ? '' : '\r\n';
-  return `${newline}\u001b[0m\u001b[2m── перезапуск ${time} ──\u001b[0m\r\n`;
+  return `${newline}\u001b[0m\u001b[2m${HOST_STRINGS.restartSeparator(time)}\u001b[0m\r\n`;
 }
 
 /**

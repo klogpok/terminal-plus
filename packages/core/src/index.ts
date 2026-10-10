@@ -15,3 +15,10 @@ export type {
 } from '@devpanel/shared';
 export { REPO_CONFIG_FILE, type ServiceDefinition } from './config.js';
 export { WORKSPACE_FILE } from './workspace.js';
+export {
+  findPortListeners,
+  isPortListening,
+  listListeningSockets,
+  parseNetstatListeners,
+  type PortListener,
+} from './ports.js';

@@ -9,6 +9,7 @@ import type {
   RepoView,
   ServerMessage,
   ServiceStatus,
+  ServiceView,
 } from '@devpanel/shared';
 import { describeError, type UiErrorInfo } from '../strings';
 import { BACKEND_TRANSPORT } from './backend-transport';
@@ -152,17 +153,29 @@ export class BackendService {
         this.setServiceStatus(repoId, serviceId, status);
         break;
       }
-      case 'exit':
+      case 'exit': {
+        const { repoId, serviceId, exitCode, stoppedByUser, lastLines } = event.payload;
+        if (!stoppedByUser) this.updateService(repoId, serviceId, (s) => ({ ...s, lastExit: { exitCode, lastLines } }));
         break;
+      }
     }
   }
 
   private setServiceStatus(repoId: string, serviceId: string, status: ServiceStatus): void {
+    this.updateService(repoId, serviceId, ({ lastExit, ...service }) =>
+      // Exit details belong to `crashed`/`exited` only; a new start clears them.
+      status === 'crashed' || status === 'exited'
+        ? { ...service, status, ...(lastExit !== undefined && { lastExit }) }
+        : { ...service, status },
+    );
+  }
+
+  private updateService(repoId: string, serviceId: string, change: (service: ServiceView) => ServiceView): void {
     this.reposState.update((repos) =>
       repos.map((repo) =>
         repo.id !== repoId
           ? repo
-          : { ...repo, services: repo.services.map((s) => (s.id === serviceId ? { ...s, status } : s)) },
+          : { ...repo, services: repo.services.map((s) => (s.id === serviceId ? change(s) : s)) },
       ),
     );
   }

@@ -4,15 +4,15 @@
 
 **Blocked by:** 02 (Control a Service from the browser).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Each readiness criterion moves a Service from `starting` to `running`, proven with fixtures (ready line, health endpoint, port on IPv4, on IPv6 `::1`, on any-address).
-- [ ] The port-listening check reads the OS listening-socket table on all addresses and returns the owner PID; it is reused later for port conflicts.
-- [ ] A Service with no criteria becomes `running` after the liveness period; one that dies before it ends up `crashed` or `exited`, never briefly `running`.
-- [ ] After the readiness timeout a live, unready Service becomes `unhealthy` (🟠) and is not killed; re-polling continues at the slower interval and moves it to `running` when ready.
-- [ ] No readiness checks run while `running`.
-- [ ] `crashed` shows the exit code and the last 30 lines; `exited` shows "Finished by itself" with the last lines, not styled as an error; both offer "Start again". No automatic restart.
-- [ ] UI status dots cover all seven Statuses.
+- [x] Each readiness criterion moves a Service from `starting` to `running`, proven with fixtures (ready line, health endpoint, port on IPv4, on IPv6 `::1`, on any-address).
+- [x] The port-listening check reads the OS listening-socket table on all addresses and returns the owner PID; it is reused later for port conflicts.
+- [x] A Service with no criteria becomes `running` after the liveness period; one that dies before it ends up `crashed` or `exited`, never briefly `running`.
+- [x] After the readiness timeout a live, unready Service becomes `unhealthy` (🟠) and is not killed; re-polling continues at the slower interval and moves it to `running` when ready.
+- [x] No readiness checks run while `running`.
+- [x] `crashed` shows the exit code and the last 30 lines; `exited` shows "Finished by itself" with the last lines, not styled as an error; both offer "Start again". No automatic restart.
+- [x] UI status dots cover all seven Statuses.
 
 ---
 
@@ -24,12 +24,12 @@
 
 **Блокируется:** 02 (Управление Сервисом из браузера).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Каждый критерий Готовности переводит Сервис из `starting` в `running`; это доказано фикстурами (строка готовности, health-эндпоинт, порт на IPv4, на IPv6 `::1`, на любом адресе).
-- [ ] Проверка «порт слушается» читает таблицу слушающих сокетов ОС на всех адресах и возвращает PID владельца; позже она переиспользуется для конфликтов портов.
-- [ ] Сервис без критериев становится `running` после периода живучести; Сервис, умерший раньше, оказывается в `crashed` или `exited` и никогда не бывает кратковременно `running`.
-- [ ] После таймаута Готовности живой, но не готовый Сервис становится `unhealthy` (🟠) и не убивается; повторный опрос идёт с более редким интервалом и переводит его в `running` при Готовности.
-- [ ] Пока Сервис `running`, проверки Готовности не выполняются.
-- [ ] `crashed` показывает код выхода и последние 30 строк; `exited` показывает «Завершился сам» с последними строками, без оформления ошибки; у обоих есть «Запустить снова». Автоперезапуска нет.
-- [ ] Статус-точки в UI покрывают все семь Статусов.
+- [x] Каждый критерий Готовности переводит Сервис из `starting` в `running`; это доказано фикстурами (строка готовности, health-эндпоинт, порт на IPv4, на IPv6 `::1`, на любом адресе).
+- [x] Проверка «порт слушается» читает таблицу слушающих сокетов ОС на всех адресах и возвращает PID владельца; позже она переиспользуется для конфликтов портов.
+- [x] Сервис без критериев становится `running` после периода живучести; Сервис, умерший раньше, оказывается в `crashed` или `exited` и никогда не бывает кратковременно `running`.
+- [x] После таймаута Готовности живой, но не готовый Сервис становится `unhealthy` (🟠) и не убивается; повторный опрос идёт с более редким интервалом и переводит его в `running` при Готовности.
+- [x] Пока Сервис `running`, проверки Готовности не выполняются.
+- [x] `crashed` показывает код выхода и последние 30 строк; `exited` показывает «Завершился сам» с последними строками, без оформления ошибки; у обоих есть «Запустить снова». Автоперезапуска нет.
+- [x] Статус-точки в UI покрывают все семь Статусов.

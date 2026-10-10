@@ -6,13 +6,22 @@ import { z } from 'zod';
 /** File name of the Repo Config in a Repo root. */
 export const REPO_CONFIG_FILE = '.devpanel.yml';
 
+function isValidRegExp(pattern: string): boolean {
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const serviceSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).optional(),
   command: z.string().min(1),
   cwd: z.string().min(1).optional(),
   port: z.number().int().min(1).max(65535).optional(),
-  readyPattern: z.string().min(1).optional(),
+  readyPattern: z.string().min(1).refine(isValidRegExp, 'readyPattern is not a valid regular expression').optional(),
   healthUrl: z.string().url().optional(),
   url: z.string().url().optional(),
   dependsOn: z.array(z.string().min(1)).optional(),

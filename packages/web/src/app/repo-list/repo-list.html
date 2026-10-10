@@ -41,6 +41,7 @@
                 (click)="backend.restartService(repo.id, service.id)"
               >⟳</button>
             </span>
+            <dp-service-exit [service]="service" (startAgain)="backend.startService(repo.id, service.id)" />
           </li>
         } @empty {
           @if (!repo.configError) {

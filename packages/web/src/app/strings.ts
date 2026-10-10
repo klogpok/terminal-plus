@@ -60,6 +60,15 @@ export const STRINGS = {
     details: 'Подробнее',
   },
 
+  /** A Service that ended by itself (`crashed` / `exited`). */
+  serviceExit: {
+    crashed: (exitCode: number) => `Упал с кодом ${exitCode}`,
+    exited: 'Завершился сам',
+    lastLines: 'Последние строки вывода:',
+    noOutput: 'Сервис ничего не вывел.',
+    startAgain: 'Запустить снова',
+  },
+
   /** Plain-Russian messages: what happened (and what to do), without jargon. */
   errors: {
     repoNotFound: () => 'Этого Репо больше нет в списке. Обновите страницу.',

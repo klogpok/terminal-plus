@@ -5,6 +5,7 @@ import { AddRepo } from '../add-repo/add-repo';
 import { ConfigSuggestions } from '../config-suggestions/config-suggestions';
 import { ErrorMessage } from '../error-message/error-message';
 import { RepoHeader } from '../repo-header/repo-header';
+import { ServiceExit } from '../service-exit/service-exit';
 import { STRINGS, describeError } from '../strings';
 
 /** Statuses in which the Service has a live process. */
@@ -17,7 +18,7 @@ const PALETTE = ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6
 /** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳. */
 @Component({
   selector: 'dp-repo-list',
-  imports: [ErrorMessage, ConfigSuggestions, AddRepo, RepoHeader],
+  imports: [ErrorMessage, ConfigSuggestions, ServiceExit, AddRepo, RepoHeader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './repo-list.html',
   styleUrl: './repo-list.css',

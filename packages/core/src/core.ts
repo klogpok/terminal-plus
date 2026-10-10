@@ -4,8 +4,10 @@ import { mkdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
   DevPanelError,
+  EXIT_TAIL_LINES,
   type ConfigChangedEvent,
   type ConfigSource,
+  type ExitDetails,
   type ExitEvent,
   type InstallChangedEvent,
   type InstallOutputEvent,
@@ -38,6 +40,8 @@ import { spawnService, type ServiceProcess } from './process.js';
 import { windowsShell, type DesktopShell } from './shell.js';
 import { repoIdFor } from './repo-id.js';
 import { readGitBranch } from './git.js';
+import { OutputTail } from './output-tail.js';
+import { watchReadiness, type ReadinessWatch } from './readiness.js';
 import {
   DEFAULT_ENVIRONMENT,
   PNPM_LOCK_FILE,
@@ -120,6 +124,10 @@ interface ServiceState {
   status: ServiceStatus;
   process?: ServiceProcess;
   stopping?: Promise<void>;
+  /** Readiness checks of the current run; present only while `starting` or `unhealthy`. */
+  readiness?: ReadinessWatch;
+  /** How the Service ended by itself; present only while `crashed` or `exited`. */
+  lastExit?: ExitDetails;
   /** New definition from a config change while running; applied once the Service exits. */
   pending?: ServiceDefinition;
   /** Gone from the config while running; dropped once the Service exits. */
@@ -161,7 +169,6 @@ function sameDefinition(a: ServiceDefinition, b: ServiceDefinition): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-
 async function exists(file: string): Promise<boolean> {
   try {
     await stat(file);
@@ -176,6 +183,16 @@ async function isFolder(folder: string): Promise<boolean> {
     return (await stat(folder)).isDirectory();
   } catch {
     return false;
+  }
+}
+
+/** `process.kill(pid, 0)`: true while the process has not exited (libuv checks the exit code on Windows). */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'EPERM';
   }
 }
 
@@ -455,6 +472,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     if (service.process) return;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
+    service.lastExit = undefined;
     this.setStatus(repo, service, 'starting');
     let proc: ServiceProcess;
     try {
@@ -468,16 +486,38 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     service.process = proc;
-    // No readiness checks yet (ticket 04): a spawned Service counts as running right away.
-    this.setStatus(repo, service, 'running');
-    proc.onData((data) => this.emit('log', { repoId: repo.id, serviceId, data }));
+    const tail = new OutputTail(EXIT_TAIL_LINES);
+    const readiness = watchReadiness({
+      criteria: definition,
+      timings: this.timings,
+      isAlive: () => service.process === proc && isProcessAlive(proc.pid),
+      onReady: () => this.onReadinessChange(repo, service, 'running'),
+      onUnhealthy: () => this.onReadinessChange(repo, service, 'unhealthy'),
+    });
+    service.readiness = readiness;
+    proc.onData((data) => {
+      tail.push(data);
+      readiness.feed(data);
+      this.emit('log', { repoId: repo.id, serviceId, data });
+    });
     proc.exited.then((exitCode) => {
+      readiness.dispose();
+      service.readiness = undefined;
       service.process = undefined;
       const stoppedByUser = service.stopping !== undefined;
+      const lastLines = tail.snapshot();
+      if (!stoppedByUser) service.lastExit = { exitCode, lastLines };
       this.setStatus(repo, service, stoppedByUser ? 'stopped' : exitCode === 0 ? 'exited' : 'crashed');
-      this.emit('exit', { repoId: repo.id, serviceId, exitCode, stoppedByUser });
+      this.emit('exit', { repoId: repo.id, serviceId, exitCode, stoppedByUser, lastLines });
       this.settleAfterExit(repo, service);
     });
+  }
+
+  /** Readiness result: applies only while the run is still `starting`/`unhealthy`. */
+  private onReadinessChange(repo: RepoState, service: ServiceState, status: 'running' | 'unhealthy'): void {
+    if (service.status !== 'starting' && service.status !== 'unhealthy') return;
+    if (status === 'running') service.readiness = undefined;
+    this.setStatus(repo, service, status);
   }
 
   /**
@@ -491,6 +531,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const proc = service.process;
     if (!proc) return;
 
+    service.readiness?.dispose();
+    service.readiness = undefined;
     this.setStatus(repo, service, 'stopping');
     service.stopping = proc.stop(this.timings.gracefulStopMs).finally(() => {
       service.stopping = undefined;
@@ -624,7 +666,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       ...(repo.folderMissing && { folderMissing: true }),
       ...(repo.branch !== undefined && { branch: repo.branch }),
       ...this.installView(repo),
-      services: [...repo.services.values()].map(({ definition: d, status, pending, removed }) => ({
+      services: [...repo.services.values()].map(({ definition: d, status, lastExit, pending, removed }) => ({
         id: d.id,
         name: d.name ?? d.id,
         command: d.command,
@@ -633,6 +675,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
         ...(d.url !== undefined && { url: d.url }),
         dependsOn: d.dependsOn ?? [],
         status,
+        ...(lastExit !== undefined && { lastExit }),
         ...(pending !== undefined && { configChanged: true }),
         ...(removed && { removedFromConfig: true }),
       })),

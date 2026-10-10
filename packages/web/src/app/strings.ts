@@ -97,6 +97,15 @@ export const STRINGS = {
     details: 'Подробнее',
   },
 
+  /** A Service that ended by itself (`crashed` / `exited`). */
+  serviceExit: {
+    crashed: (exitCode: number) => `Упал с кодом ${exitCode}`,
+    exited: 'Завершился сам',
+    lastLines: 'Последние строки вывода:',
+    noOutput: 'Сервис ничего не вывел.',
+    startAgain: 'Запустить снова',
+  },
+
   install: {
     button: 'Установить зависимости',
     running: 'Устанавливаем…',

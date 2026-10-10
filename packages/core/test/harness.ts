@@ -3,18 +3,67 @@
  * short timings, and Node fixture scripts as Service commands.
  */
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stringify } from 'yaml';
-import { DevPanelCore, type CoreOptions, type CoreTimings, type DesktopShell } from '../src/index.js';
+import type { ServiceStatus } from '@devpanel/shared';
+import {
+  DevPanelCore,
+  type CoreOptions,
+  type CoreTimings,
+  type DesktopShell,
+  type StatusChangedEvent,
+} from '../src/index.js';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
 /** Short timings so tests run fast. */
 export const TEST_TIMINGS: Partial<CoreTimings> = {
   gracefulStopMs: 1500,
+  livenessMs: 300,
+  healthPollMs: 100,
+  unhealthyPollMs: 500,
+  readinessTimeoutMs: 10_000,
 };
+
+/** A TCP port that is free right now (asks the OS for one, then releases it). */
+export async function freePort(): Promise<number> {
+  const server = net.createServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as net.AddressInfo;
+  await new Promise((r) => server.close(r));
+  return port;
+}
+
+/** Waits until a Service reaches `status` (resolves at once if it already has it). */
+export function waitForStatus(
+  core: DevPanelCore,
+  repoId: string,
+  serviceId: string,
+  status: ServiceStatus,
+  timeoutMs = 10_000,
+): Promise<void> {
+  const current = core.listRepos().find((r) => r.id === repoId)?.services.find((s) => s.id === serviceId);
+  if (current?.status === status) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const onStatus = (e: StatusChangedEvent) => {
+      if (e.repoId !== repoId || e.serviceId !== serviceId || e.status !== status) return;
+      cleanup();
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out waiting for ${serviceId} to become ${status} (is ${current?.status})`));
+    }, timeoutMs);
+    const cleanup = () => {
+      clearTimeout(timer);
+      core.off('statusChanged', onStatus);
+    };
+    core.on('statusChanged', onStatus);
+  });
+}
 
 /** A shell command that runs a fixture script (`.mjs` with the current Node binary, `.cmd` directly). */
 export function fixtureCommand(fixture: string, ...args: (string | number)[]): string {

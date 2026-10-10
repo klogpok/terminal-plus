@@ -24,6 +24,7 @@ export const FORWARDED_EVENTS = [
   'installChanged',
   'portConflictChanged',
   'repoChanged',
+  'orphansFound',
 ] as const satisfies readonly (EventType & keyof CoreEvents)[];
 
 // Compile-time check: what `core` emits for a forwarded event fits the `shared` event payload.
@@ -38,6 +39,7 @@ const forwardedEventsMatch: CheckForwarded = {
   installChanged: true,
   portConflictChanged: true,
   repoChanged: true,
+  orphansFound: true,
 };
 void forwardedEventsMatch;
 
@@ -49,6 +51,8 @@ export interface ServerOptions {
   /** Origins allowed in addition to http://127.0.0.1:<port> and http://localhost:<port> (e.g. `ng serve`). */
   extraOrigins?: string[];
   logger?: boolean;
+  /** Called after the reply to a `shutdown` command was sent ("Exit DevPanel"). */
+  onExitRequested?: () => void;
 }
 
 export function createServer(options: ServerOptions): FastifyInstance {
@@ -92,7 +96,12 @@ export function createServer(options: ServerOptions): FastifyInstance {
       clients.add(socket);
       socket.on('close', () => clients.delete(socket));
       socket.on('message', (data) => {
-        void dispatchCommand(core, String(data)).then((reply) => send(socket, reply));
+        let exitRequested = false;
+        const context = { requestExit: () => (exitRequested = true) };
+        void dispatchCommand(core, String(data), context).then((reply) => {
+          send(socket, reply);
+          if (exitRequested) options.onExitRequested?.();
+        });
       });
     });
   });

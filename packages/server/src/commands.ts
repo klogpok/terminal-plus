@@ -14,9 +14,19 @@ import {
   type ReplyMessage,
 } from '@devpanel/shared';
 
+/** What a command may ask of the Server beyond `core`. */
+export interface CommandContext {
+  /** Asks the Server to exit once the reply to this command has been sent. */
+  requestExit(): void;
+}
+
 interface CommandHandler<K extends CommandType> {
   payload: z.ZodType<CommandPayload<K>>;
-  run(core: DevPanelCore, payload: CommandPayload<K>): Promise<CommandResult<K>> | CommandResult<K>;
+  run(
+    core: DevPanelCore,
+    payload: CommandPayload<K>,
+    context: CommandContext,
+  ): Promise<CommandResult<K>> | CommandResult<K>;
 }
 
 type CommandHandlers = { [K in CommandType]: CommandHandler<K> };
@@ -108,6 +118,19 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: z.object({ repoId: z.string().min(1) }),
     run: async (core, p) => (await core.deleteLocalConfig(p.repoId), null),
   },
+  killOrphans: {
+    payload: z.object({ ids: z.array(z.string().min(1)).optional() }),
+    run: async (core, p) => (await core.killOrphans(p.ids), null),
+  },
+  shutdown: {
+    payload: empty,
+    run: async (core, _p, context) => {
+      // Everything is stopped before the reply, so the client knows Exit has completed.
+      await core.shutdown();
+      context.requestExit();
+      return null;
+    },
+  },
 };
 
 const envelope = z.object({
@@ -122,7 +145,11 @@ function badCommand(details: string): DevPanelError<'badCommand'> {
 }
 
 /** Parses one raw client message, runs the command, and builds the reply. Never throws. */
-export async function dispatchCommand(core: DevPanelCore, raw: string): Promise<ReplyMessage> {
+export async function dispatchCommand(
+  core: DevPanelCore,
+  raw: string,
+  context: CommandContext = { requestExit: () => undefined },
+): Promise<ReplyMessage> {
   let id = 0;
   try {
     let json: unknown;
@@ -139,7 +166,7 @@ export async function dispatchCommand(core: DevPanelCore, raw: string): Promise<
     const handler = COMMAND_HANDLERS[type as CommandType] as CommandHandler<CommandType>;
     const payload = handler.payload.safeParse(message.data.payload);
     if (!payload.success) throw badCommand(`Invalid payload for "${type}": ${payload.error.message}`);
-    const result = await handler.run(core, payload.data);
+    const result = await handler.run(core, payload.data, context);
     return { kind: 'reply', id, ok: true, result };
   } catch (error) {
     return { kind: 'reply', id, ok: false, error: toErrorInfo(error) };

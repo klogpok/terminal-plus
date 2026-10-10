@@ -14,6 +14,8 @@ import {
   type InstallResult,
   type InstallState,
   type LogEvent,
+  type Orphan,
+  type OrphansFoundEvent,
   type PortConflict,
   type PortConflictChangedEvent,
   type PortOwner,
@@ -42,6 +44,7 @@ import { OutputBuffer } from './output-buffer.js';
 import { readWorkspace, writeWorkspace } from './workspace.js';
 import { killTree, spawnService, type ServiceProcess } from './process.js';
 import { ancestry, findPortListeners, listProcesses, type ProcessInfo } from './ports.js';
+import { PID_FILE, PidFile, ProcessRecorder, matches, orphansFrom, type PidRecord } from './pid-file.js';
 import { windowsShell, type DesktopShell } from './shell.js';
 import { repoIdFor } from './repo-id.js';
 import { readGitBranch } from './git.js';
@@ -116,6 +119,7 @@ export interface CoreEvents {
   installOutput: [InstallOutputEvent];
   installChanged: [InstallChangedEvent];
   portConflictChanged: [PortConflictChangedEvent];
+  orphansFound: [OrphansFoundEvent];
 }
 
 /** A running or finished `pnpm install` of one Repo. */
@@ -155,6 +159,8 @@ interface ServiceState {
   removed?: boolean;
   /** Its port is held by someone else (a blocked start, or still taken after a Stop). */
   portConflict?: PortConflict;
+  /** PID file run id of the current process (see `ProcessRecorder`). */
+  runId?: string;
 }
 
 interface RepoState {
@@ -235,7 +241,20 @@ function describeOwner(owner: PortOwner): string {
       return `Service "${owner.serviceName}" of Repo "${owner.repoName}"`;
     case 'process':
       return owner.processName;
+    case 'orphan':
+      return `Orphan of ${describeProcessOwner(owner.orphan)} (left over from the previous run)`;
   }
+}
+
+/** Technical (English) description of what an Orphan belonged to. */
+function describeProcessOwner({ owner, repoName }: Orphan): string {
+  return owner.kind === 'service'
+    ? `Service "${owner.serviceName}" of Repo "${repoName}"`
+    : `${owner.sessionKind} Session of Repo "${repoName}"`;
+}
+
+function sameRecord(a: PidRecord, b: PidRecord): boolean {
+  return a.runId === b.runId && a.pid === b.pid && a.createdAt === b.createdAt;
 }
 
 /** Dimmed "── перезапуск HH:MM ──" line written into a Service's output before each new run. */
@@ -255,6 +274,15 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private repos = new Map<string, RepoState>();
   private refreshTimer: NodeJS.Timeout | undefined;
   private readonly environment: Environment;
+  private readonly pidFile: PidFile;
+  /**
+   * Records every spawned process in the PID file. Ticket 09: a Session calls
+   * `recorder.track(pty.pid, { repoId, repoName, owner: { kind: 'session', sessionKind } })` after
+   * spawning and `recorder.forget(runId)` when it exits; `shutdown` must close Sessions too.
+   */
+  private readonly recorder: ProcessRecorder;
+  /** Orphans found by `load` and not killed yet, with their matching PID file records. */
+  private orphans: { orphan: Orphan; records: PidRecord[] }[] = [];
 
   constructor(options: CoreOptions) {
     super();
@@ -262,10 +290,16 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     this.shell = options.shell ?? windowsShell;
     this.timings = { ...DEFAULT_TIMINGS, ...options.timings };
     this.environment = { ...DEFAULT_ENVIRONMENT, ...options.environment };
+    this.pidFile = new PidFile(path.join(this.appDataDir, PID_FILE));
+    this.recorder = new ProcessRecorder(this.pidFile);
   }
 
-  /** Reads the Workspace file and each Repo's config, and starts watching the config files. */
+  /**
+   * Reads the Workspace file and each Repo's config, starts watching the config files, and looks
+   * for Orphans left over from a previous run.
+   */
   async load(): Promise<void> {
+    await this.findOrphans();
     this.closeWatchers();
     const workspace = await readWorkspace(this.appDataDir);
     const repos = new Map<string, RepoState>();
@@ -506,7 +540,58 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   /** Full state for a (re)connecting client. */
   snapshot(): Snapshot {
-    return { repos: this.listRepos() };
+    const orphans = this.listOrphans();
+    return { repos: this.listRepos(), ...(orphans.length && { orphans }) };
+  }
+
+  // --- Orphans ----------------------------------------------------------------------------------
+
+  /** Orphans found on start and not killed yet. */
+  listOrphans(): Orphan[] {
+    return this.orphans.map(({ orphan }) => orphan);
+  }
+
+  /**
+   * Checks the PID file: a recorded process is an Orphan only when a live process has both its PID
+   * and its creation time. Everything else is dropped from the file, so a reused PID is never
+   * reported (or killed) later.
+   */
+  private async findOrphans(): Promise<void> {
+    const records = this.pidFile.read();
+    if (records.length === 0) return;
+    let processes: Map<number, ProcessInfo>;
+    try {
+      processes = await listProcesses();
+    } catch {
+      return; // cannot verify anything now; the records stay for the next start
+    }
+    const found = orphansFrom(records, processes);
+    const kept = new Set(found.flatMap((o) => o.pids.map((pid) => `${o.id}:${pid}`)));
+    const isKept = (r: PidRecord) => kept.has(`${r.runId}:${r.pid}`);
+    this.pidFile.update((current) => current.filter((r) => isKept(r) || !records.some((old) => sameRecord(old, r))));
+    this.orphans = found.map((orphan) => ({ orphan, records: records.filter((r) => r.runId === orphan.id && isKept(r)) }));
+  }
+
+  /**
+   * Kills Orphans (all when `ids` is omitted), each process with its whole tree. Every process is
+   * verified again (PID and creation time) right before the kill, so a PID reused since the start
+   * is never killed. Emits `orphansFound` with the Orphans that are left.
+   */
+  async killOrphans(ids?: string[]): Promise<void> {
+    const targets = this.orphans.filter(({ orphan }) => !ids || ids.includes(orphan.id));
+    if (targets.length === 0) return;
+    let processes: Map<number, ProcessInfo>;
+    try {
+      processes = await listProcesses();
+    } catch (err) {
+      throw new DevPanelError('internal', {}, `Cannot list processes to verify Orphans: ${String(err)}`);
+    }
+    const records = targets.flatMap((t) => t.records);
+    const verified = records.filter((r) => matches(r, processes) && r.pid !== process.pid);
+    await Promise.all(verified.map((r) => killTree(r.pid)));
+    this.pidFile.update((current) => current.filter((r) => !records.some((old) => sameRecord(old, r))));
+    this.orphans = this.orphans.filter((o) => !targets.includes(o));
+    this.emit('orphansFound', { orphans: this.listOrphans() });
   }
 
   /**
@@ -631,6 +716,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     service.process = proc;
+    const runId = this.recorder.track(proc.pid, {
+      repoId: repo.id,
+      repoName: repo.name,
+      owner: { kind: 'service', serviceId, serviceName: definition.name ?? serviceId },
+    });
+    service.runId = runId;
     const tail = new OutputTail(EXIT_TAIL_LINES);
     const readiness = watchReadiness({
       criteria: definition,
@@ -647,6 +738,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     });
     proc.exited.then((exitCode) => {
       readiness.dispose();
+      this.recorder.forget(runId);
+      service.runId = undefined;
       service.readiness = undefined;
       service.process = undefined;
       const stoppedByUser = service.stopping !== undefined;
@@ -662,14 +755,16 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private onReadinessChange(repo: RepoState, service: ServiceState, status: 'running' | 'unhealthy'): void {
     if (service.status !== 'starting' && service.status !== 'unhealthy') return;
     if (status === 'running') service.readiness = undefined;
+    // By now the Service has usually spawned its children: record the whole tree.
+    if (service.runId) this.recorder.refresh(service.runId);
     this.setStatus(repo, service, status);
   }
 
   /**
    * Stops a Service: Ctrl+C, wait for the graceful period, then kill the whole process tree.
-   * Resolves once the Service has exited.
+   * Resolves once the Service has exited. `gracefulMs` defaults to `timings.gracefulStopMs`.
    */
-  async stopService(repoId: string, serviceId: string): Promise<void> {
+  async stopService(repoId: string, serviceId: string, gracefulMs = this.timings.gracefulStopMs): Promise<void> {
     const repo = this.getRepo(repoId);
     const service = this.getService(repo, serviceId);
     service.launch?.abort.abort();
@@ -681,7 +776,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     service.readiness = undefined;
     this.setStatus(repo, service, 'stopping');
     service.stopping = proc
-      .stop(this.timings.gracefulStopMs)
+      .stop(gracefulMs)
       .then(() => this.checkPortReleased(repo, service))
       .finally(() => {
         service.stopping = undefined;
@@ -741,6 +836,10 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
         // Never kill the DevPanel Server itself.
         if (owner.pid === process.pid) return;
         await killTree(owner.pid);
+        return;
+      case 'orphan':
+        // Verifies PID and creation time again before killing.
+        await this.killOrphans([owner.orphan.id]);
         return;
     }
   }
@@ -823,16 +922,22 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     return run.done;
   }
 
-  /** Stops every running Service (and any running dependency install). */
-  async shutdown(): Promise<void> {
+  /**
+   * Exit: stops every running Service (and any running dependency install); their PID file records
+   * go as they exit. `gracefulStopMs` overrides the grace period (e.g. a closing console window
+   * leaves Windows only a few seconds). Ticket 09: close every Session here too.
+   */
+  async shutdown(options: { gracefulStopMs?: number } = {}): Promise<void> {
+    const graceful = options.gracefulStopMs ?? this.timings.gracefulStopMs;
     this.stopRepoRefresh();
+    this.recorder.stopTimer();
     const stops: Promise<void>[] = [];
     for (const repo of this.repos.values()) {
       const install = repo.install?.process;
-      if (install) stops.push(install.stop(this.timings.gracefulStopMs));
+      if (install) stops.push(install.stop(graceful));
       for (const service of repo.services.values()) {
         service.launch?.abort.abort();
-        if (service.process) stops.push(this.stopService(repo.id, service.definition.id));
+        if (service.process) stops.push(this.stopService(repo.id, service.definition.id, graceful));
       }
     }
     this.closeWatchers();
@@ -880,7 +985,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   /**
    * Who listens on `port`, or undefined when it is free. A listener whose process descends from one
-   * of our live Services is that Service; anything else is a foreign process.
+   * of our live Services is that Service; one that is (or descends from) an Orphan is that Orphan;
+   * anything else is a foreign process.
    */
   private async findPortOwner(port: number): Promise<PortOwner | undefined> {
     const listeners = await findPortListeners(port);
@@ -910,6 +1016,14 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
           serviceId: definition.id,
           serviceName: definition.name ?? definition.id,
         };
+      }
+    }
+    for (const { pid } of listeners) {
+      for (const ancestor of ancestry(pid, processes)) {
+        const left = this.orphans.find(({ records }) =>
+          records.some((r) => r.pid === ancestor && matches(r, processes)),
+        );
+        if (left) return { kind: 'orphan', pid, orphan: left.orphan };
       }
     }
     const { pid } = listeners[0]!;

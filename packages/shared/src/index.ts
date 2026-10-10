@@ -53,7 +53,9 @@ export type PortOwner =
   /** A DevPanel Service (of another Repo, or another Service of the same Repo). */
   | { kind: 'service'; pid: number; repoId: string; repoName: string; serviceId: string; serviceName: string }
   /** Any other process. */
-  | { kind: 'process'; pid: number; processName: string };
+  | { kind: 'process'; pid: number; processName: string }
+  /** An Orphan: a process left over from a previous run of the DevPanel Server. */
+  | { kind: 'orphan'; pid: number; orphan: Orphan };
 
 export type PortOwnerKind = PortOwner['kind'];
 
@@ -133,9 +135,40 @@ export interface RepoView {
   services: ServiceView[];
 }
 
+/**
+ * What a process DevPanel spawned belonged to: a Service, or a Session of some kind (Claude Code or
+ * a shell; ticket 09 records its Sessions with this).
+ */
+export type ProcessOwner =
+  | { kind: 'service'; serviceId: string; serviceName: string }
+  | { kind: 'session'; sessionKind: 'claude' | 'shell' };
+
+/**
+ * Processes of one Service run (or Session) left over from a previous run of the DevPanel Server
+ * (after a crash or a forced shutdown). Only processes whose PID and creation time both still
+ * match are included, so a process that merely reused an old PID is never an Orphan.
+ */
+export interface Orphan {
+  /** Stable id of the left-over run, for `killOrphans`. */
+  id: string;
+  repoId: string;
+  /** Repo name as it was when the process was started (the Repo may be gone by now). */
+  repoName: string;
+  owner: ProcessOwner;
+  /** The surviving processes (each is killed with its whole tree). */
+  pids: number[];
+}
+
 /** Full state, enough for a (re)connecting client to rebuild its UI. Grows with later tickets. */
 export interface Snapshot {
   repos: RepoView[];
+  /** Orphans found on Server start and not killed yet (absent = none). */
+  orphans?: Orphan[];
+}
+
+/** The current list of Orphans: found on Server start, then after each kill (empty = none left). */
+export interface OrphansFoundEvent {
+  orphans: Orphan[];
 }
 
 /** Addresses one Service. */
@@ -215,6 +248,7 @@ export interface Events {
   installOutput: InstallOutputEvent;
   installChanged: InstallChangedEvent;
   configChanged: ConfigChangedEvent;
+  orphansFound: OrphansFoundEvent;
 }
 
 export type EventType = keyof Events;
@@ -265,6 +299,13 @@ export interface Commands {
   saveLocalConfig: { payload: { repoId: string; services: ServiceConfig[] }; result: null };
   /** Deletes the Repo's Local Config (offered once a Repo Config exists). */
   deleteLocalConfig: { payload: { repoId: string }; result: null };
+  /**
+   * Kills the given Orphans (all when `ids` is omitted), each process with its whole tree. A process
+   * whose PID and creation time no longer match is skipped, never killed.
+   */
+  killOrphans: { payload: { ids?: string[] }; result: null };
+  /** "Exit DevPanel": stops every Service and Session, replies, then the Server exits. */
+  shutdown: { payload: Record<string, never>; result: null };
 }
 
 export type CommandType = keyof Commands;

@@ -51,21 +51,30 @@ export async function isPortListening(port: number): Promise<boolean> {
   return (await findPortListeners(port)).length > 0;
 }
 
-/** One running process: name (e.g. `node.exe`) and parent PID. */
+/** One running process: name (e.g. `node.exe`), parent PID and creation time. */
 export interface ProcessInfo {
   pid: number;
   parentPid: number;
   name: string;
+  /**
+   * Creation time as a Windows FILETIME (100 ns ticks since 1601, UTC) in decimal; empty when
+   * Windows does not report it. With the PID it identifies a process: PIDs get reused, this pair not.
+   */
+  createdAt: string;
 }
 
 /**
- * Every running process with its parent PID (`Get-CimInstance Win32_Process`; `tasklist` has no
- * parent PIDs and `wmic` is gone from current Windows). ~0.4 s, so only called on a conflict.
+ * Every running process with its parent PID and creation time (`Get-CimInstance Win32_Process`;
+ * `tasklist` has no parent PIDs and `wmic` is gone from current Windows). ~0.4 s, so it is only
+ * called on a port conflict, for the PID file (batched) and for Orphans.
  */
 export function listProcesses(): Promise<Map<number, ProcessInfo>> {
-  // Tab-separated `pid ppid name`; [char]9 because single-quoted PowerShell strings do not expand `t.
+  // Tab-separated `pid ppid name created`; [char]9 because single-quoted PowerShell strings do not
+  // expand `t. CreationDate is null for a few system processes; calling a method on it would fail.
   const script =
-    "Get-CimInstance Win32_Process | ForEach-Object { '{0}{3}{1}{3}{2}' -f $_.ProcessId, $_.ParentProcessId, $_.Name, [char]9 }";
+    'Get-CimInstance Win32_Process | ForEach-Object { ' +
+    "$c = if ($_.CreationDate) { $_.CreationDate.ToFileTimeUtc() } else { '' }; " +
+    "'{0}{3}{1}{3}{2}{3}{4}' -f $_.ProcessId, $_.ParentProcessId, $_.Name, [char]9, $c }";
   return new Promise((resolve, reject) => {
     execFile(
       'powershell.exe',
@@ -75,9 +84,14 @@ export function listProcesses(): Promise<Map<number, ProcessInfo>> {
         if (err) return reject(err);
         const processes = new Map<number, ProcessInfo>();
         for (const line of stdout.split(/\r?\n/)) {
-          const [pid, parentPid, name] = line.split('\t');
+          const [pid, parentPid, name, createdAt] = line.split('\t');
           if (!pid || !name) continue;
-          processes.set(Number(pid), { pid: Number(pid), parentPid: Number(parentPid), name });
+          processes.set(Number(pid), {
+            pid: Number(pid),
+            parentPid: Number(parentPid),
+            name,
+            createdAt: createdAt?.trim() ?? '',
+          });
         }
         resolve(processes);
       },

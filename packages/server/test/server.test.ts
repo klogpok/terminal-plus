@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 import type { CommandType, CommandPayload, ServerMessage, EventMessage, ReplyMessage } from '@devpanel/shared';
 import type { DesktopShell } from '@devpanel/core';
@@ -34,6 +34,8 @@ let root: string;
 let devPanel: RunningDevPanel;
 let shell: FakeShell;
 const sockets: WebSocket[] = [];
+/** How often the Server asked its host process to exit (`StartOptions.onExit`). */
+let exits = 0;
 
 beforeEach(async () => {
   root = mkdtempSync(path.join(tmpdir(), 'devpanel-server-test-'));
@@ -50,7 +52,16 @@ beforeEach(async () => {
     JSON.stringify({ repos: [{ path: repoPath, name: 'billing' }] }),
   );
   shell = new FakeShell();
-  devPanel = await startDevPanel({ appDataDir, port: 0, timings: { gracefulStopMs: 1000 }, shell });
+  exits = 0;
+  devPanel = await startDevPanel({
+    appDataDir,
+    port: 0,
+    timings: { gracefulStopMs: 1000 },
+    shell,
+    onExit: () => {
+      exits++;
+    },
+  });
 });
 
 afterEach(async () => {
@@ -211,6 +222,26 @@ describe('DevPanel Server', () => {
   it('rejects connections without the correct Access Key', async () => {
     await expect(connect({ key: '' })).rejects.toThrow('HTTP 401');
     await expect(connect({ key: 'wrong-key' })).rejects.toThrow('HTTP 401');
+  });
+
+  it('Exit DevPanel: `shutdown` stops every Service, replies, then the Server closes and exits', async () => {
+    const client = new Client(await connect());
+    const snapshot = await client.send('getSnapshot', {});
+    const repoId = (snapshot as { result: { repos: { id: string }[] } }).result.repos[0]!.id;
+    await client.send('startService', { repoId, serviceId: 'api' });
+    await client.waitFor(statusEvent('running'));
+
+    expect(await client.send('shutdown', {})).toMatchObject({ ok: true });
+
+    expect(devPanel.core.listRepos()[0]!.services[0]!.status).toBe('stopped');
+    await vi.waitFor(() => expect(exits).toBe(1));
+    await expect(connect()).rejects.toThrow();
+  });
+
+  it('accepts `killOrphans` (nothing to kill on a clean start)', async () => {
+    const client = new Client(await connect());
+    expect(await client.send('getSnapshot', {})).not.toMatchObject({ result: { orphans: expect.anything() } });
+    expect(await client.send('killOrphans', {})).toMatchObject({ ok: true, result: null });
   });
 
   it('rejects connections from a foreign Origin', async () => {

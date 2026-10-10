@@ -16,6 +16,11 @@ export interface StartOptions {
   webRoot?: string;
   extraOrigins?: string[];
   logger?: boolean;
+  /**
+   * Called once Exit has completed after a `shutdown` command (everything stopped, Server closed);
+   * `main` exits the process here.
+   */
+  onExit?: () => void;
 }
 
 export interface RunningDevPanel {
@@ -25,8 +30,11 @@ export interface RunningDevPanel {
   accessKey: string;
   /** URL to open in the browser: the Access Key travels in the fragment, never sent over HTTP. */
   openUrl: string;
-  /** Stops every Service, then the Server. */
-  close(): Promise<void>;
+  /**
+   * Exit: stops every Service and Session, then the Server. Idempotent. `gracefulStopMs` shortens
+   * the grace period (closing the console window leaves only a few seconds).
+   */
+  close(options?: { gracefulStopMs?: number }): Promise<void>;
 }
 
 /** Loads `core`, creates a fresh Access Key, and starts the Server on 127.0.0.1. */
@@ -34,12 +42,21 @@ export async function startDevPanel(options: StartOptions): Promise<RunningDevPa
   const core = new DevPanelCore({ appDataDir: options.appDataDir, timings: options.timings, shell: options.shell });
   await core.load();
   const accessKey = await createAccessKey(options.appDataDir);
+  let closing: Promise<void> | undefined;
+  const close = (closeOptions: { gracefulStopMs?: number } = {}): Promise<void> =>
+    (closing ??= (async () => {
+      await core.shutdown(closeOptions);
+      await app.close();
+    })());
   const app = createServer({
     core,
     accessKey,
     webRoot: options.webRoot,
     extraOrigins: options.extraOrigins,
     logger: options.logger,
+    onExitRequested: () => {
+      void close().finally(() => options.onExit?.());
+    },
   });
   await app.listen({ host: HOST, port: options.port ?? DEFAULT_PORT });
   const { port } = app.server.address() as { port: number };
@@ -49,9 +66,6 @@ export async function startDevPanel(options: StartOptions): Promise<RunningDevPa
     url,
     accessKey,
     openUrl: `${url}/#key=${accessKey}`,
-    async close() {
-      await core.shutdown();
-      await app.close();
-    },
+    close,
   };
 }

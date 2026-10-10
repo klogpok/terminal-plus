@@ -4,16 +4,16 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The monorepo builds with pnpm; `core` has no dependency on Fastify or Electron.
-- [ ] `node-pty` installs and spawns on Windows; the chosen package (original or prebuilt fork) is recorded in the Further Notes of the spec or an ADR if it was a real trade-off.
-- [ ] `core` loads Repos from the Workspace file and Services from each Repo's Repo Config, validated with zod (unique Service ids and ports, dependsOn to same-Repo Services only).
-- [ ] `startService` spawns through `cmd.exe /d /s /c`, with `cwd` resolved against the Repo path and `FORCE_COLOR=1`.
-- [ ] `stopService` sends Ctrl+C, waits the configurable grace period, then kills the tree; a test with a fixture that spawns a grandchild and ignores Ctrl+C proves no process from the tree survives.
-- [ ] Timings and the app data directory are constructor options of `core`.
-- [ ] Fixture scripts exist for: spawn a grandchild, listen on a port (IPv4/IPv6/any), print a ready line after a delay, exit with a code after a delay, ignore Ctrl+C, echo stdin.
-- [ ] Manually verified on a real pnpm project: after Stop, no `node.exe` from that Service remains.
+- [x] The monorepo builds with pnpm; `core` has no dependency on Fastify or Electron.
+- [x] `node-pty` installs and spawns on Windows; the chosen package (original or prebuilt fork) is recorded in the Further Notes of the spec or an ADR if it was a real trade-off.
+- [x] `core` loads Repos from the Workspace file and Services from each Repo's Repo Config, validated with zod (unique Service ids and ports, dependsOn to same-Repo Services only).
+- [x] `startService` spawns through `cmd.exe /d /s /c`, with `cwd` resolved against the Repo path and `FORCE_COLOR=1`.
+- [x] `stopService` sends Ctrl+C, waits the configurable grace period, then kills the tree; a test with a fixture that spawns a grandchild and ignores Ctrl+C proves no process from the tree survives.
+- [x] Timings and the app data directory are constructor options of `core`.
+- [x] Fixture scripts exist for: spawn a grandchild, listen on a port (IPv4/IPv6/any), print a ready line after a delay, exit with a code after a delay, ignore Ctrl+C, echo stdin.
+- [x] Manually verified on a real pnpm project: after Stop, no `node.exe` from that Service remains.
 
 ---
 
@@ -25,13 +25,13 @@
 
 **Блокируется:** Нет (можно начинать сразу).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Монорепо собирается pnpm; `core` не зависит от Fastify и Electron.
-- [ ] `node-pty` устанавливается и запускает процессы на Windows; выбранный пакет (оригинал или форк с бинарниками) записан в «Дополнительные заметки» спеки или в ADR, если это был реальный компромисс.
-- [ ] `core` загружает Репо из файла Workspace и Сервисы из Конфига репо каждого Репо с валидацией zod (уникальные id Сервисов и порты, dependsOn только на Сервисы того же Репо).
-- [ ] `startService` запускает через `cmd.exe /d /s /c`, `cwd` разрешается относительно пути Репо, добавляется `FORCE_COLOR=1`.
-- [ ] `stopService` отправляет Ctrl+C, ждёт настраиваемый период, затем убивает дерево; тест с фикстурой, которая порождает внука и игнорирует Ctrl+C, доказывает, что ни один процесс дерева не выжил.
-- [ ] Тайминги и каталог данных приложения — опции конструктора `core`.
-- [ ] Есть скрипты-фикстуры для: порождения внука, прослушивания порта (IPv4/IPv6/любой адрес), печати строки готовности с задержкой, выхода с кодом после задержки, игнорирования Ctrl+C, повтора stdin.
-- [ ] Вручную проверено на реальном pnpm-проекте: после «Стоп» не остаётся ни одного `node.exe` этого Сервиса.
+- [x] Монорепо собирается pnpm; `core` не зависит от Fastify и Electron.
+- [x] `node-pty` устанавливается и запускает процессы на Windows; выбранный пакет (оригинал или форк с бинарниками) записан в «Дополнительные заметки» спеки или в ADR, если это был реальный компромисс.
+- [x] `core` загружает Репо из файла Workspace и Сервисы из Конфига репо каждого Репо с валидацией zod (уникальные id Сервисов и порты, dependsOn только на Сервисы того же Репо).
+- [x] `startService` запускает через `cmd.exe /d /s /c`, `cwd` разрешается относительно пути Репо, добавляется `FORCE_COLOR=1`.
+- [x] `stopService` отправляет Ctrl+C, ждёт настраиваемый период, затем убивает дерево; тест с фикстурой, которая порождает внука и игнорирует Ctrl+C, доказывает, что ни один процесс дерева не выжил.
+- [x] Тайминги и каталог данных приложения — опции конструктора `core`.
+- [x] Есть скрипты-фикстуры для: порождения внука, прослушивания порта (IPv4/IPv6/любой адрес), печати строки готовности с задержкой, выхода с кодом после задержки, игнорирования Ctrl+C, повтора stdin.
+- [x] Вручную проверено на реальном pnpm-проекте: после «Стоп» не остаётся ни одного `node.exe` этого Сервиса.

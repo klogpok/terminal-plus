@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+# node-pty 1.1.0 ships win32-x64 prebuilds; its install script only checks for them
+# (and falls back to node-gyp, which needs VS build tools), so it is not needed.
+allowBuilds:
+  node-pty: false

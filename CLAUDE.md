@@ -1,3 +1,9 @@
+## Project
+
+- Architecture, adding a command or event, running, test harness, Windows gotchas: `docs/architecture.md`.
+- `pnpm check` (typecheck, lint, tests) must pass before you hand work back; the pre-commit hook runs its typecheck + lint part.
+- Reviewing code: apply `CODING_STANDARDS.md`.
+
 ## Agent skills
 
 ### Issue tracker

@@ -45,8 +45,8 @@ describe('auto-detection', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('suggests root package.json scripts when there is no pnpm-workspace.yaml', async () => {
-    const repoPath = h.addRepo({ name: 'site' });
+  it('suggests root package.json scripts of a pnpm Repo without pnpm-workspace.yaml', async () => {
+    const repoPath = h.addRepo({ name: 'site', files: { 'pnpm-lock.yaml': "lockfileVersion: '9.0'\n" } });
     pkg(repoPath, 'site', { dev: 'vite', build: 'vite build' });
 
     const core = await h.createCore();
@@ -55,6 +55,20 @@ describe('auto-detection', () => {
     expect(repo.suggestions!.map((s) => [s.id, s.command, s.preselected])).toEqual([
       ['dev', 'pnpm run dev', true],
       ['build', 'pnpm run build', false],
+    ]);
+  });
+
+  it('suggests nothing for npm or yarn Repos (auto-detection is for pnpm Repos only)', async () => {
+    const npmPath = h.addRepo({ name: 'npm-site', files: { 'package-lock.json': '{}' } });
+    pkg(npmPath, 'npm-site', { dev: 'vite' });
+    const yarnPath = h.addRepo({ name: 'yarn-site', files: { 'yarn.lock': '' } });
+    pkg(yarnPath, 'yarn-site', { start: 'node server.js' });
+
+    const core = await h.createCore();
+
+    expect(core.listRepos().map((r) => [r.name, r.configSource, r.suggestions])).toEqual([
+      ['npm-site', 'none', []],
+      ['yarn-site', 'none', []],
     ]);
   });
 

@@ -2,12 +2,18 @@
  * Auto-detection of Services for a Repo without a Repo Config or Local Config.
  * pnpm workspace packages with `dev`/`start`/`serve` scripts become `pnpm --filter <name> <script>`;
  * without `pnpm-workspace.yaml` (or when it yields nothing) the root `package.json` scripts are used.
+ * Only pnpm Repos (`pnpm-lock.yaml` or `pnpm-workspace.yaml`) get suggestions: npm and yarn Repos
+ * work only through a Repo Config.
  */
+import { existsSync } from 'node:fs';
 import { glob, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { SuggestedService } from '@devpanel/shared';
 import { parse as parseYaml } from 'yaml';
+import { isPnpmRepo } from './environment.js';
 import { readJsonFile } from './json-file.js';
+
+const PNPM_WORKSPACE_FILE = 'pnpm-workspace.yaml';
 
 /** Scripts that start a long-running process. */
 const RUN_SCRIPTS = ['dev', 'start', 'serve'];
@@ -45,7 +51,7 @@ function slug(text: string): string {
 async function workspacePackageDirs(repoPath: string): Promise<string[] | undefined> {
   let text: string;
   try {
-    text = await readFile(path.join(repoPath, 'pnpm-workspace.yaml'), 'utf8');
+    text = await readFile(path.join(repoPath, PNPM_WORKSPACE_FILE), 'utf8');
   } catch {
     return undefined;
   }
@@ -101,6 +107,8 @@ export async function detectServices(repoPath: string): Promise<SuggestedService
     }
   }
   if (suggestions.length > 0) return suggestions;
+  // `pnpm run` is right only for pnpm Repos; npm and yarn Repos need a Repo Config (out of scope).
+  if (!isPnpmRepo(repoPath) && !existsSync(path.join(repoPath, PNPM_WORKSPACE_FILE))) return suggestions;
 
   const root = await readPackageJson(path.join(repoPath, 'package.json'));
   for (const script of root ? scriptNames(root) : []) {

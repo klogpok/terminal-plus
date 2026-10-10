@@ -16,6 +16,9 @@
     "@angular/core": "^22.2.0",
     "@angular/platform-browser": "^22.2.0",
     "@devpanel/shared": "workspace:*",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/xterm": "^6.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

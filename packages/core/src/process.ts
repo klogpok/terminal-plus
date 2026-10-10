@@ -16,6 +16,7 @@ export interface ServiceProcess {
   readonly exited: Promise<number>;
   onData(listener: (data: string) => void): void;
   write(data: string): void;
+  resize(cols: number, rows: number): void;
   /** Ctrl+C, wait up to `gracefulMs`, then kill the whole tree. Resolves after exit. */
   stop(gracefulMs: number): Promise<void>;
 }
@@ -85,6 +86,9 @@ export function spawnService(options: SpawnOptions): ServiceProcess {
     },
     write(data) {
       if (!hasExited) term.write(data);
+    },
+    resize(cols, rows) {
+      if (!hasExited) term.resize(cols, rows);
     },
     async stop(gracefulMs) {
       if (!hasExited) {

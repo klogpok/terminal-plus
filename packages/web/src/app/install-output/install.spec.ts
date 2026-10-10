@@ -3,6 +3,8 @@ import { App } from '../app';
 import { BACKEND_TRANSPORT } from '../backend/backend-transport';
 import { FakeTransport } from '../backend/fake-transport';
 import { aRepo, aService } from '../backend/test-data';
+import { FakeTerminalView } from '../terminal/fake-terminal-view';
+import { TERMINAL_VIEW_FACTORY } from '../terminal/terminal-view';
 
 let transport: FakeTransport;
 let fixture: ComponentFixture<App>;
@@ -12,12 +14,17 @@ beforeEach(async () => {
   transport = new FakeTransport();
   TestBed.configureTestingModule({
     imports: [App],
-    providers: [{ provide: BACKEND_TRANSPORT, useValue: transport }],
+    providers: [
+      { provide: BACKEND_TRANSPORT, useValue: transport },
+      { provide: TERMINAL_VIEW_FACTORY, useValue: FakeTerminalView.factory },
+    ],
   });
   fixture = TestBed.createComponent(App);
   page = fixture.nativeElement as HTMLElement;
   await fixture.whenStable();
 });
+
+afterEach(() => localStorage.clear());
 
 async function stable(): Promise<void> {
   await fixture.whenStable();
@@ -29,6 +36,19 @@ function installButton(repoId: string): HTMLButtonElement | null {
 
 function installTab(repoId: string): HTMLElement | null {
   return page.querySelector<HTMLElement>(`.install-output[data-install-repo-id="${repoId}"]`);
+}
+
+function selectedTab(): HTMLElement {
+  const tab = page.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+  if (!tab) throw new Error('No selected tab');
+  return tab;
+}
+
+/** The terminal of the (only) install tab. */
+function installView(): FakeTerminalView {
+  const view = FakeTerminalView.created.at(-1);
+  if (!view) throw new Error('No terminal was created');
+  return view;
 }
 
 const fresh = aRepo({
@@ -59,9 +79,10 @@ describe('Install dependencies', () => {
     await stable();
 
     const tab = installTab('b1')!;
-    expect(tab.querySelector('.install-title')!.textContent).toContain('Установка зависимостей: Billing');
-    expect(tab.querySelector('.install-log')!.textContent).toContain('Progress: resolved 12');
-    expect(tab.querySelector('.install-log')!.textContent).not.toContain('\u001b');
+    expect(selectedTab().textContent).toContain('Установка зависимостей: Billing');
+    expect(selectedTab().closest<HTMLElement>('.tab-wrap')!.style.borderTopColor).not.toBe('');
+    // Raw pty output goes into an xterm, colors included.
+    expect(installView().screen).toBe('\u001b[32mProgress: resolved 12\u001b[39m\r\n');
     expect(tab.querySelector('.install-status')!.textContent).toContain('Идёт установка');
     expect(installButton('b1')!.disabled).toBe(true);
   });
@@ -104,7 +125,7 @@ describe('Install dependencies', () => {
     transport.emit('installOutput', { repoId: 'b1', data: 'Packages: +42\r\n' });
     await stable();
 
-    expect(installTab('b1')!.querySelector('.install-log')!.textContent).toContain('Packages: +42');
+    expect(installView().screen).toContain('Packages: +42');
     expect(installButton('b1')!.textContent).toContain('Устанавливаем');
   });
 
@@ -115,7 +136,7 @@ describe('Install dependencies', () => {
     transport.emit('installChanged', { repoId: 'b1' });
     await stable();
 
-    installTab('b1')!.querySelector<HTMLButtonElement>('button[aria-label="Закрыть"]')!.click();
+    page.querySelector<HTMLButtonElement>('button[aria-label="Закрыть вкладку Установка зависимостей: Billing"]')!.click();
     await stable();
 
     expect(installTab('b1')).toBeNull();

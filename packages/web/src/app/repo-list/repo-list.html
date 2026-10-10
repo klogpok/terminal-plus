@@ -36,7 +36,12 @@
               [attr.aria-label]="strings.status[service.status]"
             ></span>
             <span class="service-name">
-              {{ service.name }}
+              <button
+                type="button"
+                class="service-open"
+                [attr.aria-label]="strings.terminal.open(service.name)"
+                (click)="tabs.open({ repoId: repo.id, serviceId: service.id })"
+              >{{ service.name }}</button>
               @if (service.removedFromConfig) {
                 <span class="config-flag">{{ strings.config.serviceRemoved }}</span>
               } @else if (service.configChanged) {

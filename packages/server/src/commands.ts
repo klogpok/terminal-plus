@@ -23,6 +23,7 @@ type CommandHandlers = { [K in CommandType]: CommandHandler<K> };
 
 const serviceRef = z.object({ repoId: z.string().min(1), serviceId: z.string().min(1) });
 const repoRef = z.object({ repoId: z.string().min(1) });
+const ptySize = z.number().int().min(1).max(1000);
 const empty =z.object({}).transform(() => ({}) as Record<string, never>);
 
 export const COMMAND_HANDLERS: CommandHandlers = {
@@ -58,6 +59,19 @@ export const COMMAND_HANDLERS: CommandHandlers = {
   openUrl: {
     payload: serviceRef,
     run: async (core, p) => (await core.openUrl(p.repoId, p.serviceId), null),
+  },
+  getServiceOutput: {
+    payload: serviceRef,
+    // Synchronous on purpose: no `log` event can slip between reading the buffer and the reply.
+    run: (core, p) => core.getServiceOutput(p.repoId, p.serviceId),
+  },
+  writeToPty: {
+    payload: serviceRef.extend({ data: z.string() }),
+    run: (core, p) => (core.writeToPty(p.repoId, p.serviceId, p.data), null),
+  },
+  resizePty: {
+    payload: serviceRef.extend({ cols: ptySize, rows: ptySize }),
+    run: (core, p) => (core.resizePty(p.repoId, p.serviceId, p.cols, p.rows), null),
   },
   installDependencies: {
     payload: z.object({ repoId: z.string().min(1) }),

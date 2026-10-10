@@ -97,6 +97,21 @@ export const STRINGS = {
     details: 'Подробнее',
   },
 
+  terminal: {
+    /** Accessible name of a Service name in the left panel, e.g. "Открыть терминал API". */
+    open: (serviceName: string) => `Открыть терминал ${serviceName}`,
+    close: (serviceName: string) => `Закрыть вкладку ${serviceName}`,
+    tabsLabel: 'Терминалы',
+    empty: 'Нажмите на имя сервиса слева, чтобы открыть его терминал.',
+    clear: 'Очистить',
+    copyAll: 'Копировать всё',
+    copied: 'Скопировано',
+    copyFailed: 'Не удалось скопировать',
+    search: 'Поиск',
+    findNext: 'Найти дальше',
+    findPrevious: 'Найти раньше',
+    notFound: 'Не найдено',
+  },
   /** A Service that ended by itself (`crashed` / `exited`). */
   serviceExit: {
     crashed: (exitCode: number) => `Упал с кодом ${exitCode}`,

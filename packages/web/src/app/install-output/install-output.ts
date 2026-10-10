@@ -1,64 +1,89 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  viewChild,
+} from '@angular/core';
 import { BackendService, type InstallTab } from '../backend/backend.service';
 import { STRINGS } from '../strings';
-
-// eslint-disable-next-line no-control-regex
-const ANSI = /\u001b\][^\u0007]*(\u0007|\u001b\\)|\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b[@-_]/g;
-
-/** Turns raw pty output into plain text: no ANSI sequences, `\r` progress lines collapsed. */
-function plainText(output: string): string {
-  return output
-    .replace(ANSI, '')
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map((line) => line.slice(line.lastIndexOf('\r') + 1).trimEnd())
-    .join('\n')
-    // ConPTY redraws the screen with cursor moves; as plain text that leaves runs of empty lines.
-    .replace(/\n{3,}/g, '\n\n');
-}
+import { TERMINAL_VIEW_FACTORY } from '../terminal/terminal-view';
 
 /**
- * One `pnpm install` output tab. A minimal plain-text view; the terminal tabs of ticket 03 can
- * replace the `<pre>` with an xterm fed from the same `InstallTab.output`.
+ * Body of one `pnpm install` tab in the terminal tab strip: a read-only xterm fed from
+ * `InstallTab.output` (raw pty output, kept in the browser only), plus the install result.
  */
 @Component({
   selector: 'dp-install-output',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="install-output" [attr.data-install-repo-id]="tab().repoId" [class]="'install-output state-' + tab().state">
-      <header class="install-header">
-        <span class="install-title">{{ strings.install.title(repoName()) }}</span>
-        <button type="button" class="close" [attr.aria-label]="strings.actions.dismiss" [title]="strings.actions.dismiss" (click)="backend.closeInstallTab(tab().repoId)">✕</button>
-      </header>
-      <pre class="install-log">{{ text() }}</pre>
-      <div class="install-status">{{ status() }}</div>
+      <div class="install-log" #host></div>
+      <div class="install-status" role="status">{{ status() }}</div>
     </section>
   `,
   styles: `
-    :host { display: block; }
-    .install-output { border: 1px solid var(--border); border-radius: 6px; background: var(--panel); overflow: hidden; }
-    .install-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid var(--border); }
-    .install-title { font-weight: 600; }
-    .close { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
-    .install-log { margin: 0; padding: 8px 10px; max-height: 50vh; overflow: auto; background: #0f172a; color: #e2e8f0; font: 12px/1.4 Consolas, monospace; white-space: pre-wrap; }
-    .install-status { padding: 6px 10px; font-size: 13px; }
+    :host { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .install-output { display: flex; flex-direction: column; flex: 1; min-height: 0; padding-top: 6px; }
+    .install-log { flex: 1; min-height: 0; background: #0b0f17; border-radius: 4px; padding: 4px; overflow: hidden; }
+    .install-status { padding: 6px 2px; font-size: 13px; }
     .state-succeeded .install-status { color: #16a34a; }
     .state-failed .install-status { color: #dc2626; }
   `,
 })
 export class InstallOutput {
   readonly tab = input.required<InstallTab>();
+  /** Whether this tab is the one shown (only a visible terminal can be fitted). */
+  readonly active = input(false);
   protected readonly backend = inject(BackendService);
-  protected readonly strings = STRINGS;
 
-  protected readonly text = computed(() => plainText(this.tab().output));
-  protected readonly repoName = computed(
-    () => this.backend.repos().find((r) => r.id === this.tab().repoId)?.name ?? this.tab().repoId,
-  );
+  private readonly view = inject(TERMINAL_VIEW_FACTORY)();
+  private readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
+  /** Output already written to the terminal. */
+  private written = '';
+
   protected readonly status = computed(() => {
     const tab = this.tab();
     if (tab.state === 'running') return STRINGS.install.status.running;
     if (tab.state === 'succeeded') return STRINGS.install.status.succeeded;
     return STRINGS.install.status.failed(tab.exitCode ?? -1);
   });
+
+  constructor() {
+    // Append what is new; if the kept tail was trimmed at the front, redraw it all.
+    effect(() => {
+      const output = this.tab().output;
+      if (output.startsWith(this.written)) {
+        this.view.write(output.slice(this.written.length));
+      } else {
+        this.view.reset();
+        this.view.write(output);
+      }
+      this.written = output;
+    });
+
+    effect(() => {
+      if (this.active()) setTimeout(() => this.view.fit());
+    });
+
+    let observer: ResizeObserver | undefined;
+    afterNextRender(() => {
+      const host = this.host().nativeElement;
+      this.view.open(host);
+      if (typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(() => this.view.fit());
+        observer.observe(host);
+      }
+    });
+
+    inject(DestroyRef).onDestroy(() => {
+      observer?.disconnect();
+      this.view.dispose();
+    });
+  }
 }

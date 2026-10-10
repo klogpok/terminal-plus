@@ -35,6 +35,7 @@ import {
   type ServiceDefinition,
 } from './config.js';
 import { detectServices } from './detect.js';
+import { OutputBuffer } from './output-buffer.js';
 import { readWorkspace, writeWorkspace } from './workspace.js';
 import { spawnService, type ServiceProcess } from './process.js';
 import { windowsShell, type DesktopShell } from './shell.js';
@@ -123,6 +124,10 @@ interface ServiceState {
   definition: ServiceDefinition;
   status: ServiceStatus;
   process?: ServiceProcess;
+  /** Recent output; survives restarts (a separator is appended instead of clearing). */
+  output: OutputBuffer;
+  /** Terminal size from the most recent `resizePty`; the next spawn uses it too. */
+  size?: { cols: number; rows: number };
   stopping?: Promise<void>;
   /** Readiness checks of the current run; present only while `starting` or `unhealthy`. */
   readiness?: ReadinessWatch;
@@ -194,6 +199,13 @@ function isProcessAlive(pid: number): boolean {
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === 'EPERM';
   }
+}
+
+/** Dimmed "── перезапуск HH:MM ──" line written into a Service's output before each new run. */
+function restartSeparator(previousOutput: string, now = new Date()): string {
+  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const newline = previousOutput.endsWith('\n') ? '' : '\r\n';
+  return `${newline}\u001b[0m\u001b[2m── перезапуск ${time} ──\u001b[0m\r\n`;
 }
 
 /**
@@ -472,11 +484,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     if (service.process) return;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
+    if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text()));
     service.lastExit = undefined;
     this.setStatus(repo, service, 'starting');
     let proc: ServiceProcess;
     try {
-      proc = spawnService({ command: definition.command, cwd, env: definition.env });
+      proc = spawnService({ command: definition.command, cwd, env: definition.env, ...service.size });
     } catch (err) {
       this.setStatus(repo, service, 'crashed');
       throw new DevPanelError(
@@ -498,7 +511,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     proc.onData((data) => {
       tail.push(data);
       readiness.feed(data);
-      this.emit('log', { repoId: repo.id, serviceId, data });
+      this.appendOutput(repo, service, data);
     });
     proc.exited.then((exitCode) => {
       readiness.dispose();
@@ -544,6 +557,24 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   async restartService(repoId: string, serviceId: string): Promise<void> {
     await this.stopService(repoId, serviceId);
     await this.startService(repoId, serviceId);
+  }
+
+  /** The buffered recent output of a Service (raw, with ANSI sequences), for a newly opened tab. */
+  getServiceOutput(repoId: string, serviceId: string): string {
+    return this.getService(this.getRepo(repoId), serviceId).output.text();
+  }
+
+  /** Sends keyboard input to a Service's pty. Input for a Service that is not running is dropped. */
+  writeToPty(repoId: string, serviceId: string, data: string): void {
+    const service = this.getService(this.getRepo(repoId), serviceId);
+    service.process?.write(data);
+  }
+
+  /** Resizes a Service's pty. Clients are equal peers: the most recent resize wins. */
+  resizePty(repoId: string, serviceId: string, cols: number, rows: number): void {
+    const service = this.getService(this.getRepo(repoId), serviceId);
+    service.size = { cols, rows };
+    service.process?.resize(cols, rows);
   }
 
   /**
@@ -722,7 +753,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     for (const definition of definitions) {
       const current = repo.services.get(definition.id);
       if (!current) {
-        next.set(definition.id, { definition, status: 'stopped' });
+        next.set(definition.id, { definition, status: 'stopped', output: new OutputBuffer() });
         continue;
       }
       current.removed = undefined;
@@ -840,6 +871,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     return service;
+  }
+
+  /** Buffers output and emits it as `log`, so the buffer and the live stream never diverge. */
+  private appendOutput(repo: RepoState, service: ServiceState, data: string): void {
+    service.output.append(data);
+    this.emit('log', { repoId: repo.id, serviceId: service.definition.id, data });
   }
 
   private setStatus(repo: RepoState, service: ServiceState, status: ServiceStatus): void {

@@ -7,6 +7,8 @@
 .services { list-style: none; margin: 0; padding: 0; }
 .service { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; padding: 3px 0; }
 .service-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-open { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; }
+.service-open:hover { text-decoration: underline; }
 .service-actions { display: flex; gap: 2px; }
 .service-actions button { width: 26px; height: 24px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 0; }
 .service-actions button:disabled { opacity: 0.35; cursor: default; }

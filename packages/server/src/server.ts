@@ -49,6 +49,13 @@ const forwardedEventsMatch: CheckForwarded = {
 };
 void forwardedEventsMatch;
 
+/** Identity endpoint probed by the launcher (`launch.ts`). */
+export const HELLO_PATH = '/api/hello';
+/** `app` value in the identity endpoint's reply. */
+export const DEVPANEL_APP_ID = 'devpanel';
+/** Request header carrying the Access Key to the identity endpoint. */
+export const ACCESS_KEY_HEADER = 'x-devpanel-key';
+
 export interface ServerOptions {
   core: DevPanelCore;
   accessKey: string;
@@ -82,6 +89,13 @@ export function createServer(options: ServerOptions): FastifyInstance {
     const own = [`http://127.0.0.1:${port}`, `http://localhost:${port}`];
     return [...own, ...(options.extraOrigins ?? [])].includes(origin);
   };
+
+  // Lets the launcher tell our Server from another program on the port, and check that the Access
+  // Key it read from the app data directory is the current one. Reveals nothing else.
+  app.get(HELLO_PATH, async (request) => ({
+    app: DEVPANEL_APP_ID,
+    keyValid: isAccessKeyValid(request.headers[ACCESS_KEY_HEADER], accessKey),
+  }));
 
   app.register(fastifyWebsocket);
   app.register(async (scope) => {

@@ -1,10 +1,15 @@
 import { DevPanelCore, type CoreTimings, type DesktopShell, type Environment } from '@devpanel/core';
 import { DEFAULT_PORT } from '@devpanel/shared';
-import { createAccessKey } from './access-key.js';
+import { generateAccessKey, storeAccessKey } from './access-key.js';
 import { createServer } from './server.js';
 
 /** The only address the Server listens on. */
 export const HOST = '127.0.0.1';
+
+/** URL to open in the browser: the Access Key travels in the fragment, never sent over HTTP. */
+export function browserUrl(port: number, accessKey: string): string {
+  return `http://${HOST}:${port}/#key=${accessKey}`;
+}
 
 export interface StartOptions {
   appDataDir: string;
@@ -39,7 +44,7 @@ export interface RunningDevPanel {
   close(options?: { gracefulStopMs?: number }): Promise<void>;
 }
 
-/** Loads `core`, creates a fresh Access Key, and starts the Server on 127.0.0.1. */
+/** Loads `core`, starts the Server on 127.0.0.1, then stores a fresh Access Key. */
 export async function startDevPanel(options: StartOptions): Promise<RunningDevPanel> {
   const core = new DevPanelCore({
     appDataDir: options.appDataDir,
@@ -48,7 +53,7 @@ export async function startDevPanel(options: StartOptions): Promise<RunningDevPa
     environment: options.environment,
   });
   await core.load();
-  const accessKey = await createAccessKey(options.appDataDir);
+  const accessKey = generateAccessKey();
   let closing: Promise<void> | undefined;
   const close = (closeOptions: { gracefulStopMs?: number } = {}): Promise<void> =>
     (closing ??= (async () => {
@@ -65,14 +70,22 @@ export async function startDevPanel(options: StartOptions): Promise<RunningDevPa
       void close().finally(() => options.onExit?.());
     },
   });
-  await app.listen({ host: HOST, port: options.port ?? DEFAULT_PORT });
+  try {
+    await app.listen({ host: HOST, port: options.port ?? DEFAULT_PORT });
+  } catch (error) {
+    // e.g. EADDRINUSE: another DevPanel (or program) holds the port. Nothing was started yet.
+    await core.shutdown();
+    await app.close().catch(() => undefined);
+    throw error;
+  }
+  await storeAccessKey(options.appDataDir, accessKey);
   const { port } = app.server.address() as { port: number };
   const url = `http://${HOST}:${port}`;
   return {
     core,
     url,
     accessKey,
-    openUrl: `${url}/#key=${accessKey}`,
+    openUrl: browserUrl(port, accessKey),
     close,
   };
 }

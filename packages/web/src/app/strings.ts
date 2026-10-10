@@ -36,6 +36,21 @@ export const STRINGS = {
     noServices: 'Сервисов нет.',
   },
 
+  config: {
+    suggestionsIntro: 'В этом репо нет файла настроек. Отметьте, что запускать:',
+    /** Checkbox label of a suggested Service. */
+    suggestion: (name: string, command: string) => `${name} — ${command}`,
+    save: 'Сохранить конфиг',
+    nothingDetected: 'Не нашли, что запускать: в репо нет подходящих скриптов. Попросите разработчика добавить файл .devpanel.yml.',
+    unusedLocalConfig: 'Разработчики добавили в репо файл настроек, и DevPanel теперь использует его. Ваш локальный конфиг больше не используется.',
+    deleteLocalConfig: 'Удалить локальный конфиг',
+    serviceConfigChanged: 'Конфиг изменился — перезапустите',
+    serviceRemoved: 'Удалён из конфига — исчезнет после остановки',
+    /** Shown instead of `errors.configInvalid` when the Repo keeps its last valid Services. */
+    invalidKeepsPrevious: (repoName: string) =>
+      `В файле настроек репо ${repoName} ошибка, поэтому пока работают прежние настройки. Покажите подробности разработчику.`,
+  },
+
   /** Label shown next to each status dot (also its tooltip). */
   status: {
     stopped: 'Остановлен',

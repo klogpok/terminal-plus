@@ -35,6 +35,28 @@ export interface ServiceView {
   url?: string;
   dependsOn: string[];
   status: ServiceStatus;
+  /** The config changed while the Service was running; it still runs the old definition until restarted. */
+  configChanged?: boolean;
+  /** The Service is gone from the config but still running; it disappears once it stops. */
+  removedFromConfig?: boolean;
+}
+
+/** Where a Repo's Services come from: its Repo Config, the Local Config, or nowhere yet. */
+export type ConfigSource = 'repo' | 'local' | 'none';
+
+/** One Service definition as written to a Local Config (subset of the Repo Config fields). */
+export interface ServiceConfig {
+  id: string;
+  name?: string;
+  command: string;
+  cwd?: string;
+}
+
+/** A Service proposed by auto-detection for a Repo without any config. */
+export interface SuggestedService extends ServiceConfig {
+  name: string;
+  /** Whether the UI ticks it by default. */
+  preselected: boolean;
 }
 
 export interface RepoView {
@@ -42,12 +64,21 @@ export interface RepoView {
   name: string;
   path: string;
   color?: string;
-  /** Set when the Repo Config cannot be read or is invalid (technical, English). */
+  /**
+   * Set when the active config file cannot be read or is invalid (technical, English). If the Repo
+   * still lists Services, they come from the last valid config.
+   */
   configError?: string;
   /** True when the Repo folder no longer exists; its Services cannot start until it is relocated. */
   folderMissing?: boolean;
   /** Current git branch (or short commit when detached); absent for non-git folders. */
   branch?: string;
+  /** Absent means 'none' (kept optional so older builders stay valid). */
+  configSource?: ConfigSource;
+  /** Auto-detected Services; only when `configSource` is 'none'. */
+  suggestions?: SuggestedService[];
+  /** A Repo Config exists, so the Local Config of this Repo is unused and can be deleted. */
+  unusedLocalConfig?: boolean;
   services: ServiceView[];
 }
 
@@ -92,11 +123,17 @@ export interface RepoChangedEvent {
   repo: RepoView | null;
 }
 
+/** A Repo's config was (re)loaded: replaces the whole Repo view. */
+export interface ConfigChangedEvent {
+  repo: RepoView;
+}
+
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
   repoChanged: RepoChangedEvent;
+  configChanged: ConfigChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -120,6 +157,10 @@ export interface Commands {
   openFolder: { payload: { repoId: string }; result: null };
   /** Opens the Service's configured `url` in the default browser. */
   openUrl: { payload: ServiceRef; result: null };
+  /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */
+  saveLocalConfig: { payload: { repoId: string; services: ServiceConfig[] }; result: null };
+  /** Deletes the Repo's Local Config (offered once a Repo Config exists). */
+  deleteLocalConfig: { payload: { repoId: string }; result: null };
 }
 
 export type CommandType = keyof Commands;

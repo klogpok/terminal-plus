@@ -17,6 +17,9 @@ export class XtermView implements TerminalView {
   private readonly terminal = new Terminal({
     scrollback: 10_000,
     convertEol: false,
+    // ConPTY starts every run with a clear screen (ESC[2J); keep the previous run (and the restart
+    // separator) in the scrollback instead of erasing it.
+    scrollOnEraseInDisplay: true,
     cursorBlink: false,
     allowProposedApi: true, // search decorations
     fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",

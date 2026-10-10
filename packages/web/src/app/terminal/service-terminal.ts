@@ -19,9 +19,16 @@ import { TERMINAL_VIEW_FACTORY, type TerminalSize } from './terminal-view';
 /** How long "Скопировано" stays visible. */
 const COPIED_NOTICE_MS = 1500;
 
+/** What a terminal shows: a Service's pty or a Session's pty. */
+export type TerminalRef = ServiceRef | { sessionId: string };
+
+function isSession(ref: TerminalRef): ref is { sessionId: string } {
+  return 'sessionId' in ref;
+}
+
 /**
- * One Service's terminal: replays the Server buffer, then streams live `log` output; sends typed
- * input and its size to the Service pty; offers Clear, Copy all and search.
+ * One Service's or Session's terminal: replays the Server buffer, then streams live output (`log`
+ * or `sessionOutput`); sends typed input and its size to the pty; offers Clear, Copy all and search.
  */
 @Component({
   selector: 'dp-service-terminal',
@@ -30,9 +37,11 @@ const COPIED_NOTICE_MS = 1500;
   styleUrl: './service-terminal.css',
 })
 export class ServiceTerminal {
-  readonly ref = input.required<ServiceRef>();
+  readonly ref = input.required<TerminalRef>();
   /** Whether this tab is the one shown; a hidden terminal cannot be measured. */
   readonly active = input(false);
+  /** Shown above the terminal when its process has ended (a finished Session). */
+  readonly ended = input('');
 
   protected readonly strings = STRINGS;
   protected readonly notice = signal('');
@@ -52,12 +61,21 @@ export class ServiceTerminal {
 
     const offLog = this.backend.on('log', (event) => {
       const ref = this.ref();
-      if (this.replaying || event.repoId !== ref.repoId || event.serviceId !== ref.serviceId) return;
+      if (this.replaying || isSession(ref) || event.repoId !== ref.repoId || event.serviceId !== ref.serviceId) return;
+      this.view.write(event.data);
+    });
+    const offSessionOutput = this.backend.on('sessionOutput', (event) => {
+      const ref = this.ref();
+      if (this.replaying || !isSession(ref) || event.sessionId !== ref.sessionId) return;
       this.view.write(event.data);
     });
     this.view.onInput((data) => {
       if (this.backend.connection() !== 'open') return;
-      this.backend.command('writeToPty', { ...this.ref(), data }).catch(() => {});
+      const ref = this.ref();
+      const sent = isSession(ref)
+        ? this.backend.command('writeToSession', { ...ref, data })
+        : this.backend.command('writeToPty', { ...ref, data });
+      sent.catch(() => {});
     });
 
     // Every (re)connect replays the buffer: output may have been missed while disconnected.
@@ -84,6 +102,7 @@ export class ServiceTerminal {
 
     destroyRef.onDestroy(() => {
       offLog();
+      offSessionOutput();
       observer?.disconnect();
       clearTimeout(this.noticeTimer);
       this.view.dispose();
@@ -128,7 +147,11 @@ export class ServiceTerminal {
   private replay(): void {
     this.replaying = true;
     const generation = ++this.replayGeneration;
-    this.backend.command('getServiceOutput', this.ref()).then(
+    const ref = this.ref();
+    const request = isSession(ref)
+      ? this.backend.command('getSessionOutput', ref)
+      : this.backend.command('getServiceOutput', ref);
+    request.then(
       (output) => {
         if (generation !== this.replayGeneration) return;
         this.view.reset();
@@ -147,7 +170,11 @@ export class ServiceTerminal {
     if (!size || size.cols < 1 || size.rows < 1) return;
     if (!force && this.lastSize?.cols === size.cols && this.lastSize.rows === size.rows) return;
     this.lastSize = size;
-    this.backend.command('resizePty', { ...this.ref(), ...size }).catch(() => {});
+    const ref = this.ref();
+    const sent = isSession(ref)
+      ? this.backend.command('resizeSession', { ...ref, ...size })
+      : this.backend.command('resizePty', { ...ref, ...size });
+    sent.catch(() => {});
     if (force) this.view.focus();
   }
 

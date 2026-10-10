@@ -10,6 +10,9 @@ import type {
 } from '@devpanel/shared';
 import type { BackendTransport, TransportListener } from './backend-transport';
 
+/** A snapshot for tests; `sessions` defaults to none. */
+export type TestSnapshot = Omit<Snapshot, 'sessions'> & Partial<Pick<Snapshot, 'sessions'>>;
+
 /** Lets promise callbacks triggered by a reply run (`await` it before asserting). */
 function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -62,12 +65,12 @@ export class FakeTransport implements BackendTransport {
   }
 
   /** Answers the latest `getSnapshot` command. */
-  replySnapshot(snapshot: Snapshot): Promise<void> {
-    return this.reply(this.lastCommand('getSnapshot'), snapshot);
+  replySnapshot(snapshot: TestSnapshot): Promise<void> {
+    return this.reply(this.lastCommand('getSnapshot'), { sessions: [], ...snapshot });
   }
 
   /** Opens the connection and answers the snapshot request the client sends on open. */
-  connectWith(snapshot: Snapshot): Promise<void> {
+  connectWith(snapshot: TestSnapshot): Promise<void> {
     this.open();
     return this.replySnapshot(snapshot);
   }

@@ -18,6 +18,11 @@ export function installTabKey(repoId: string): string {
   return `install:${repoId}`;
 }
 
+/** Key of a Session's tab (those tabs live in `BackendService.sessions`). */
+export function sessionTabKey(sessionId: string): string {
+  return `session:${sessionId}`;
+}
+
 /**
  * Which Service terminal tabs are open in this browser tab, and which one is shown. Remembered in
  * localStorage so a page reload reopens them (a per-viewer convenience; the output itself lives on

@@ -6,4 +6,5 @@
 .search input { height: 24px; width: 180px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--fg); font: inherit; font-size: 13px; }
 .search .tool { padding: 0 8px; }
 .notice { color: var(--muted); font-size: 13px; }
+.ended { padding: 4px 8px; margin-bottom: 6px; border-radius: 4px; background: var(--panel); color: var(--muted); font-size: 13px; }
 .host { flex: 1; min-height: 0; background: #0b0f17; border-radius: 4px; padding: 4px; overflow: hidden; }

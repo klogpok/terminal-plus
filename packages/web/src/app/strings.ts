@@ -5,7 +5,7 @@
  * Error messages are keyed by `ErrorCode` (packages/shared/src/errors.ts) plus client-side codes;
  * a new code fails to compile until its message is added here.
  */
-import type { ErrorParams, PortConflict, PortOwner, PortOwnerKind, ServiceStatus } from '@devpanel/shared';
+import type { ErrorParams, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
 
 /** Errors raised in the browser itself (not by the Server). */
 export interface ClientErrorParams {
@@ -80,6 +80,23 @@ export const STRINGS = {
     /** Accessible name of the per-Service browser button, e.g. "Открыть в браузере API". */
     openInBrowser: (serviceName: string) => `Открыть в браузере ${serviceName}`,
     openInBrowserTitle: 'Открыть в браузере',
+    /** Session buttons in the Repo header; accessible names include the Repo name. */
+    openClaude: 'Claude Code',
+    openClaudeLabel: (repoName: string) => `Открыть Claude Code в ${repoName}`,
+    openTerminal: 'Терминал',
+    openTerminalLabel: (repoName: string) => `Открыть терминал в ${repoName}`,
+  },
+
+  sessions: {
+    /** Tab label of a Session, e.g. "Claude Code", "Терминал 2". */
+    label: (kind: SessionKind, number: number) =>
+      `${kind === 'claude' ? 'Claude Code' : 'Терминал'}${number > 1 ? ` ${number}` : ''}`,
+    finishedMark: '(завершена)',
+    finished: (exitCode: number | undefined) =>
+      exitCode === undefined || exitCode === 0 ? 'Сессия завершена.' : `Сессия завершена (код ${exitCode}).`,
+    confirmClose: (label: string) => `Сессия «${label}» ещё работает. Закрыть вкладку и завершить сессию?`,
+    confirmYes: 'Завершить',
+    confirmNo: 'Отмена',
   },
 
   config: {
@@ -201,7 +218,13 @@ export const STRINGS = {
     repoNameTaken: (p) => `Репо с именем «${p.name}» уже есть. Выберите другое имя.`,
     folderNotFound: (p) => `Папка ${p.path} не найдена.`,
     repoFolderMissing: (p) => `Папка репо ${p.repoName} не найдена. Укажите её новое расположение или удалите репо.`,
-    repoBusy: (p) => `В репо ${p.repoName} сейчас работают сервисы. Остановите их и попробуйте снова.`,
+    repoBusy: (p) =>
+      `В репо ${p.repoName} сейчас работают сервисы или сессии. Остановите сервисы, закройте сессии и попробуйте снова.`,
+    claudeMissing: () =>
+      'Claude Code не установлен на этом компьютере (или DevPanel его не видит). ' +
+      'Попросите разработчика установить Claude Code, затем перезапустите DevPanel.',
+    sessionNotFound: () => 'Этой сессии больше нет. Обновите страницу.',
+    sessionSpawnFailed: (p) => `Не удалось открыть сессию в репо ${p.repoName}.`,
     serviceHasNoUrl: (p) => `У сервиса ${p.serviceName} из репо ${p.repoName} не указан адрес для браузера.`,
     shellFailed: () => 'Не удалось открыть окно Windows. Попробуйте ещё раз.',
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',

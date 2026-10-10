@@ -12,6 +12,8 @@ import type {
   ServiceConfig,
   ServiceStatus,
   ServiceView,
+  SessionKind,
+  SessionView,
 } from '@devpanel/shared';
 import { describeError, type UiErrorInfo } from '../strings';
 import { BACKEND_TRANSPORT } from './backend-transport';
@@ -55,6 +57,7 @@ export class BackendService {
   private readonly connectionState = signal<ConnectionState>('connecting');
   private readonly connectionDetailsState = signal('');
   private readonly reposState = signal<RepoView[]>([]);
+  private readonly sessionsState = signal<SessionView[]>([]);
   private readonly errorsState = signal<UiError[]>([]);
   private readonly installTabsState = signal<InstallTab[]>([]);
 
@@ -62,6 +65,8 @@ export class BackendService {
   /** Technical reason of the last disconnect. */
   readonly connectionDetails = this.connectionDetailsState.asReadonly();
   readonly repos = this.reposState.asReadonly();
+  /** Open Sessions (running or finished), in opening order; each has one tab. */
+  readonly sessions = this.sessionsState.asReadonly();
   readonly errors = this.errorsState.asReadonly();
   /** Open `pnpm install` output tabs (one per Repo). */
   readonly installTabs = this.installTabsState.asReadonly();
@@ -168,6 +173,33 @@ export class BackendService {
     this.run('openUrl', { repoId, serviceId });
   }
 
+  /**
+   * Opens a Claude Code or shell Session in the Repo folder. Resolves with the new Session, or
+   * `undefined` when it failed (the error, e.g. "Claude Code is not installed", is shown).
+   */
+  async openSession(repoId: string, kind: SessionKind): Promise<SessionView | undefined> {
+    try {
+      const session = await this.command(kind === 'claude' ? 'openClaude' : 'openTerminal', { repoId });
+      this.applySession(session);
+      return session;
+    } catch (error) {
+      this.showError(error as UiErrorInfo);
+      return undefined;
+    }
+  }
+
+  /** Ends a Session (its process tree is killed if it still runs) and drops its tab. */
+  closeSession(sessionId: string): void {
+    this.command('closeSession', { sessionId }).then(
+      () => this.forgetSession(sessionId),
+      (error: UiErrorInfo) => {
+        // Already gone on the Server (e.g. it restarted): just drop the tab.
+        if (error.code === 'sessionNotFound') this.forgetSession(sessionId);
+        else this.showError(error);
+      },
+    );
+  }
+
   /** Sends a command; rejects with a `UiErrorInfo`. Use `run` for fire-and-forget UI actions. */
   command<K extends CommandType>(type: K, payload: CommandPayload<K>): Promise<CommandResult<K>> {
     if (this.connectionState() !== 'open') {
@@ -217,7 +249,10 @@ export class BackendService {
     this.connectionDetailsState.set('');
     // A (re)connecting client rebuilds everything from a snapshot.
     this.command('getSnapshot', {}).then(
-      (snapshot) => this.reposState.set(snapshot.repos),
+      (snapshot) => {
+        this.reposState.set(snapshot.repos);
+        this.sessionsState.set(snapshot.sessions);
+      },
       (error: UiErrorInfo) => this.showError(error),
     );
   }
@@ -300,7 +335,26 @@ export class BackendService {
       case 'repoChanged':
         this.applyRepoChange(event.payload);
         break;
+      case 'sessionChanged':
+        this.applySession(event.payload.session);
+        break;
+      case 'sessionClosed':
+        this.forgetSession(event.payload.sessionId);
+        break;
     }
+  }
+
+  /** Adds or replaces a Session (idempotent: command results and events may both arrive). */
+  private applySession(session: SessionView): void {
+    this.sessionsState.update((sessions) =>
+      sessions.some((s) => s.id === session.id)
+        ? sessions.map((s) => (s.id === session.id ? session : s))
+        : [...sessions, session],
+    );
+  }
+
+  private forgetSession(sessionId: string): void {
+    this.sessionsState.update((sessions) => sessions.filter((s) => s.id !== sessionId));
   }
 
   /**

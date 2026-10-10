@@ -163,6 +163,21 @@ describe('removeRepo', () => {
     expect(core.listRepos()).toEqual([]);
   });
 
+  it('a start requested while the Repo is being removed spawns nothing', async () => {
+    h.addRepo({ name: 'billing', config: { services: [{ id: 'api', command: fixtureCommand('spawn-grandchild.mjs') }] } });
+    const core = await h.createCore();
+    const repo = core.listRepos()[0]!;
+    const statuses: string[] = [];
+    core.on('statusChanged', (e) => statuses.push(e.status));
+
+    const starting = core.startService(repo.id, 'api');
+    const removing = core.removeRepo(repo.id);
+
+    expect(await codeOf(starting)).toBe('repoNotFound');
+    await removing;
+    expect(statuses).toEqual([]);
+  });
+
   it('rejects an unknown Repo', async () => {
     const core = await h.createCore();
     expect(await codeOf(core.removeRepo('nope'))).toBe('repoNotFound');

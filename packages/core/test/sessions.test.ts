@@ -202,6 +202,36 @@ describe('Sessions and the rest of DevPanel', () => {
     expect(core.snapshot().sessions).toEqual([kept]);
   });
 
+  it('a Terminal requested while its Repo is being removed is not opened', async () => {
+    h.addRepo({ name: 'billing' });
+    const core = await h.createCore();
+    const repo = core.listRepos()[0]!;
+
+    const opening = core.openTerminal(repo.id);
+    const removing = core.removeRepo(repo.id);
+
+    await expect(opening).rejects.toMatchObject({ code: 'repoNotFound' });
+    await removing;
+    expect(core.snapshot().sessions).toEqual([]);
+  });
+
+  it('a Claude Session requested while its Repo is being removed is not opened', async () => {
+    h.addRepo({ name: 'billing' });
+    let answerProbe!: (available: boolean) => void;
+    const core = await h.createCore(undefined, {
+      environment: { isClaudeAvailable: () => new Promise((resolve) => (answerProbe = resolve)), claudeCommand: 'cmd.exe' },
+    });
+    const repo = core.listRepos()[0]!;
+
+    const opening = core.openClaude(repo.id);
+    await waitUntil(() => answerProbe !== undefined);
+    await core.removeRepo(repo.id);
+    answerProbe(true);
+
+    await expect(opening).rejects.toMatchObject({ code: 'repoNotFound' });
+    expect(core.snapshot().sessions).toEqual([]);
+  });
+
   it('relocateRepo is refused while a Session of the Repo runs', async () => {
     h.addRepo({ name: 'billing' });
     const elsewhere = h.makeFolder('moved');

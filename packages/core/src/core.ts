@@ -637,6 +637,9 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     if (service.process) return;
     if (service.launch && !service.launch.abort.signal.aborted) return service.launch.done;
     await this.requireRepoFolder(repo);
+    this.requireStillListed(repo);
+    if (service.process) return;
+    if (service.launch && !service.launch.abort.signal.aborted) return service.launch.done;
 
     const abort = new AbortController();
     const launch: Launch = {
@@ -959,6 +962,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   async openTerminal(repoId: string): Promise<SessionView> {
     const repo = this.getRepo(repoId);
     await this.requireRepoFolder(repo);
+    this.requireStillListed(repo);
     return this.openSession(repo, 'shell', this.environment.shellCommand);
   }
 
@@ -969,7 +973,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     if (!(await this.environment.isClaudeAvailable())) {
       throw new DevPanelError('claudeMissing', {}, '"where claude" found nothing on PATH');
     }
-    return this.openSession(this.getRepo(repoId), 'claude', this.environment.claudeCommand);
+    this.requireStillListed(repo);
+    return this.openSession(repo, 'claude', this.environment.claudeCommand);
   }
 
   /**
@@ -1398,6 +1403,13 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const repo = this.repos.get(repoId);
     if (!repo) throw new DevPanelError('repoNotFound', { repoId }, `Unknown Repo "${repoId}"`);
     return repo;
+  }
+
+  /** After an await: throws `repoNotFound` when the Repo was removed (or relocated) meanwhile. */
+  private requireStillListed(repo: RepoState): void {
+    if (this.repos.get(repo.id) !== repo) {
+      throw new DevPanelError('repoNotFound', { repoId: repo.id }, `Repo "${repo.name}" was removed meanwhile`);
+    }
   }
 
   private getService(repo: RepoState, serviceId: string): ServiceState {

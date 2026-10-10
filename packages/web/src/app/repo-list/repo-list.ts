@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import type { RepoView, ServiceStatus } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
+import { ConfigSuggestions } from '../config-suggestions/config-suggestions';
 import { ErrorMessage } from '../error-message/error-message';
 import { ServiceExit } from '../service-exit/service-exit';
 import { STRINGS, describeError } from '../strings';
@@ -15,7 +16,7 @@ const PALETTE = ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6
 /** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳. */
 @Component({
   selector: 'dp-repo-list',
-  imports: [ErrorMessage, ServiceExit],
+  imports: [ErrorMessage, ConfigSuggestions, ServiceExit],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './repo-list.html',
   styleUrl: './repo-list.css',
@@ -40,6 +41,8 @@ export class RepoList {
   }
 
   protected configErrorMessage(repo: RepoView): string {
+    // With Services still listed, the last valid config keeps working.
+    if (repo.services.length > 0) return this.strings.config.invalidKeepsPrevious(repo.name);
     return describeError({ code: 'configInvalid', params: { repoName: repo.name }, details: repo.configError ?? '' });
   }
 }

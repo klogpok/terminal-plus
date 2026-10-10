@@ -6,6 +6,7 @@ export {
   type CoreTimings,
 } from './core.js';
 export type {
+  ConfigChangedEvent,
   ExitEvent,
   LogEvent,
   RepoView,
@@ -13,7 +14,7 @@ export type {
   Snapshot,
   StatusChangedEvent,
 } from '@devpanel/shared';
-export { REPO_CONFIG_FILE, type ServiceDefinition } from './config.js';
+export { LOCAL_CONFIG_DIR, REPO_CONFIG_FILE, localConfigPath, type ServiceDefinition } from './config.js';
 export { WORKSPACE_FILE } from './workspace.js';
 export {
   findPortListeners,
@@ -22,3 +23,4 @@ export {
   parseNetstatListeners,
   type PortListener,
 } from './ports.js';
+export { DEFAULT_ENVIRONMENT, PNPM_LOCK_FILE, type Environment } from './environment.js';

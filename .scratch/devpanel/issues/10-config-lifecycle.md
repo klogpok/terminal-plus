@@ -4,15 +4,15 @@
 
 **Blocked by:** 02 (Control a Service from the browser).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Auto-detection proposes Services from `pnpm-workspace.yaml` packages, else from the root `package.json`; the UI shows them with checkboxes and "Save config".
-- [ ] `saveLocalConfig` writes the Local Config to the app data directory and nothing into the Repo folder (test asserts the Repo folder is unchanged).
-- [ ] When both exist, only the Repo Config is used, with no merging; the UI offers to delete the Local Config.
-- [ ] Editing a watched config emits `configChanged`; stopped Services take the new definition; running ones keep the old one and are flagged.
-- [ ] A Service removed from the config while running stays listed until it is stopped, then disappears.
-- [ ] An invalid config shows a plain-Russian error on the Repo, and the last valid config stays active.
-- [ ] zod validation errors (duplicate ids or ports, unknown dependsOn) are shown on the Repo.
+- [x] Auto-detection proposes Services from `pnpm-workspace.yaml` packages, else from the root `package.json`; the UI shows them with checkboxes and "Save config".
+- [x] `saveLocalConfig` writes the Local Config to the app data directory and nothing into the Repo folder (test asserts the Repo folder is unchanged).
+- [x] When both exist, only the Repo Config is used, with no merging; the UI offers to delete the Local Config.
+- [x] Editing a watched config emits `configChanged`; stopped Services take the new definition; running ones keep the old one and are flagged.
+- [x] A Service removed from the config while running stays listed until it is stopped, then disappears.
+- [x] An invalid config shows a plain-Russian error on the Repo, and the last valid config stays active.
+- [x] zod validation errors (duplicate ids or ports, unknown dependsOn) are shown on the Repo.
 
 ---
 
@@ -24,12 +24,12 @@
 
 **Блокируется:** 02 (Управление Сервисом из браузера).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Автоопределение предлагает Сервисы из пакетов `pnpm-workspace.yaml`, иначе из корневого `package.json`; UI показывает их с галочками и кнопкой «Сохранить конфиг».
-- [ ] `saveLocalConfig` записывает Локальный конфиг в каталог данных приложения и ничего не пишет в папку Репо (тест проверяет, что папка Репо не изменилась).
-- [ ] Если есть оба, используется только Конфиг репо, без слияния; UI предлагает удалить Локальный конфиг.
-- [ ] Правка отслеживаемого конфига испускает `configChanged`; остановленные Сервисы получают новое определение, запущенные сохраняют старое и получают пометку.
-- [ ] Сервис, удалённый из конфига во время работы, остаётся в списке, пока его не остановят, затем исчезает.
-- [ ] Невалидный конфиг показывает ошибку на понятном русском на Репо, и активным остаётся последний валидный конфиг.
-- [ ] Ошибки валидации zod (дубли id или портов, неизвестный dependsOn) показываются на Репо.
+- [x] Автоопределение предлагает Сервисы из пакетов `pnpm-workspace.yaml`, иначе из корневого `package.json`; UI показывает их с галочками и кнопкой «Сохранить конфиг».
+- [x] `saveLocalConfig` записывает Локальный конфиг в каталог данных приложения и ничего не пишет в папку Репо (тест проверяет, что папка Репо не изменилась).
+- [x] Если есть оба, используется только Конфиг репо, без слияния; UI предлагает удалить Локальный конфиг.
+- [x] Правка отслеживаемого конфига испускает `configChanged`; остановленные Сервисы получают новое определение, запущенные сохраняют старое и получают пометку.
+- [x] Сервис, удалённый из конфига во время работы, остаётся в списке, пока его не остановят, затем исчезает.
+- [x] Невалидный конфиг показывает ошибку на понятном русском на Репо, и активным остаётся последний валидный конфиг.
+- [x] Ошибки валидации zod (дубли id или портов, неизвестный dependsOn) показываются на Репо.

@@ -7,3 +7,4 @@
 .left { width: 320px; flex: none; overflow-y: auto; padding: 12px; border-right: 1px solid var(--border); }
 .right { flex: 1; min-width: 0; overflow: auto; padding: 12px; }
 .errors { display: flex; flex-direction: column; gap: 8px; max-width: 720px; }
+.install-tab { margin-top: 12px; }

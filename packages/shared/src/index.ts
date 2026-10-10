@@ -37,6 +37,10 @@ export interface ServiceView {
   status: ServiceStatus;
   /** How the Service ended by itself; set only while it is `crashed` or `exited`. */
   lastExit?: ExitDetails;
+  /** The config changed while the Service was running; it still runs the old definition until restarted. */
+  configChanged?: boolean;
+  /** The Service is gone from the config but still running; it disappears once it stops. */
+  removedFromConfig?: boolean;
 }
 
 /** Exit code and the last output lines (ANSI stripped) of a Service that ended by itself. */
@@ -49,13 +53,54 @@ export interface ExitDetails {
 /** How many last output lines a crashed or exited Service reports. */
 export const EXIT_TAIL_LINES = 30;
 
+/** Where a Repo's Services come from: its Repo Config, the Local Config, or nowhere yet. */
+export type ConfigSource = 'repo' | 'local' | 'none';
+
+/** One Service definition as written to a Local Config (subset of the Repo Config fields). */
+export interface ServiceConfig {
+  id: string;
+  name?: string;
+  command: string;
+  cwd?: string;
+}
+
+/** A Service proposed by auto-detection for a Repo without any config. */
+export interface SuggestedService extends ServiceConfig {
+  name: string;
+  /** Whether the UI ticks it by default. */
+  preselected: boolean;
+}
+
+/**
+ * Dependency install state of a pnpm Repo (one with `pnpm-lock.yaml`). Absent on `RepoView` when
+ * nothing is to be done: not a pnpm Repo, or `node_modules` exists and no install is running.
+ */
+export type InstallState =
+  /** No `node_modules` yet: the UI offers "Install dependencies". */
+  | { state: 'needed' }
+  /** `pnpm install` is running. */
+  | { state: 'running' }
+  /** The last `pnpm install` failed and dependencies are still missing. */
+  | { state: 'failed'; exitCode: number };
+
 export interface RepoView {
   id: string;
   name: string;
   path: string;
   color?: string;
-  /** Set when the Repo Config cannot be read or is invalid (technical, English). */
+  /**
+   * Set when the active config file cannot be read or is invalid (technical, English). If the Repo
+   * still lists Services, they come from the last valid config.
+   */
   configError?: string;
+  /** Dependency install state; see `InstallState`. */
+  install?: InstallState;
+  /** Absent means 'none' (kept optional so older builders stay valid). */
+  configSource?: ConfigSource;
+  /** Auto-detected Services; only when `configSource` is 'none'. */
+  suggestions?: SuggestedService[];
+  /** A Repo Config exists, so the Local Config of this Repo is unused and can be deleted. */
+  unusedLocalConfig?: boolean;
   services: ServiceView[];
 }
 
@@ -91,10 +136,36 @@ export interface ExitEvent extends ServiceRef {
   lastLines: string[];
 }
 
+/** A chunk of `pnpm install` pty output for a Repo (including ANSI sequences). */
+export interface InstallOutputEvent {
+  repoId: string;
+  data: string;
+}
+
+/** A Repo's `InstallState` changed; `install` absent = nothing to install any more. */
+export interface InstallChangedEvent {
+  repoId: string;
+  install?: InstallState;
+}
+
+/** Outcome of `installDependencies`. */
+export interface InstallResult {
+  ok: boolean;
+  exitCode: number;
+}
+
+/** A Repo's config was (re)loaded: replaces the whole Repo view. */
+export interface ConfigChangedEvent {
+  repo: RepoView;
+}
+
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
+  installOutput: InstallOutputEvent;
+  installChanged: InstallChangedEvent;
+  configChanged: ConfigChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -109,6 +180,12 @@ export interface Commands {
   startService: { payload: ServiceRef; result: null };
   stopService: { payload: ServiceRef; result: null };
   restartService: { payload: ServiceRef; result: null };
+  /** Runs `pnpm install` in a pnpm Repo; replies when it has finished. */
+  installDependencies: { payload: { repoId: string }; result: InstallResult };
+  /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */
+  saveLocalConfig: { payload: { repoId: string; services: ServiceConfig[] }; result: null };
+  /** Deletes the Repo's Local Config (offered once a Repo Config exists). */
+  deleteLocalConfig: { payload: { repoId: string }; result: null };
 }
 
 export type CommandType = keyof Commands;

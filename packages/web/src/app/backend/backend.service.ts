@@ -82,10 +82,7 @@ export class BackendService {
   // --- Commands -------------------------------------------------------------------------------
 
   startService(repoId: string, serviceId: string): void {
-    this.command('startService', { repoId, serviceId }).catch((error: UiErrorInfo) => {
-      // A port conflict is shown on the Service itself (`portConflict`), with its button.
-      if (error.code !== 'portTaken') this.showError(error);
-    });
+    this.run('startService', { repoId, serviceId });
   }
 
   /** Frees the Service's port (stops our Service or kills the foreign process), then starts it. */
@@ -99,6 +96,21 @@ export class BackendService {
 
   restartService(repoId: string, serviceId: string): void {
     this.run('restartService', { repoId, serviceId });
+  }
+
+  /** "Start all" of one Repo (dependsOn order is kept by the Server). */
+  startAll(repoId: string): void {
+    this.run('startAll', { repoId });
+  }
+
+  /** "Stop all" of one Repo: Services only, never Sessions. */
+  stopAll(repoId: string): void {
+    this.run('stopAll', { repoId });
+  }
+
+  /** "Stop all in all Repos": every Service in the Workspace, never Sessions. */
+  stopAllRepos(): void {
+    this.run('stopAllRepos', {});
   }
 
   /** Runs `pnpm install` in a pnpm Repo and opens a tab with its output. */
@@ -170,7 +182,11 @@ export class BackendService {
 
   /** Sends a command and shows any failure as a UI error. */
   run<K extends CommandType>(type: K, payload: CommandPayload<K>): void {
-    this.command(type, payload).catch((error: UiErrorInfo) => this.showError(error));
+    this.command(type, payload).catch((error: UiErrorInfo) => {
+      // A port conflict (from a start, restart or start all) is shown on the Service itself
+      // (`portConflict`), with its button; listing it again would only duplicate it.
+      if (error.code !== 'portTaken') this.showError(error);
+    });
   }
 
   // --- Events ---------------------------------------------------------------------------------

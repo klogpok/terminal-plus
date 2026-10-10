@@ -1,6 +1,9 @@
 :host { display: flex; flex-direction: column; height: 100vh; }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--panel); }
-.app-title { font-weight: 700; }
+.app-title { font-weight: 700; flex: 1; }
+.stop-all-repos { height: 26px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 0 10px; }
+.stop-all-repos:disabled { opacity: 0.35; cursor: default; }
+.stop-all-repos:not(:disabled):hover { border-color: var(--accent); }
 .banner { padding: 6px 14px; color: var(--muted); font-size: 13px; }
 .banner-error { padding: 8px 14px; }
 .layout { flex: 1; display: flex; min-height: 0; }

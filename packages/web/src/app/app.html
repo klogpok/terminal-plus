@@ -1,5 +1,13 @@
 <header class="topbar">
   <span class="app-title">{{ strings.appTitle }}</span>
+  <button
+    type="button"
+    class="stop-all-repos"
+    [disabled]="!anyStoppable()"
+    [title]="strings.actions.stopAllRepos"
+    [attr.aria-label]="strings.actions.stopAllRepos"
+    (click)="backend.stopAllRepos()"
+  >■ {{ strings.actions.stopAllRepos }}</button>
 </header>
 @switch (backend.connection()) {
   @case ('connecting') {

@@ -128,6 +128,12 @@ interface InstallRun {
   exitCode?: number;
 }
 
+/** One `startService` call until the Service is spawned; stopping the Service aborts it. */
+interface Launch {
+  abort: AbortController;
+  done: Promise<void>;
+}
+
 interface ServiceState {
   definition: ServiceDefinition;
   status: ServiceStatus;
@@ -141,6 +147,8 @@ interface ServiceState {
   readiness?: ReadinessWatch;
   /** How the Service ended by itself; present only while `crashed` or `exited`. */
   lastExit?: ExitDetails;
+  /** A start in progress that is still waiting for dependencies (or the pnpm check) before spawning. */
+  launch?: Launch;
   /** New definition from a config change while running; applied once the Service exits. */
   pending?: ServiceDefinition;
   /** Gone from the config while running; dropped once the Service exits. */
@@ -358,9 +366,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     // Ticket 09: also close the Repo's Sessions here.
     const install = repo.install?.process;
     await Promise.all([
-      ...[...repo.services.values()]
-        .filter((s) => s.process)
-        .map((s) => this.stopService(repo.id, s.definition.id)),
+      // stopService also cancels a start still waiting for its dependencies.
+      ...[...repo.services.keys()].map((serviceId) => this.stopService(repo.id, serviceId)),
       ...(install ? [install.stop(this.timings.gracefulStopMs)] : []),
     ]);
     if (this.repos.get(repoId) !== repo) return; // removed concurrently
@@ -502,17 +509,111 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     return { repos: this.listRepos() };
   }
 
-  /** Starts a Service through `cmd.exe /d /s /c` in its working directory. */
+  /**
+   * Starts a Service through `cmd.exe /d /s /c` in its working directory. Its dependencies
+   * (dependsOn, transitively) are started first and awaited until `running`; if one ends up in any
+   * other status, the Service stays stopped and this fails with `dependencyFailed`. Resolves once
+   * the Service is spawned (it is then `starting`), or quietly when it was stopped while waiting.
+   */
   async startService(repoId: string, serviceId: string): Promise<void> {
     const repo = this.getRepo(repoId);
     const service = this.getService(repo, serviceId);
     if (service.process) return;
+    if (service.launch && !service.launch.abort.signal.aborted) return service.launch.done;
     await this.requireRepoFolder(repo);
 
+    const abort = new AbortController();
+    const launch: Launch = {
+      abort,
+      done: this.launch(repo, service, abort.signal).finally(() => {
+        if (service.launch === launch) service.launch = undefined;
+      }),
+    };
+    service.launch = launch;
+    return launch.done;
+  }
+
+  /** Starts every Service of the Repo that is not running yet; dependsOn orders the starts. */
+  async startAll(repoId: string): Promise<void> {
+    const repo = this.getRepo(repoId);
+    const results = await Promise.allSettled(
+      [...repo.services.values()]
+        .filter((service) => !service.removed)
+        .map((service) => this.startService(repo.id, service.definition.id)),
+    );
+    const failure = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failure) throw failure.reason;
+  }
+
+  /** "Stop all": stops every Service of the Repo (Services only, never Sessions). */
+  async stopAll(repoId: string): Promise<void> {
+    const repo = this.getRepo(repoId);
+    await Promise.all([...repo.services.keys()].map((serviceId) => this.stopService(repo.id, serviceId)));
+  }
+
+  /** "Stop all in all Repos": stops every Service in the Workspace (never Sessions). */
+  async stopAllRepos(): Promise<void> {
+    await Promise.all([...this.repos.keys()].map((repoId) => this.stopAll(repoId)));
+  }
+
+  /** The body of a start: pnpm check, dependencies, then spawn (unless stopped meanwhile). */
+  private async launch(repo: RepoState, service: ServiceState, signal: AbortSignal): Promise<void> {
     await this.ensurePnpm(repo);
-    if (service.process) return;
+    if (signal.aborted || service.process) return;
+    // Port before dependencies: a blocked start should not bring up its dependencies first.
     await this.ensurePortFree(repo, service);
-    if (service.process) return;
+    if (signal.aborted || service.process) return;
+    await Promise.all(
+      (service.definition.dependsOn ?? []).map((depId) => this.startDependency(repo, service, depId, signal)),
+    );
+    if (signal.aborted || service.process) return;
+    this.spawn(repo, service);
+  }
+
+  /** Starts one dependency if needed and waits for it to become `running`. */
+  private async startDependency(
+    repo: RepoState,
+    service: ServiceState,
+    depId: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const dep = this.getService(repo, depId);
+    if (dep.status === 'running') return;
+    if (dep.status !== 'unhealthy') {
+      if (dep.stopping) await dep.stopping;
+      if (signal.aborted) return;
+      await this.startService(repo.id, depId);
+    }
+    const status = await this.settledStatus(dep, signal);
+    if (status === 'running' || signal.aborted) return;
+    const serviceName = service.definition.name ?? service.definition.id;
+    const dependencyName = dep.definition.name ?? dep.definition.id;
+    throw new DevPanelError(
+      'dependencyFailed',
+      { repoName: repo.name, serviceName, dependencyName, dependencyStatus: status },
+      `Service "${service.definition.id}" was not started: its dependency "${depId}" is ${status}, not running`,
+    );
+  }
+
+  /** Waits until the Service leaves `starting` (or the signal aborts); returns its status then. */
+  private settledStatus(service: ServiceState, signal: AbortSignal): Promise<ServiceStatus> {
+    if (service.status !== 'starting' || signal.aborted) return Promise.resolve(service.status);
+    return new Promise((resolve) => {
+      const done = () => {
+        this.off('statusChanged', onStatus);
+        signal.removeEventListener('abort', done);
+        resolve(service.status);
+      };
+      const onStatus = () => {
+        if (service.status !== 'starting') done();
+      };
+      this.on('statusChanged', onStatus);
+      signal.addEventListener('abort', done);
+    });
+  }
+
+  private spawn(repo: RepoState, service: ServiceState): void {
+    const serviceId = service.definition.id;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
     if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text()));
@@ -571,6 +672,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   async stopService(repoId: string, serviceId: string): Promise<void> {
     const repo = this.getRepo(repoId);
     const service = this.getService(repo, serviceId);
+    service.launch?.abort.abort();
     if (service.stopping) return service.stopping;
     const proc = service.process;
     if (!proc) return;
@@ -729,6 +831,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       const install = repo.install?.process;
       if (install) stops.push(install.stop(this.timings.gracefulStopMs));
       for (const service of repo.services.values()) {
+        service.launch?.abort.abort();
         if (service.process) stops.push(this.stopService(repo.id, service.definition.id));
       }
     }

@@ -23,8 +23,6 @@
         }
       </div>
     }
-    @for (tab of backend.installTabs(); track tab.repoId) {
-      <dp-install-output class="install-tab" [tab]="tab" />
-    }
+    <dp-terminal-tabs />
   </main>
 </div>

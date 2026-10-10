@@ -18,10 +18,12 @@ import { dispatchCommand } from './commands.js';
 export const FORWARDED_EVENTS = [
   'statusChanged',
   'exit',
+  'log',
   'configChanged',
   'installOutput',
   'installChanged',
   'portConflictChanged',
+  'repoChanged',
 ] as const satisfies readonly (EventType & keyof CoreEvents)[];
 
 // Compile-time check: what `core` emits for a forwarded event fits the `shared` event payload.
@@ -30,10 +32,12 @@ type CheckForwarded = { [K in ForwardedEvent]: CoreEvents[K][0] extends Events[K
 const forwardedEventsMatch: CheckForwarded = {
   statusChanged: true,
   exit: true,
+  log: true,
   configChanged: true,
   installOutput: true,
   installChanged: true,
   portConflictChanged: true,
+  repoChanged: true,
 };
 void forwardedEventsMatch;
 

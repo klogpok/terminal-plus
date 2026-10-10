@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 
@@ -30,4 +30,13 @@ export async function readWorkspace(appDataDir: string): Promise<WorkspaceFile> 
     throw err;
   }
   return workspaceSchema.parse(JSON.parse(text));
+}
+
+/** Writes the Workspace file (via a temp file + rename, so a crash never leaves half a file). */
+export async function writeWorkspace(appDataDir: string, workspace: WorkspaceFile): Promise<void> {
+  await mkdir(appDataDir, { recursive: true });
+  const file = path.join(appDataDir, WORKSPACE_FILE);
+  const temp = `${file}.tmp`;
+  await writeFile(temp, `${JSON.stringify(workspace, null, 2)}\n`, 'utf8');
+  await rename(temp, file);
 }

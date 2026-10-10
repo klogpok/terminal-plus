@@ -47,6 +47,28 @@ export const STRINGS = {
     title: 'Репо',
     empty: 'В Workspace пока нет ни одного Репо.',
     noServices: 'Сервисов нет.',
+    add: 'Добавить репо',
+    addHint: 'DevPanel откроет окно выбора папки (оно может появиться за браузером).',
+    nameTaken: (name: string) => `Репо с именем «${name}» уже есть. Придумайте другое имя:`,
+    nameLabel: 'Имя репо',
+    addConfirm: 'Добавить',
+    cancel: 'Отмена',
+    branch: (branch: string) => `ветка ${branch}`,
+    branchTitle: 'Текущая git-ветка',
+    openFolder: 'Открыть папку',
+    remove: 'Удалить',
+    /** Accessible name of the Repo remove button, e.g. "Удалить репо Billing". */
+    removeRepo: (repoName: string) => `Удалить репо ${repoName}`,
+    removeQuestion: (repoName: string) => `Удалить репо ${repoName} из списка?`,
+    removeStops: (names: string[]) => `Будут остановлены: ${names.join(', ')}.`,
+    removeNothingRuns: 'Ничего не запущено.',
+    removeKeepsFolder: 'Папка с кодом останется на диске.',
+    folderMissing: 'Папка не найдена',
+    folderMissingHint: 'Возможно, её переместили, переименовали или отключили диск.',
+    relocate: 'Указать новое расположение',
+    /** Accessible name of the per-Service browser button, e.g. "Открыть в браузере API". */
+    openInBrowser: (serviceName: string) => `Открыть в браузере ${serviceName}`,
+    openInBrowserTitle: 'Открыть в браузере',
   },
 
   config: {
@@ -88,6 +110,21 @@ export const STRINGS = {
     details: 'Подробнее',
   },
 
+  terminal: {
+    /** Accessible name of a Service name in the left panel, e.g. "Открыть терминал API". */
+    open: (serviceName: string) => `Открыть терминал ${serviceName}`,
+    close: (serviceName: string) => `Закрыть вкладку ${serviceName}`,
+    tabsLabel: 'Терминалы',
+    empty: 'Нажмите на имя сервиса слева, чтобы открыть его терминал.',
+    clear: 'Очистить',
+    copyAll: 'Копировать всё',
+    copied: 'Скопировано',
+    copyFailed: 'Не удалось скопировать',
+    search: 'Поиск',
+    findNext: 'Найти дальше',
+    findPrevious: 'Найти раньше',
+    notFound: 'Не найдено',
+  },
   /** A Service that ended by itself (`crashed` / `exited`). */
   serviceExit: {
     crashed: (exitCode: number) => `Упал с кодом ${exitCode}`,
@@ -141,6 +178,13 @@ export const STRINGS = {
       `Репо ${p.repoName} не использует pnpm, поэтому DevPanel не устанавливает его зависимости. Обратитесь к разработчику.`,
     configInvalid: (p) =>
       `В файле настроек репо ${p.repoName} ошибка, поэтому его сервисы не показаны. Покажите подробности разработчику.`,
+    repoAlreadyAdded: (p) => `Эта папка уже добавлена как репо ${p.repoName}.`,
+    repoNameTaken: (p) => `Репо с именем «${p.name}» уже есть. Выберите другое имя.`,
+    folderNotFound: (p) => `Папка ${p.path} не найдена.`,
+    repoFolderMissing: (p) => `Папка репо ${p.repoName} не найдена. Укажите её новое расположение или удалите репо.`,
+    repoBusy: (p) => `В репо ${p.repoName} сейчас работают сервисы. Остановите их и попробуйте снова.`,
+    serviceHasNoUrl: (p) => `У сервиса ${p.serviceName} из репо ${p.repoName} не указан адрес для браузера.`,
+    shellFailed: () => 'Не удалось открыть окно Windows. Попробуйте ещё раз.',
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',

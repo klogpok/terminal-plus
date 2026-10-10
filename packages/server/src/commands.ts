@@ -22,7 +22,9 @@ interface CommandHandler<K extends CommandType> {
 type CommandHandlers = { [K in CommandType]: CommandHandler<K> };
 
 const serviceRef = z.object({ repoId: z.string().min(1), serviceId: z.string().min(1) });
-const empty = z.object({}).transform(() => ({}) as Record<string, never>);
+const repoRef = z.object({ repoId: z.string().min(1) });
+const ptySize = z.number().int().min(1).max(1000);
+const empty =z.object({}).transform(() => ({}) as Record<string, never>);
 
 export const COMMAND_HANDLERS: CommandHandlers = {
   getSnapshot: { payload: empty, run: (core) => core.snapshot() },
@@ -41,6 +43,39 @@ export const COMMAND_HANDLERS: CommandHandlers = {
   resolvePortConflict: {
     payload: serviceRef,
     run: async (core, p) => (await core.resolvePortConflict(p.repoId, p.serviceId), null),
+  },
+  addRepo: {
+    payload: z.object({ path: z.string().min(1).optional(), name: z.string().trim().min(1).max(100).optional() }),
+    run: (core, p) => core.addRepo(p),
+  },
+  removeRepo: {
+    payload: repoRef,
+    run: async (core, p) => (await core.removeRepo(p.repoId), null),
+  },
+  relocateRepo: {
+    payload: z.object({ repoId: z.string().min(1), path: z.string().min(1).optional() }),
+    run: (core, p) => core.relocateRepo(p.repoId, p.path),
+  },
+  openFolder: {
+    payload: repoRef,
+    run: async (core, p) => (await core.openFolder(p.repoId), null),
+  },
+  openUrl: {
+    payload: serviceRef,
+    run: async (core, p) => (await core.openUrl(p.repoId, p.serviceId), null),
+  },
+  getServiceOutput: {
+    payload: serviceRef,
+    // Synchronous on purpose: no `log` event can slip between reading the buffer and the reply.
+    run: (core, p) => core.getServiceOutput(p.repoId, p.serviceId),
+  },
+  writeToPty: {
+    payload: serviceRef.extend({ data: z.string() }),
+    run: (core, p) => (core.writeToPty(p.repoId, p.serviceId, p.data), null),
+  },
+  resizePty: {
+    payload: serviceRef.extend({ cols: ptySize, rows: ptySize }),
+    run: (core, p) => (core.resizePty(p.repoId, p.serviceId, p.cols, p.rows), null),
   },
   installDependencies: {
     payload: z.object({ repoId: z.string().min(1) }),

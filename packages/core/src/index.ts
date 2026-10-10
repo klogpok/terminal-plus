@@ -1,6 +1,7 @@
 export {
   DevPanelCore,
   DEFAULT_TIMINGS,
+  REPO_COLORS,
   type CoreEvents,
   type CoreOptions,
   type CoreTimings,
@@ -12,6 +13,7 @@ export type {
   PortConflict,
   PortConflictChangedEvent,
   PortOwner,
+  RepoChangedEvent,
   RepoView,
   ServiceView,
   Snapshot,
@@ -19,6 +21,7 @@ export type {
 } from '@devpanel/shared';
 export { LOCAL_CONFIG_DIR, REPO_CONFIG_FILE, localConfigPath, type ServiceDefinition } from './config.js';
 export { WORKSPACE_FILE } from './workspace.js';
+export { windowsShell, type DesktopShell } from './shell.js';
 export {
   ancestry,
   findPortListeners,

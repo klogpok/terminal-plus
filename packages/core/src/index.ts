@@ -15,3 +15,4 @@ export type {
 } from '@devpanel/shared';
 export { REPO_CONFIG_FILE, type ServiceDefinition } from './config.js';
 export { WORKSPACE_FILE } from './workspace.js';
+export { DEFAULT_ENVIRONMENT, PNPM_LOCK_FILE, type Environment } from './environment.js';

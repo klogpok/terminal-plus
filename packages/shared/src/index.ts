@@ -37,6 +37,18 @@ export interface ServiceView {
   status: ServiceStatus;
 }
 
+/**
+ * Dependency install state of a pnpm Repo (one with `pnpm-lock.yaml`). Absent on `RepoView` when
+ * nothing is to be done: not a pnpm Repo, or `node_modules` exists and no install is running.
+ */
+export type InstallState =
+  /** No `node_modules` yet: the UI offers "Install dependencies". */
+  | { state: 'needed' }
+  /** `pnpm install` is running. */
+  | { state: 'running' }
+  /** The last `pnpm install` failed and dependencies are still missing. */
+  | { state: 'failed'; exitCode: number };
+
 export interface RepoView {
   id: string;
   name: string;
@@ -44,6 +56,8 @@ export interface RepoView {
   color?: string;
   /** Set when the Repo Config cannot be read or is invalid (technical, English). */
   configError?: string;
+  /** Dependency install state; see `InstallState`. */
+  install?: InstallState;
   services: ServiceView[];
 }
 
@@ -77,10 +91,30 @@ export interface ExitEvent extends ServiceRef {
   stoppedByUser: boolean;
 }
 
+/** A chunk of `pnpm install` pty output for a Repo (including ANSI sequences). */
+export interface InstallOutputEvent {
+  repoId: string;
+  data: string;
+}
+
+/** A Repo's `InstallState` changed; `install` absent = nothing to install any more. */
+export interface InstallChangedEvent {
+  repoId: string;
+  install?: InstallState;
+}
+
+/** Outcome of `installDependencies`. */
+export interface InstallResult {
+  ok: boolean;
+  exitCode: number;
+}
+
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
+  installOutput: InstallOutputEvent;
+  installChanged: InstallChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -95,6 +129,8 @@ export interface Commands {
   startService: { payload: ServiceRef; result: null };
   stopService: { payload: ServiceRef; result: null };
   restartService: { payload: ServiceRef; result: null };
+  /** Runs `pnpm install` in a pnpm Repo; replies when it has finished. */
+  installDependencies: { payload: { repoId: string }; result: InstallResult };
 }
 
 export type CommandType = keyof Commands;

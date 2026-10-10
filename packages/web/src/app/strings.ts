@@ -60,11 +60,29 @@ export const STRINGS = {
     details: 'Подробнее',
   },
 
+  install: {
+    button: 'Установить зависимости',
+    running: 'Устанавливаем…',
+    /** Title of the install output tab. */
+    title: (repoName: string) => `Установка зависимостей: ${repoName}`,
+    status: {
+      running: 'Идёт установка, это может занять несколько минут…',
+      succeeded: 'Зависимости установлены. Теперь можно запускать сервисы.',
+      failed: (exitCode: number) =>
+        `Не удалось установить зависимости (код ${exitCode}). Покажите вывод выше разработчику.`,
+    },
+  },
+
   /** Plain-Russian messages: what happened (and what to do), without jargon. */
   errors: {
     repoNotFound: () => 'Этого Репо больше нет в списке. Обновите страницу.',
     serviceNotFound: (p) => `В репо ${p.repoName} больше нет сервиса «${p.serviceId}». Обновите страницу.`,
     spawnFailed: (p) => `Не удалось запустить сервис ${p.serviceName} из репо ${p.repoName}.`,
+    pnpmMissing: (p) =>
+      `Репо ${p.repoName} работает через pnpm, но pnpm на этом компьютере не найден. ` +
+      'Выполните в терминале «corepack enable» или установите pnpm, затем перезапустите DevPanel.',
+    notPnpmRepo: (p) =>
+      `Репо ${p.repoName} не использует pnpm, поэтому DevPanel не устанавливает его зависимости. Обратитесь к разработчику.`,
     configInvalid: (p) =>
       `В файле настроек репо ${p.repoName} ошибка, поэтому его сервисы не показаны. Покажите подробности разработчику.`,
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',

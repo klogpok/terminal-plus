@@ -38,6 +38,10 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: serviceRef,
     run: async (core, p) => (await core.restartService(p.repoId, p.serviceId), null),
   },
+  installDependencies: {
+    payload: z.object({ repoId: z.string().min(1) }),
+    run: (core, p) => core.installDependencies(p.repoId),
+  },
 };
 
 const envelope = z.object({

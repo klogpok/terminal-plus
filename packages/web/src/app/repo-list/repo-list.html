@@ -7,6 +7,14 @@
       @if (repo.configError) {
         <dp-error-message [message]="configErrorMessage(repo)" [details]="repo.configError" />
       }
+      @if (repo.install) {
+        <button
+          type="button"
+          class="install-button"
+          [disabled]="repo.install.state === 'running'"
+          (click)="backend.installDependencies(repo.id)"
+        >{{ repo.install.state === 'running' ? strings.install.running : strings.install.button }}</button>
+      }
       <ul class="services">
         @for (service of repo.services; track service.id) {
           <li class="service" [attr.data-service-id]="service.id">

@@ -15,13 +15,22 @@ import { isAccessKeyValid } from './access-key.js';
 import { dispatchCommand } from './commands.js';
 
 /** `core` events broadcast to clients. Each name must exist in both `Events` and `CoreEvents`. */
-export const FORWARDED_EVENTS = ['statusChanged', 'exit'] as const satisfies readonly (EventType &
-  keyof CoreEvents)[];
+export const FORWARDED_EVENTS = [
+  'statusChanged',
+  'exit',
+  'installOutput',
+  'installChanged',
+] as const satisfies readonly (EventType & keyof CoreEvents)[];
 
 // Compile-time check: what `core` emits for a forwarded event fits the `shared` event payload.
 type ForwardedEvent = (typeof FORWARDED_EVENTS)[number];
 type CheckForwarded = { [K in ForwardedEvent]: CoreEvents[K][0] extends Events[K] ? true : never };
-const forwardedEventsMatch: CheckForwarded = { statusChanged: true, exit: true };
+const forwardedEventsMatch: CheckForwarded = {
+  statusChanged: true,
+  exit: true,
+  installOutput: true,
+  installChanged: true,
+};
 void forwardedEventsMatch;
 
 export interface ServerOptions {

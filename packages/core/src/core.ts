@@ -1,16 +1,12 @@
-import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, watch, type FSWatcher } from 'node:fs';
 import { mkdir, rename, stat } from 'node:fs/promises';
-import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
 import {
   DevPanelError,
   EXIT_TAIL_LINES,
   HOST_STRINGS,
   type ConfigChangedEvent,
-  type ConfigSource,
-  type ExitDetails,
   type ExitEvent,
   type InstallChangedEvent,
   type InstallOutputEvent,
@@ -19,21 +15,14 @@ import {
   type LogEvent,
   type Orphan,
   type OrphansFoundEvent,
-  type PortConflict,
   type PortConflictChangedEvent,
-  type PortOwner,
   type RepoChangedEvent,
   type RepoView,
   type ServiceConfig,
   type ServiceStatus,
-  type SessionChangedEvent,
-  type SessionClosedEvent,
-  type SessionKind,
-  type SessionOutputEvent,
   type SessionView,
   type Snapshot,
   type StatusChangedEvent,
-  type SuggestedService,
   type WaitingChangedEvent,
 } from '@devpanel/shared';
 import {
@@ -49,16 +38,18 @@ import {
   type ServiceDefinition,
 } from './config.js';
 import { detectServices } from './detect.js';
-import { OutputBuffer } from './output-buffer.js';
 import { readWorkspace, writeWorkspace } from './workspace.js';
 import { killTree, spawnService, type ServiceProcess } from './process.js';
-import { ancestry, findPortListeners, listProcesses, type ProcessInfo } from './ports.js';
+import { listProcesses, type ProcessInfo } from './ports.js';
 import { PID_FILE, PidFile, ProcessRecorder, matches, orphansFrom, type PidRecord } from './pid-file.js';
 import { windowsShell, type DesktopShell } from './shell.js';
 import { repoIdFor } from './repo-id.js';
 import { readGitBranch } from './git.js';
 import { OutputTail } from './output-tail.js';
-import { watchReadiness, type ReadinessWatch } from './readiness.js';
+import { watchReadiness } from './readiness.js';
+import { Sessions, type SessionEvents } from './sessions.js';
+import { PortConflicts } from './port-conflicts.js';
+import { ServiceState, type InstallRun, type Launch, type RepoState } from './state.js';
 import {
   DEFAULT_ENVIRONMENT,
   PNPM_LOCK_FILE,
@@ -119,7 +110,7 @@ export const REPO_COLORS = [
   '#f97316',
 ];
 
-export interface CoreEvents {
+export interface CoreEvents extends SessionEvents {
   statusChanged: [StatusChangedEvent];
   log: [LogEvent];
   exit: [ExitEvent];
@@ -130,87 +121,6 @@ export interface CoreEvents {
   portConflictChanged: [PortConflictChangedEvent];
   waitingChanged: [WaitingChangedEvent];
   orphansFound: [OrphansFoundEvent];
-  sessionChanged: [SessionChangedEvent];
-  sessionClosed: [SessionClosedEvent];
-  sessionOutput: [SessionOutputEvent];
-}
-
-/** An open Session (running, or finished by itself and still shown in its tab). */
-interface SessionState {
-  id: string;
-  repoId: string;
-  kind: SessionKind;
-  number: number;
-  /** Set while the process runs. */
-  process?: ServiceProcess;
-  exitCode?: number;
-  output: OutputBuffer;
-  /** Set once `closeSession` (or Repo removal / shutdown) began ending it. */
-  closing?: Promise<void>;
-}
-
-/** A running or finished `pnpm install` of one Repo. */
-interface InstallRun {
-  /** Set while the install runs. */
-  process?: ServiceProcess;
-  /** Resolves when the install has finished. */
-  done: Promise<InstallResult>;
-  /** Exit code of the finished install. */
-  exitCode?: number;
-}
-
-/** One `startService` call until the Service is spawned; stopping the Service aborts it. */
-interface Launch {
-  abort: AbortController;
-  done: Promise<void>;
-}
-
-interface ServiceState {
-  definition: ServiceDefinition;
-  status: ServiceStatus;
-  process?: ServiceProcess;
-  /** Recent output; survives restarts (a separator is appended instead of clearing). */
-  output: OutputBuffer;
-  /** Terminal size from the most recent `resizePty`; the next spawn uses it too. */
-  size?: { cols: number; rows: number };
-  stopping?: Promise<void>;
-  /** Readiness checks of the current run; present only while `starting` or `unhealthy`. */
-  readiness?: ReadinessWatch;
-  /** How the Service ended by itself; present only while `crashed` or `exited`. */
-  lastExit?: ExitDetails;
-  /** A start in progress that is still waiting for dependencies (or the pnpm check) before spawning. */
-  launch?: Launch;
-  /** New definition from a config change while running; applied once the Service exits. */
-  pending?: ServiceDefinition;
-  /** Gone from the config while running; dropped once the Service exits. */
-  removed?: boolean;
-  /** Its port is held by someone else (a blocked start, or still taken after a Stop). */
-  portConflict?: PortConflict;
-  /** Ids of the dependencies a start in progress still waits for. */
-  waitingFor?: string[];
-  /** PID file run id of the current process (see `ProcessRecorder`). */
-  runId?: string;
-}
-
-interface RepoState {
-  id: string;
-  name: string;
-  path: string;
-  color?: string;
-  configError?: string;
-  /** The last `installDependencies` run, if any. */
-  install?: InstallRun;
-  configSource: ConfigSource;
-  suggestions?: SuggestedService[];
-  unusedLocalConfig: boolean;
-  folderMissing: boolean;
-  branch?: string;
-  services: Map<string, ServiceState>;
-  /** Watches the Repo folder for config file changes. */
-  watcher?: FSWatcher;
-  reloadTimer?: NodeJS.Timeout;
-  /** Serializes config reloads of this Repo. */
-  reloading: Promise<void>;
 }
 
 /** Files in a Repo root whose change triggers a config reload. */
@@ -254,30 +164,6 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-/** How often port occupancy is re-checked while waiting for a port to become free. */
-const PORT_POLL_MS = 200;
-/** After a Stop, how long the port may take to be released before its owner is reported. */
-const PORT_RELEASE_AFTER_STOP_MS = 1_000;
-
-/** Technical (English) description of a port owner for error details. */
-function describeOwner(owner: PortOwner): string {
-  switch (owner.kind) {
-    case 'service':
-      return `Service "${owner.serviceName}" of Repo "${owner.repoName}"`;
-    case 'process':
-      return owner.processName;
-    case 'orphan':
-      return `Orphan of ${describeProcessOwner(owner.orphan)} (left over from the previous run)`;
-  }
-}
-
-/** Technical (English) description of what an Orphan belonged to. */
-function describeProcessOwner({ owner, repoName }: Orphan): string {
-  return owner.kind === 'service'
-    ? `Service "${owner.serviceName}" of Repo "${repoName}"`
-    : `${owner.sessionKind} Session of Repo "${repoName}"`;
-}
-
 function sameRecord(a: PidRecord, b: PidRecord): boolean {
   return a.runId === b.runId && a.pid === b.pid && a.createdAt === b.createdAt;
 }
@@ -297,8 +183,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   readonly appDataDir: string;
   private readonly shell: DesktopShell;
   private repos = new Map<string, RepoState>();
-  /** Open Sessions by id, in opening order. */
-  private readonly sessions = new Map<string, SessionState>();
+  private readonly sessions: Sessions;
+  private readonly ports: PortConflicts;
   private refreshTimer: NodeJS.Timeout | undefined;
   private readonly environment: Environment;
   private readonly pidFile: PidFile;
@@ -318,6 +204,17 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     this.environment = { ...DEFAULT_ENVIRONMENT, ...options.environment };
     this.pidFile = new PidFile(path.join(this.appDataDir, PID_FILE));
     this.recorder = new ProcessRecorder(this.pidFile);
+    this.sessions = new Sessions(this, this.recorder);
+    this.ports = new PortConflicts(
+      {
+        repos: () => this.repos.values(),
+        orphans: () => this.orphans,
+        stopService: (repoId, serviceId) => this.stopService(repoId, serviceId),
+        killOrphans: (ids) => this.killOrphans(ids),
+        emit: (event, payload) => this.emit(event, payload),
+      },
+      this.timings.portFreeTimeoutMs,
+    );
   }
 
   /**
@@ -425,7 +322,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const repo = this.getRepo(repoId);
     const install = repo.install?.process;
     await Promise.all([
-      this.closeSessions(repo.id),
+      this.sessions.closeAll(repo.id),
       // stopService also cancels a start still waiting for its dependencies.
       ...[...repo.services.keys()].map((serviceId) => this.stopService(repo.id, serviceId)),
       ...(install ? [install.stop(this.timings.gracefulStopMs)] : []),
@@ -458,8 +355,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     await this.requireFolder(resolved);
-    const liveSession = [...this.sessions.values()].some((s) => s.repoId === repoId && s.process);
-    if ([...repo.services.values()].some((s) => s.process) || repo.install?.process || liveSession) {
+    const live = [...repo.services.values()].some((s) => s.process) || repo.install?.process;
+    if (live || this.sessions.hasRunning(repoId)) {
       throw new DevPanelError('repoBusy', { repoName: repo.name }, `Repo "${repo.name}" has running processes`);
     }
 
@@ -477,11 +374,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const view = this.repoView(moved);
     this.emit('repoChanged', { repoId, repo: view });
     // Finished Sessions (still shown in their tabs) follow the Repo to its new id.
-    for (const session of this.sessions.values()) {
-      if (session.repoId !== repoId || moved.id === repoId) continue;
-      session.repoId = moved.id;
-      this.emit('sessionChanged', { session: this.sessionView(session) });
-    }
+    this.sessions.moveRepo(repoId, moved.id);
     return view;
   }
 
@@ -495,12 +388,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   /** Opens a Service's configured `url` in the default browser (through the backend). */
   async openUrl(repoId: string, serviceId: string): Promise<void> {
     const repo = this.getRepo(repoId);
-    const { definition } = this.getService(repo, serviceId);
+    const service = this.getService(repo, serviceId);
+    const { definition } = service;
     if (definition.url === undefined) {
-      const serviceName = definition.name ?? definition.id;
       throw new DevPanelError(
         'serviceHasNoUrl',
-        { repoName: repo.name, serviceName },
+        { repoName: repo.name, serviceName: service.name },
         `Service "${definition.id}" of Repo "${repo.name}" has no url`,
       );
     }
@@ -682,7 +575,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     await this.ensurePnpm(repo);
     if (signal.aborted || service.process) return;
     // Port before dependencies: a blocked start should not bring up its dependencies first.
-    await this.ensurePortFree(repo, service);
+    await this.ports.ensureFree(repo, service);
     if (signal.aborted || service.process) return;
     const dependsOn = service.definition.dependsOn ?? [];
     this.setWaiting(repo, service, dependsOn.filter((depId) => this.getService(repo, depId).status !== 'running'));
@@ -710,10 +603,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   }
 
   private waitingNames(repo: RepoState, service: ServiceState): string[] | undefined {
-    return service.waitingFor?.map((id) => {
-      const dep = repo.services.get(id)?.definition;
-      return dep?.name ?? id;
-    });
+    return service.waitingFor?.map((id) => repo.services.get(id)?.name ?? id);
   }
 
   /** Starts one dependency if needed and waits for it to become `running`. */
@@ -732,11 +622,9 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     }
     const status = await this.settledStatus(dep, signal);
     if (status === 'running' || signal.aborted) return;
-    const serviceName = service.definition.name ?? service.definition.id;
-    const dependencyName = dep.definition.name ?? dep.definition.id;
     throw new DevPanelError(
       'dependencyFailed',
-      { repoName: repo.name, serviceName, dependencyName, dependencyStatus: status },
+      { repoName: repo.name, serviceName: service.name, dependencyName: dep.name, dependencyStatus: status },
       `Service "${service.definition.id}" was not started: its dependency "${depId}" is ${status}, not running`,
     );
   }
@@ -772,7 +660,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       this.setStatus(repo, service, 'crashed');
       throw new DevPanelError(
         'spawnFailed',
-        { repoName: repo.name, serviceName: definition.name ?? definition.id },
+        { repoName: repo.name, serviceName: service.name },
         `Failed to spawn "${definition.command}" in ${cwd}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
@@ -780,7 +668,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const runId = this.recorder.track(proc.pid, {
       repoId: repo.id,
       repoName: repo.name,
-      owner: { kind: 'service', serviceId, serviceName: definition.name ?? serviceId },
+      owner: { kind: 'service', serviceId, serviceName: service.name },
     });
     service.runId = runId;
     const tail = new OutputTail(EXIT_TAIL_LINES);
@@ -838,81 +726,22 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     this.setStatus(repo, service, 'stopping');
     service.stopping = proc
       .stop(gracefulMs)
-      .then(() => this.checkPortReleased(repo, service))
+      .then(() => this.ports.checkReleased(repo, service))
       .finally(() => {
         service.stopping = undefined;
       });
     return service.stopping;
   }
 
-  /** After a Stop: confirms the Service's port was released; otherwise records who still holds it. */
-  private async checkPortReleased(repo: RepoState, service: ServiceState): Promise<void> {
-    const { port } = service.definition;
-    if (port === undefined) return;
-    try {
-      if (await this.waitPortFree(port, PORT_RELEASE_AFTER_STOP_MS)) {
-        this.setPortConflict(repo, service, undefined);
-        return;
-      }
-      const owner = await this.findPortOwner(port);
-      this.setPortConflict(repo, service, owner && { port, owner, reason: 'stop' });
-    } catch {
-      // netstat failed: the next start checks the port again.
-    }
-  }
-
   /**
-   * Frees the Service's port: stops the DevPanel Service that holds it, or kills the foreign process
-   * (with its tree). Waits until the port is free, then starts the Service, unless the conflict came
-   * from a Stop. The owner is looked up afresh, so a stale conflict never kills the wrong process.
+   * Frees the Service's port (stops our Service holding it, or kills the foreign process or Orphan
+   * with its tree), waits until it is free, then starts the Service, unless the conflict came from
+   * a Stop.
    */
   async resolvePortConflict(repoId: string, serviceId: string): Promise<void> {
     const repo = this.getRepo(repoId);
     const service = this.getService(repo, serviceId);
-    const startAfter = service.portConflict?.reason !== 'stop';
-    const { port } = service.definition;
-    if (port !== undefined) {
-      const owner = await this.findPortOwner(port);
-      if (owner) await this.freePortFrom(owner);
-      if (!(await this.waitPortFree(port, this.timings.portFreeTimeoutMs))) {
-        const serviceName = service.definition.name ?? service.definition.id;
-        throw new DevPanelError(
-          'portNotFreed',
-          { repoName: repo.name, serviceName, port },
-          `Port ${port} was still listened on ${this.timings.portFreeTimeoutMs} ms after freeing it from ${owner ? describeOwner(owner) : 'nobody'}`,
-        );
-      }
-    }
-    this.setPortConflict(repo, service, undefined);
-    if (startAfter) await this.startService(repoId, serviceId);
-  }
-
-  /** Stops our Service or kills the foreign process holding a port. */
-  private async freePortFrom(owner: PortOwner): Promise<void> {
-    switch (owner.kind) {
-      case 'service':
-        await this.stopService(owner.repoId, owner.serviceId);
-        return;
-      case 'process':
-        // Never kill the DevPanel Server itself.
-        if (owner.pid === process.pid) return;
-        await killTree(owner.pid);
-        return;
-      case 'orphan':
-        // Verifies PID and creation time again before killing.
-        await this.killOrphans([owner.orphan.id]);
-        return;
-    }
-  }
-
-  /** Polls until nothing listens on `port`; false if it is still taken after `timeoutMs`. */
-  private async waitPortFree(port: number, timeoutMs: number): Promise<boolean> {
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      if ((await findPortListeners(port)).length === 0) return true;
-      if (Date.now() >= deadline) return false;
-      await delay(PORT_POLL_MS);
-    }
+    if (await this.ports.resolve(repo, service)) await this.startService(repoId, serviceId);
   }
 
   /** Stops the Service if it runs (waiting for the exit), then starts it again. */
@@ -928,15 +757,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   /** Sends keyboard input to a Service's pty. Input for a Service that is not running is dropped. */
   writeToPty(repoId: string, serviceId: string, data: string): void {
-    const service = this.getService(this.getRepo(repoId), serviceId);
-    service.process?.write(data);
+    this.getService(this.getRepo(repoId), serviceId).write(data);
   }
 
-  /** Resizes a Service's pty. Clients are equal peers: the most recent resize wins. */
+  /** Resizes a Service's pty (and the next run's). Clients are equal peers: the most recent resize wins. */
   resizePty(repoId: string, serviceId: string, cols: number, rows: number): void {
-    const service = this.getService(this.getRepo(repoId), serviceId);
-    service.size = { cols, rows };
-    service.process?.resize(cols, rows);
+    this.getService(this.getRepo(repoId), serviceId).resize(cols, rows);
   }
 
   /**
@@ -990,7 +816,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const repo = this.getRepo(repoId);
     await this.requireRepoFolder(repo);
     this.requireStillListed(repo);
-    return this.openSession(repo, 'shell', this.environment.shellCommand);
+    return this.sessions.open(repo, 'shell', this.environment.shellCommand);
   }
 
   /** Opens a Claude Code Session (`claude` through `cmd.exe`) in the Repo folder, after `where claude`. */
@@ -1001,7 +827,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       throw new DevPanelError('claudeMissing', {}, '"where claude" found nothing on PATH');
     }
     this.requireStillListed(repo);
-    return this.openSession(repo, 'claude', this.environment.claudeCommand);
+    return this.sessions.open(repo, 'claude', this.environment.claudeCommand);
   }
 
   /**
@@ -1009,99 +835,27 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
    * `sessionClosed`. Closing an unknown (already closed) Session does nothing.
    */
   closeSession(sessionId: string): Promise<void> {
-    const session = this.sessions.get(sessionId);
-    if (!session) return Promise.resolve();
-    session.closing ??= (async () => {
-      // No graceful period: closing the tab is the user's explicit "end it" (confirmed in the UI).
-      await session.process?.stop(0);
-      this.sessions.delete(session.id);
-      this.emit('sessionClosed', { sessionId: session.id, repoId: session.repoId });
-    })();
-    return session.closing;
+    return this.sessions.close(sessionId);
   }
 
   /** Buffered output of a Session (raw, with ANSI sequences), for a newly opened tab. */
   getSessionOutput(sessionId: string): string {
-    return this.getSession(sessionId).output.text();
+    return this.sessions.output(sessionId);
   }
 
   /** Keyboard input for a Session's pty; dropped once it has finished. */
   writeToSession(sessionId: string, data: string): void {
-    this.getSession(sessionId).process?.write(data);
+    this.sessions.write(sessionId, data);
   }
 
   /** Resizes a Session's pty. Clients are equal peers: the most recent resize wins. */
   resizeSession(sessionId: string, cols: number, rows: number): void {
-    this.getSession(sessionId).process?.resize(cols, rows);
+    this.sessions.resize(sessionId, cols, rows);
   }
 
   /** Open Sessions (running and finished), in opening order. */
   listSessions(): SessionView[] {
-    return [...this.sessions.values()].map((s) => this.sessionView(s));
-  }
-
-  private openSession(repo: RepoState, kind: SessionKind, command: string): SessionView {
-    const taken = new Set(
-      [...this.sessions.values()].filter((s) => s.repoId === repo.id && s.kind === kind).map((s) => s.number),
-    );
-    let number = 1;
-    while (taken.has(number)) number++;
-    let proc: ServiceProcess;
-    try {
-      proc = spawnService({ command, cwd: repo.path });
-    } catch (err) {
-      throw new DevPanelError(
-        'sessionSpawnFailed',
-        { repoName: repo.name },
-        `Failed to spawn "${command}" in ${repo.path}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-    const session: SessionState = { id: randomUUID(), repoId: repo.id, kind, number, process: proc, output: new OutputBuffer() };
-    this.sessions.set(session.id, session);
-    const runId = this.recorder.track(proc.pid, {
-      repoId: repo.id,
-      repoName: repo.name,
-      owner: { kind: 'session', sessionKind: kind },
-    });
-    proc.onData((data) => {
-      session.output.append(data);
-      this.emit('sessionOutput', { sessionId: session.id, data });
-    });
-    void proc.exited.then((exitCode) => {
-      this.recorder.forget(runId);
-      session.process = undefined;
-      session.exitCode = exitCode;
-      // Ended by `closeSession`: it is forgotten there; otherwise it stays listed as finished.
-      if (session.closing || this.sessions.get(session.id) !== session) return;
-      this.emit('sessionChanged', { session: this.sessionView(session) });
-    });
-    const view = this.sessionView(session);
-    this.emit('sessionChanged', { session: view });
-    return view;
-  }
-
-  private sessionView(session: SessionState): SessionView {
-    return {
-      id: session.id,
-      repoId: session.repoId,
-      kind: session.kind,
-      number: session.number,
-      state: session.process ? 'running' : 'finished',
-      ...(session.exitCode !== undefined && { exitCode: session.exitCode }),
-    };
-  }
-
-  private getSession(sessionId: string): SessionState {
-    const session = this.sessions.get(sessionId);
-    if (!session) throw new DevPanelError('sessionNotFound', {}, `Unknown Session "${sessionId}"`);
-    return session;
-  }
-
-  /** Ends every Session of a Repo (all of them when `repoId` is omitted). */
-  private closeSessions(repoId?: string): Promise<void[]> {
-    return Promise.all(
-      [...this.sessions.values()].filter((s) => repoId === undefined || s.repoId === repoId).map((s) => this.closeSession(s.id)),
-    );
+    return this.sessions.list();
   }
 
   /**
@@ -1113,7 +867,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const graceful = options.gracefulStopMs ?? this.timings.gracefulStopMs;
     this.stopRepoRefresh();
     this.recorder.stopTimer();
-    const stops: Promise<unknown>[] = [this.closeSessions()];
+    const stops: Promise<unknown>[] = [this.sessions.closeAll()];
     for (const repo of this.repos.values()) {
       const install = repo.install?.process;
       if (install) stops.push(install.stop(graceful));
@@ -1140,86 +894,6 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private installView(repo: RepoState): { install?: InstallState } {
     const install = this.installState(repo);
     return install ? { install } : {};
-  }
-
-  // --- Ports ------------------------------------------------------------------------------------
-
-  /**
-   * Before a start: when the Service's port is held (on any address), records the conflict and
-   * fails with `portTaken` instead of spawning.
-   */
-  private async ensurePortFree(repo: RepoState, service: ServiceState): Promise<void> {
-    const { port } = service.definition;
-    if (port === undefined) return;
-    const owner = await this.findPortOwner(port);
-    if (!owner) {
-      this.setPortConflict(repo, service, undefined);
-      return;
-    }
-    this.setPortConflict(repo, service, { port, owner, reason: 'start' });
-    const serviceName = service.definition.name ?? service.definition.id;
-    throw new DevPanelError(
-      'portTaken',
-      { repoName: repo.name, serviceName, port, owner },
-      `Port ${port} is listened on by PID ${owner.pid} (${describeOwner(owner)}); "${serviceName}" was not started`,
-    );
-  }
-
-  /**
-   * Who listens on `port`, or undefined when it is free. A listener whose process descends from one
-   * of our live Services is that Service; one that is (or descends from) an Orphan is that Orphan;
-   * anything else is a foreign process.
-   */
-  private async findPortOwner(port: number): Promise<PortOwner | undefined> {
-    const listeners = await findPortListeners(port);
-    if (listeners.length === 0) return undefined;
-    let processes: Map<number, ProcessInfo>;
-    try {
-      processes = await listProcesses();
-    } catch {
-      processes = new Map();
-    }
-    const servicesByPid = new Map<number, { repo: RepoState; service: ServiceState }>();
-    for (const repo of this.repos.values()) {
-      for (const service of repo.services.values()) {
-        if (service.process) servicesByPid.set(service.process.pid, { repo, service });
-      }
-    }
-    for (const { pid } of listeners) {
-      for (const ancestor of ancestry(pid, processes)) {
-        const ours = servicesByPid.get(ancestor);
-        if (!ours) continue;
-        const { definition } = ours.service;
-        return {
-          kind: 'service',
-          pid,
-          repoId: ours.repo.id,
-          repoName: ours.repo.name,
-          serviceId: definition.id,
-          serviceName: definition.name ?? definition.id,
-        };
-      }
-    }
-    for (const { pid } of listeners) {
-      for (const ancestor of ancestry(pid, processes)) {
-        const left = this.orphans.find(({ records }) =>
-          records.some((r) => r.pid === ancestor && matches(r, processes)),
-        );
-        if (left) return { kind: 'orphan', pid, orphan: left.orphan };
-      }
-    }
-    const { pid } = listeners[0]!;
-    return { kind: 'process', pid, processName: processes.get(pid)?.name ?? `PID ${pid}` };
-  }
-
-  private setPortConflict(repo: RepoState, service: ServiceState, conflict: PortConflict | undefined): void {
-    if (JSON.stringify(service.portConflict) === JSON.stringify(conflict)) return;
-    service.portConflict = conflict;
-    this.emit('portConflictChanged', {
-      repoId: repo.id,
-      serviceId: service.definition.id,
-      ...(conflict && { portConflict: conflict }),
-    });
   }
 
   /** In a pnpm Repo, fails with a coded error (shown with a hint) when pnpm is not on PATH. */
@@ -1272,7 +946,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
         const waitingFor = this.waitingNames(repo, service);
         return {
           id: d.id,
-          name: d.name ?? d.id,
+          name: service.name,
           command: d.command,
           ...(d.cwd !== undefined && { cwd: d.cwd }),
           ...(d.port !== undefined && { port: d.port }),
@@ -1329,7 +1003,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     for (const definition of definitions) {
       const current = repo.services.get(definition.id);
       if (!current) {
-        next.set(definition.id, { definition, status: 'stopped', output: new OutputBuffer() });
+        next.set(definition.id, new ServiceState(definition));
         continue;
       }
       current.removed = undefined;

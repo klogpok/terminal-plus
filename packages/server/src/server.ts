@@ -18,6 +18,7 @@ import { dispatchCommand } from './commands.js';
 export const FORWARDED_EVENTS = [
   'statusChanged',
   'exit',
+  'configChanged',
   'installOutput',
   'installChanged',
 ] as const satisfies readonly (EventType & keyof CoreEvents)[];
@@ -28,6 +29,7 @@ type CheckForwarded = { [K in ForwardedEvent]: CoreEvents[K][0] extends Events[K
 const forwardedEventsMatch: CheckForwarded = {
   statusChanged: true,
   exit: true,
+  configChanged: true,
   installOutput: true,
   installChanged: true,
 };

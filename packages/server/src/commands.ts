@@ -42,6 +42,24 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: z.object({ repoId: z.string().min(1) }),
     run: (core, p) => core.installDependencies(p.repoId),
   },
+  saveLocalConfig: {
+    payload: z.object({
+      repoId: z.string().min(1),
+      services: z.array(
+        z.object({
+          id: z.string().min(1),
+          name: z.string().min(1).optional(),
+          command: z.string().min(1),
+          cwd: z.string().min(1).optional(),
+        }),
+      ),
+    }),
+    run: async (core, p) => (await core.saveLocalConfig(p.repoId, p.services), null),
+  },
+  deleteLocalConfig: {
+    payload: z.object({ repoId: z.string().min(1) }),
+    run: async (core, p) => (await core.deleteLocalConfig(p.repoId), null),
+  },
 };
 
 const envelope = z.object({

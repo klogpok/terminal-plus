@@ -8,6 +8,7 @@ import type {
   Events,
   RepoView,
   ServerMessage,
+  ServiceConfig,
   ServiceStatus,
 } from '@devpanel/shared';
 import { describeError, type UiErrorInfo } from '../strings';
@@ -105,6 +106,14 @@ export class BackendService {
 
   closeInstallTab(repoId: string): void {
     this.installTabsState.update((tabs) => tabs.filter((t) => t.repoId !== repoId));
+  }
+
+  saveLocalConfig(repoId: string, services: ServiceConfig[]): void {
+    this.run('saveLocalConfig', { repoId, services });
+  }
+
+  deleteLocalConfig(repoId: string): void {
+    this.run('deleteLocalConfig', { repoId });
   }
 
   /** Sends a command; rejects with a `UiErrorInfo`. Use `run` for fire-and-forget UI actions. */
@@ -215,6 +224,11 @@ export class BackendService {
           const current = tab ?? { repoId, output: '', state: 'running' as const };
           return { ...current, output: (current.output + data).slice(-INSTALL_OUTPUT_LIMIT) };
         });
+        break;
+      }
+      case 'configChanged': {
+        const { repo } = event.payload;
+        this.reposState.update((repos) => repos.map((r) => (r.id === repo.id ? repo : r)));
         break;
       }
     }

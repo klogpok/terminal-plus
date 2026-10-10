@@ -35,6 +35,28 @@ export interface ServiceView {
   url?: string;
   dependsOn: string[];
   status: ServiceStatus;
+  /** The config changed while the Service was running; it still runs the old definition until restarted. */
+  configChanged?: boolean;
+  /** The Service is gone from the config but still running; it disappears once it stops. */
+  removedFromConfig?: boolean;
+}
+
+/** Where a Repo's Services come from: its Repo Config, the Local Config, or nowhere yet. */
+export type ConfigSource = 'repo' | 'local' | 'none';
+
+/** One Service definition as written to a Local Config (subset of the Repo Config fields). */
+export interface ServiceConfig {
+  id: string;
+  name?: string;
+  command: string;
+  cwd?: string;
+}
+
+/** A Service proposed by auto-detection for a Repo without any config. */
+export interface SuggestedService extends ServiceConfig {
+  name: string;
+  /** Whether the UI ticks it by default. */
+  preselected: boolean;
 }
 
 /**
@@ -54,10 +76,19 @@ export interface RepoView {
   name: string;
   path: string;
   color?: string;
-  /** Set when the Repo Config cannot be read or is invalid (technical, English). */
+  /**
+   * Set when the active config file cannot be read or is invalid (technical, English). If the Repo
+   * still lists Services, they come from the last valid config.
+   */
   configError?: string;
   /** Dependency install state; see `InstallState`. */
   install?: InstallState;
+  /** Absent means 'none' (kept optional so older builders stay valid). */
+  configSource?: ConfigSource;
+  /** Auto-detected Services; only when `configSource` is 'none'. */
+  suggestions?: SuggestedService[];
+  /** A Repo Config exists, so the Local Config of this Repo is unused and can be deleted. */
+  unusedLocalConfig?: boolean;
   services: ServiceView[];
 }
 
@@ -109,12 +140,18 @@ export interface InstallResult {
   exitCode: number;
 }
 
+/** A Repo's config was (re)loaded: replaces the whole Repo view. */
+export interface ConfigChangedEvent {
+  repo: RepoView;
+}
+
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
   installOutput: InstallOutputEvent;
   installChanged: InstallChangedEvent;
+  configChanged: ConfigChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -131,6 +168,10 @@ export interface Commands {
   restartService: { payload: ServiceRef; result: null };
   /** Runs `pnpm install` in a pnpm Repo; replies when it has finished. */
   installDependencies: { payload: { repoId: string }; result: InstallResult };
+  /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */
+  saveLocalConfig: { payload: { repoId: string; services: ServiceConfig[] }; result: null };
+  /** Deletes the Repo's Local Config (offered once a Repo Config exists). */
+  deleteLocalConfig: { payload: { repoId: string }; result: null };
 }
 
 export type CommandType = keyof Commands;

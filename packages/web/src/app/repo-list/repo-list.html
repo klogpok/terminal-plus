@@ -1,9 +1,10 @@
 <h2 class="panel-title">{{ strings.repos.title }}</h2>
+<dp-add-repo />
 @for (repo of backend.repos(); track repo.id) {
-  <section class="repo" [attr.data-repo-id]="repo.id">
+  <section class="repo" [class.repo-missing]="repo.folderMissing" [attr.data-repo-id]="repo.id">
     <div class="repo-stripe" [style.background-color]="repoColor(repo)"></div>
     <div class="repo-body">
-      <div class="repo-name">{{ repo.name }}</div>
+      <dp-repo-header [repo]="repo" />
       @if (repo.configError) {
         <dp-error-message [message]="configErrorMessage(repo)" [details]="repo.configError" />
       }
@@ -35,9 +36,17 @@
               }
             </span>
             <span class="service-actions">
+              @if (service.url) {
+                <button
+                  type="button"
+                  [title]="strings.repos.openInBrowserTitle"
+                  [attr.aria-label]="strings.repos.openInBrowser(service.name)"
+                  (click)="backend.openUrl(repo.id, service.id)"
+                >↗</button>
+              }
               <button
                 type="button"
-                [disabled]="!canStart(service.status)"
+                [disabled]="!canStart(service.status) || repo.folderMissing"
                 [title]="strings.actions.start"
                 [attr.aria-label]="strings.actions.serviceAction(strings.actions.start, service.name)"
                 (click)="backend.startService(repo.id, service.id)"

@@ -3,3 +3,4 @@ dist/
 *.tsbuildinfo
 .angular/
 release/
+.playwright-mcp/

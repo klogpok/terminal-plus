@@ -1,22 +1,23 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import type { RepoView, ServiceStatus } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
+import { AddRepo } from '../add-repo/add-repo';
 import { ConfigSuggestions } from '../config-suggestions/config-suggestions';
 import { ErrorMessage } from '../error-message/error-message';
+import { RepoHeader } from '../repo-header/repo-header';
+import { repoColor } from '../repo-color';
 import { ServiceExit } from '../service-exit/service-exit';
 import { STRINGS, describeError } from '../strings';
+import { TerminalTabs } from '../terminal/terminal-tabs.service';
 
 /** Statuses in which the Service has a live process. */
 const ACTIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy']);
 const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'exited']);
 
-/** Fallback stripe colors for Repos without a stored color (ticket 08 assigns real ones). */
-const PALETTE = ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6', '#ec4899', '#84cc16'];
-
 /** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳. */
 @Component({
   selector: 'dp-repo-list',
-  imports: [ErrorMessage, ConfigSuggestions, ServiceExit],
+  imports: [ErrorMessage, ConfigSuggestions, ServiceExit, AddRepo, RepoHeader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './repo-list.html',
   styleUrl: './repo-list.css',
@@ -24,6 +25,7 @@ const PALETTE = ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6
 export class RepoList {
   protected readonly backend = inject(BackendService);
   protected readonly strings = STRINGS;
+  protected readonly tabs = inject(TerminalTabs);
 
   protected canStart(status: ServiceStatus): boolean {
     return STARTABLE.has(status);
@@ -33,20 +35,7 @@ export class RepoList {
     return ACTIVE.has(status);
   }
 
-  protected anyStartable(repo: RepoView): boolean {
-    return repo.services.some((s) => STARTABLE.has(s.status) && !s.removedFromConfig);
-  }
-
-  protected anyStoppable(repo: RepoView): boolean {
-    return repo.services.some((s) => ACTIVE.has(s.status));
-  }
-
-  protected repoColor(repo: RepoView): string {
-    if (repo.color) return repo.color;
-    let hash = 0;
-    for (const ch of repo.id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-    return PALETTE[hash % PALETTE.length]!;
-  }
+  protected readonly repoColor = repoColor;
 
   protected configErrorMessage(repo: RepoView): string {
     // With Services still listed, the last valid config keeps working.

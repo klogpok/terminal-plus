@@ -1,0 +1,51 @@
+@if (openTabs().length) {
+  <div class="strip" role="tablist" [attr.aria-label]="strings.terminal.tabsLabel">
+    @for (tab of openTabs(); track tab.key) {
+      <span class="tab-wrap" [class.active]="tab.key === activeKey()" [style.border-top-color]="tab.color">
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          [id]="'tab-' + tab.key"
+          [attr.aria-selected]="tab.key === activeKey()"
+          [attr.aria-controls]="'panel-' + tab.key"
+          [title]="tab.title"
+          (click)="tabs.selectKey(tab.key)"
+        ><span class="dot" [style.background-color]="tab.color"></span>{{ tab.label }}</button>
+        <button
+          type="button"
+          class="close"
+          [attr.aria-label]="strings.terminal.close(tab.label)"
+          [title]="strings.terminal.close(tab.label)"
+          (click)="close(tab)"
+        >×</button>
+      </span>
+    }
+  </div>
+  @for (tab of openTabs(); track tab.key) {
+    @switch (tab.kind) {
+      @case ('service') {
+        <dp-service-terminal
+          role="tabpanel"
+          [id]="'panel-' + tab.key"
+          [attr.aria-labelledby]="'tab-' + tab.key"
+          [class.hidden]="tab.key !== activeKey()"
+          [ref]="tab.ref"
+          [active]="tab.key === activeKey()"
+        />
+      }
+      @case ('install') {
+        <dp-install-output
+          role="tabpanel"
+          [id]="'panel-' + tab.key"
+          [attr.aria-labelledby]="'tab-' + tab.key"
+          [class.hidden]="tab.key !== activeKey()"
+          [tab]="tab.install"
+          [active]="tab.key === activeKey()"
+        />
+      }
+    }
+  }
+} @else {
+  <p class="muted">{{ strings.terminal.empty }}</p>
+}

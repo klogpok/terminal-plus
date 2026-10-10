@@ -6,6 +6,7 @@ import type {
   EventMessage,
   EventType,
   Events,
+  RepoChangedEvent,
   RepoView,
   ServerMessage,
   ServiceConfig,
@@ -132,6 +133,36 @@ export class BackendService {
     this.run('deleteLocalConfig', { repoId });
   }
 
+  /**
+   * Adds a Repo. Without `path` the Server shows its folder picker. Resolves with `null` when the
+   * user cancelled; rejects with the `UiErrorInfo` (e.g. `repoNameTaken`) for the caller to handle.
+   */
+  async addRepo(options: { path?: string; name?: string } = {}): Promise<RepoView | null> {
+    const repo = await this.command('addRepo', options);
+    if (repo) this.applyRepoChange({ repoId: repo.id, repo });
+    return repo;
+  }
+
+  removeRepo(repoId: string): void {
+    this.run('removeRepo', { repoId });
+  }
+
+  /** Lets the user pick the new folder of a Repo (picker shown by the Server). */
+  relocateRepo(repoId: string): void {
+    this.command('relocateRepo', { repoId }).then(
+      (repo) => repo && this.applyRepoChange({ repoId, repo }),
+      (error: UiErrorInfo) => this.showError(error),
+    );
+  }
+
+  openFolder(repoId: string): void {
+    this.run('openFolder', { repoId });
+  }
+
+  openUrl(repoId: string, serviceId: string): void {
+    this.run('openUrl', { repoId, serviceId });
+  }
+
   /** Sends a command; rejects with a `UiErrorInfo`. Use `run` for fire-and-forget UI actions. */
   command<K extends CommandType>(type: K, payload: CommandPayload<K>): Promise<CommandResult<K>> {
     if (this.connectionState() !== 'open') {
@@ -250,7 +281,25 @@ export class BackendService {
         this.reposState.update((repos) => repos.map((r) => (r.id === repo.id ? repo : r)));
         break;
       }
+      case 'repoChanged':
+        this.applyRepoChange(event.payload);
+        break;
     }
+  }
+
+  /**
+   * Added (unknown id), changed, relocated (new id: replaced in place) or removed (`repo: null`).
+   * Idempotent, so a command result and the matching event can both be applied.
+   */
+  private applyRepoChange({ repoId, repo }: RepoChangedEvent): void {
+    this.reposState.update((repos) => {
+      if (!repo) return repos.filter((r) => r.id !== repoId);
+      // Replace the entry known by the old id, else the one already carrying the new id.
+      let index = repos.findIndex((r) => r.id === repoId);
+      if (index < 0) index = repos.findIndex((r) => r.id === repo.id);
+      if (index < 0) return [...repos, repo];
+      return repos.flatMap((r, i) => (i === index ? [repo] : r.id === repo.id ? [] : [r]));
+    });
   }
 
   /** Replaces (or adds, when `change` returns a tab for a missing one) the install tab of a Repo. */

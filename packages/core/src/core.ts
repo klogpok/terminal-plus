@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, watch, type FSWatcher } from 'node:fs';
+import { mkdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
   DevPanelError,
@@ -14,6 +14,7 @@ import {
   type InstallResult,
   type InstallState,
   type LogEvent,
+  type RepoChangedEvent,
   type RepoView,
   type ServiceConfig,
   type ServiceStatus,
@@ -34,8 +35,12 @@ import {
   type ServiceDefinition,
 } from './config.js';
 import { detectServices } from './detect.js';
-import { readWorkspace } from './workspace.js';
+import { OutputBuffer } from './output-buffer.js';
+import { readWorkspace, writeWorkspace } from './workspace.js';
 import { spawnService, type ServiceProcess } from './process.js';
+import { windowsShell, type DesktopShell } from './shell.js';
+import { repoIdFor } from './repo-id.js';
+import { readGitBranch } from './git.js';
 import { OutputTail } from './output-tail.js';
 import { watchReadiness, type ReadinessWatch } from './readiness.js';
 import {
@@ -75,15 +80,32 @@ export interface CoreOptions {
   /** App data directory: holds the Workspace file, Local Configs, PID file and Access Key. */
   appDataDir: string;
   timings?: Partial<CoreTimings>;
+  /** Folder picker and folder/URL opener; defaults to the Windows implementation. */
+  shell?: DesktopShell;
   /** Tool environment (pnpm probe, install command); tests replace it. */
   environment?: Partial<Environment>;
 }
+
+/** Colors assigned to new Repos, in order; the first one not used by another Repo wins. */
+export const REPO_COLORS = [
+  '#3b82f6',
+  '#22c55e',
+  '#f59e0b',
+  '#a855f7',
+  '#ef4444',
+  '#14b8a6',
+  '#ec4899',
+  '#84cc16',
+  '#6366f1',
+  '#f97316',
+];
 
 export interface CoreEvents {
   statusChanged: [StatusChangedEvent];
   log: [LogEvent];
   exit: [ExitEvent];
   configChanged: [ConfigChangedEvent];
+  repoChanged: [RepoChangedEvent];
   installOutput: [InstallOutputEvent];
   installChanged: [InstallChangedEvent];
 }
@@ -108,6 +130,10 @@ interface ServiceState {
   definition: ServiceDefinition;
   status: ServiceStatus;
   process?: ServiceProcess;
+  /** Recent output; survives restarts (a separator is appended instead of clearing). */
+  output: OutputBuffer;
+  /** Terminal size from the most recent `resizePty`; the next spawn uses it too. */
+  size?: { cols: number; rows: number };
   stopping?: Promise<void>;
   /** Readiness checks of the current run; present only while `starting` or `unhealthy`. */
   readiness?: ReadinessWatch;
@@ -132,6 +158,8 @@ interface RepoState {
   configSource: ConfigSource;
   suggestions?: SuggestedService[];
   unusedLocalConfig: boolean;
+  folderMissing: boolean;
+  branch?: string;
   services: Map<string, ServiceState>;
   /** Watches the Repo folder for config file changes. */
   watcher?: FSWatcher;
@@ -154,6 +182,23 @@ function sameDefinition(a: ServiceDefinition, b: ServiceDefinition): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+async function exists(file: string): Promise<boolean> {
+  try {
+    await stat(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function isFolder(folder: string): Promise<boolean> {
+  try {
+    return (await stat(folder)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 /** `process.kill(pid, 0)`: true while the process has not exited (libuv checks the exit code on Windows). */
 function isProcessAlive(pid: number): boolean {
   try {
@@ -164,10 +209,11 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-/** Repo id: stable hash of the normalized Repo path (a Repo is identified by its path). */
-function repoIdFor(repoPath: string): string {
-  const normalized = path.resolve(repoPath).toLowerCase();
-  return createHash('sha1').update(normalized).digest('hex').slice(0, 12);
+/** Dimmed "── перезапуск HH:MM ──" line written into a Service's output before each new run. */
+function restartSeparator(previousOutput: string, now = new Date()): string {
+  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const newline = previousOutput.endsWith('\n') ? '' : '\r\n';
+  return `${newline}\u001b[0m\u001b[2m── перезапуск ${time} ──\u001b[0m\r\n`;
 }
 
 /**
@@ -176,12 +222,15 @@ function repoIdFor(repoPath: string): string {
 export class DevPanelCore extends EventEmitter<CoreEvents> {
   readonly timings: CoreTimings;
   readonly appDataDir: string;
+  private readonly shell: DesktopShell;
   private repos = new Map<string, RepoState>();
+  private refreshTimer: NodeJS.Timeout | undefined;
   private readonly environment: Environment;
 
   constructor(options: CoreOptions) {
     super();
     this.appDataDir = options.appDataDir;
+    this.shell = options.shell ?? windowsShell;
     this.timings = { ...DEFAULT_TIMINGS, ...options.timings };
     this.environment = { ...DEFAULT_ENVIRONMENT, ...options.environment };
   }
@@ -192,27 +241,238 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const workspace = await readWorkspace(this.appDataDir);
     const repos = new Map<string, RepoState>();
     for (const entry of workspace.repos) {
-      const repoPath = path.resolve(entry.path);
-      const repo: RepoState = {
-        id: repoIdFor(repoPath),
-        name: entry.name,
-        path: repoPath,
-        color: entry.color,
-        configSource: 'none',
-        unusedLocalConfig: false,
-        services: new Map(),
-        reloading: Promise.resolve(),
-      };
-      await this.reloadConfig(repo);
+      const repo = await this.createRepo(entry.path, entry.name, entry.color);
       repos.set(repo.id, repo);
     }
     this.repos = repos;
     this.watchLocalConfigs();
     for (const repo of repos.values()) this.watchRepo(repo);
+    this.startRepoRefresh();
   }
 
   listRepos(): RepoView[] {
     return [...this.repos.values()].map((repo) => this.repoView(repo));
+  }
+
+  /** Periodically re-checks every Repo's folder and git branch; changes go out as `repoChanged`. */
+  private startRepoRefresh(): void {
+    if (this.refreshTimer) return;
+    let running = false;
+    this.refreshTimer = setInterval(() => {
+      if (running) return;
+      running = true;
+      void Promise.all([...this.repos.values()].map((repo) => this.refreshRepo(repo)))
+        .catch(() => undefined)
+        .finally(() => {
+          running = false;
+        });
+    }, this.timings.branchRefreshMs);
+    this.refreshTimer.unref();
+  }
+
+  private stopRepoRefresh(): void {
+    clearInterval(this.refreshTimer);
+    this.refreshTimer = undefined;
+  }
+
+  /** Re-reads folder presence and branch of one Repo; emits `repoChanged` when either changed. */
+  private async refreshRepo(repo: RepoState): Promise<void> {
+    const missing = !(await isFolder(repo.path));
+    const branch = missing ? repo.branch : await readGitBranch(repo.path);
+    if (this.repos.get(repo.id) !== repo) return; // removed or relocated meanwhile
+    if (missing === repo.folderMissing && branch === repo.branch) return;
+    const cameBack = repo.folderMissing && !missing;
+    const wentAway = !repo.folderMissing && missing;
+    repo.folderMissing = missing;
+    repo.branch = branch;
+    if (wentAway || cameBack) this.unwatchRepo(repo);
+    if (cameBack) {
+      // The folder is back (e.g. a drive reconnected): its config may only now be readable, and
+      // the old watcher died with the folder.
+      await this.reloadConfig(repo);
+      this.watchRepo(repo);
+    }
+    this.emit('repoChanged', { repoId: repo.id, repo: this.repoView(repo) });
+  }
+
+  /**
+   * Adds a folder to the Workspace. Without `path` the backend shows the folder picker; resolves
+   * with `null` when the user cancels it. The name defaults to the folder name; a color is assigned.
+   * Rejects a folder already in the Workspace (`repoAlreadyAdded`) and a taken name (`repoNameTaken`,
+   * whose params carry the path so the client can retry with another name).
+   */
+  async addRepo(options: { path?: string; name?: string }): Promise<RepoView | null> {
+    const picked = options.path ?? (await this.shell.pickFolder());
+    if (picked === undefined) return null;
+    const repoPath = path.resolve(picked);
+    const existing = this.repos.get(repoIdFor(repoPath));
+    if (existing) {
+      throw new DevPanelError(
+        'repoAlreadyAdded',
+        { path: repoPath, repoName: existing.name },
+        `${repoPath} is already in the Workspace as "${existing.name}"`,
+      );
+    }
+    await this.requireFolder(repoPath);
+    const name = (options.name ?? path.basename(repoPath)).trim() || repoPath;
+    this.requireFreeName(name, repoPath);
+    const used = new Set([...this.repos.values()].map((r) => r.color?.toLowerCase()));
+    const color = REPO_COLORS.find((c) => !used.has(c)) ?? REPO_COLORS[this.repos.size % REPO_COLORS.length]!;
+
+    const repo = await this.createRepo(repoPath, name, color);
+    this.repos.set(repo.id, repo);
+    this.watchRepo(repo);
+    await this.saveWorkspace();
+    const view = this.repoView(repo);
+    this.emit('repoChanged', { repoId: repo.id, repo: view });
+    return view;
+  }
+
+  /**
+   * Removes a Repo from the Workspace: stops every process it owns (the client confirms first,
+   * listing them), deletes its Local Config, and never touches the Repo folder.
+   */
+  async removeRepo(repoId: string): Promise<void> {
+    const repo = this.getRepo(repoId);
+    // Ticket 09: also close the Repo's Sessions here.
+    const install = repo.install?.process;
+    await Promise.all([
+      // stopService also cancels a start still waiting for its dependencies.
+      ...[...repo.services.keys()].map((serviceId) => this.stopService(repo.id, serviceId)),
+      ...(install ? [install.stop(this.timings.gracefulStopMs)] : []),
+    ]);
+    if (this.repos.get(repoId) !== repo) return; // removed concurrently
+    this.repos.delete(repoId);
+    this.unwatchRepo(repo);
+    await this.saveWorkspace();
+    await deleteLocalConfig(this.appDataDir, repo.path);
+    this.emit('repoChanged', { repoId, repo: null });
+  }
+
+  /**
+   * Points a Repo at another folder (picker when `newPath` is omitted; `null` when cancelled),
+   * keeping its name, color, position and Local Config. The Repo id changes with the path, so
+   * `repoChanged` carries the old id and the new state.
+   */
+  async relocateRepo(repoId: string, newPath: string | undefined): Promise<RepoView | null> {
+    const repo = this.getRepo(repoId);
+    const picked = newPath ?? (await this.shell.pickFolder());
+    if (picked === undefined) return null;
+    const resolved = path.resolve(picked);
+    const newId = repoIdFor(resolved);
+    const other = newId === repoId ? undefined : this.repos.get(newId);
+    if (other) {
+      throw new DevPanelError(
+        'repoAlreadyAdded',
+        { path: resolved, repoName: other.name },
+        `${resolved} is already in the Workspace as "${other.name}"`,
+      );
+    }
+    await this.requireFolder(resolved);
+    if ([...repo.services.values()].some((s) => s.process) || repo.install?.process) {
+      throw new DevPanelError('repoBusy', { repoName: repo.name }, `Repo "${repo.name}" has running processes`);
+    }
+
+    const oldLocal = localConfigPath(this.appDataDir, repo.path);
+    const newLocal = localConfigPath(this.appDataDir, resolved);
+    if (oldLocal !== newLocal && (await exists(oldLocal))) {
+      await mkdir(path.dirname(newLocal), { recursive: true });
+      await rename(oldLocal, newLocal);
+    }
+    this.unwatchRepo(repo);
+    const moved = await this.createRepo(resolved, repo.name, repo.color);
+    this.repos = new Map([...this.repos].map(([id, r]) => (id === repoId ? [moved.id, moved] : [id, r])));
+    this.watchRepo(moved);
+    await this.saveWorkspace();
+    const view = this.repoView(moved);
+    this.emit('repoChanged', { repoId, repo: view });
+    return view;
+  }
+
+  /** Opens the Repo folder in Explorer (through the backend, never the browser). */
+  async openFolder(repoId: string): Promise<void> {
+    const repo = this.getRepo(repoId);
+    await this.requireRepoFolder(repo);
+    await this.runShell(() => this.shell.openFolder(repo.path));
+  }
+
+  /** Opens a Service's configured `url` in the default browser (through the backend). */
+  async openUrl(repoId: string, serviceId: string): Promise<void> {
+    const repo = this.getRepo(repoId);
+    const { definition } = this.getService(repo, serviceId);
+    if (definition.url === undefined) {
+      const serviceName = definition.name ?? definition.id;
+      throw new DevPanelError(
+        'serviceHasNoUrl',
+        { repoName: repo.name, serviceName },
+        `Service "${definition.id}" of Repo "${repo.name}" has no url`,
+      );
+    }
+    const url = definition.url;
+    await this.runShell(() => this.shell.openUrl(url));
+  }
+
+  private async runShell(action: () => Promise<void>): Promise<void> {
+    try {
+      await action();
+    } catch (err) {
+      throw new DevPanelError('shellFailed', {}, err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  /** Throws `repoFolderMissing` (and flags the Repo) when its folder is gone. */
+  private async requireRepoFolder(repo: RepoState): Promise<void> {
+    if (await isFolder(repo.path)) return;
+    if (!repo.folderMissing) {
+      repo.folderMissing = true;
+      this.emit('repoChanged', { repoId: repo.id, repo: this.repoView(repo) });
+    }
+    throw new DevPanelError('repoFolderMissing', { repoName: repo.name }, `Folder not found: ${repo.path}`);
+  }
+
+  /** Builds a Repo's state (folder presence, branch, config); the caller starts watching it. */
+  private async createRepo(repoPath: string, name: string, color: string | undefined): Promise<RepoState> {
+    const resolved = path.resolve(repoPath);
+    const folderMissing = !(await isFolder(resolved));
+    const repo: RepoState = {
+      id: repoIdFor(resolved),
+      name,
+      path: resolved,
+      color,
+      configSource: 'none',
+      unusedLocalConfig: false,
+      folderMissing,
+      branch: folderMissing ? undefined : await readGitBranch(resolved),
+      services: new Map(),
+      reloading: Promise.resolve(),
+    };
+    await this.reloadConfig(repo);
+    return repo;
+  }
+
+  private async requireFolder(folder: string): Promise<void> {
+    if (!(await isFolder(folder))) {
+      throw new DevPanelError('folderNotFound', { path: folder }, `${folder} is not an existing folder`);
+    }
+  }
+
+  private requireFreeName(name: string, repoPath: string, exceptRepoId?: string): void {
+    const taken = [...this.repos.values()].some(
+      (r) => r.id !== exceptRepoId && r.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (taken) {
+      throw new DevPanelError('repoNameTaken', { name, path: repoPath }, `A Repo named "${name}" already exists`);
+    }
+  }
+
+  private async saveWorkspace(): Promise<void> {
+    await writeWorkspace(this.appDataDir, {
+      repos: [...this.repos.values()].map((r) => ({
+        path: r.path,
+        name: r.name,
+        ...(r.color !== undefined && { color: r.color }),
+      })),
+    });
   }
 
   /** Full state for a (re)connecting client. */
@@ -231,6 +491,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const service = this.getService(repo, serviceId);
     if (service.process) return;
     if (service.launch && !service.launch.abort.signal.aborted) return service.launch.done;
+    await this.requireRepoFolder(repo);
 
     const abort = new AbortController();
     const launch: Launch = {
@@ -323,11 +584,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const serviceId = service.definition.id;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
+    if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text()));
     service.lastExit = undefined;
     this.setStatus(repo, service, 'starting');
     let proc: ServiceProcess;
     try {
-      proc = spawnService({ command: definition.command, cwd, env: definition.env });
+      proc = spawnService({ command: definition.command, cwd, env: definition.env, ...service.size });
     } catch (err) {
       this.setStatus(repo, service, 'crashed');
       throw new DevPanelError(
@@ -349,7 +611,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     proc.onData((data) => {
       tail.push(data);
       readiness.feed(data);
-      this.emit('log', { repoId: repo.id, serviceId, data });
+      this.appendOutput(repo, service, data);
     });
     proc.exited.then((exitCode) => {
       readiness.dispose();
@@ -398,6 +660,24 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     await this.startService(repoId, serviceId);
   }
 
+  /** The buffered recent output of a Service (raw, with ANSI sequences), for a newly opened tab. */
+  getServiceOutput(repoId: string, serviceId: string): string {
+    return this.getService(this.getRepo(repoId), serviceId).output.text();
+  }
+
+  /** Sends keyboard input to a Service's pty. Input for a Service that is not running is dropped. */
+  writeToPty(repoId: string, serviceId: string, data: string): void {
+    const service = this.getService(this.getRepo(repoId), serviceId);
+    service.process?.write(data);
+  }
+
+  /** Resizes a Service's pty. Clients are equal peers: the most recent resize wins. */
+  resizePty(repoId: string, serviceId: string, cols: number, rows: number): void {
+    const service = this.getService(this.getRepo(repoId), serviceId);
+    service.size = { cols, rows };
+    service.process?.resize(cols, rows);
+  }
+
   /**
    * Runs the install command (`pnpm install`) in the folder of a pnpm Repo, in a pty, streaming
    * `installOutput` and announcing `installChanged`. Resolves when it has finished; a call while an
@@ -444,6 +724,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   /** Stops every running Service (and any running dependency install). */
   async shutdown(): Promise<void> {
+    this.stopRepoRefresh();
     const stops: Promise<void>[] = [];
     for (const repo of this.repos.values()) {
       const install = repo.install?.process;
@@ -515,6 +796,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       configSource: repo.configSource,
       ...(repo.suggestions !== undefined && { suggestions: repo.suggestions }),
       ...(repo.unusedLocalConfig && { unusedLocalConfig: true }),
+      ...(repo.folderMissing && { folderMissing: true }),
+      ...(repo.branch !== undefined && { branch: repo.branch }),
       ...this.installView(repo),
       services: [...repo.services.values()].map(({ definition: d, status, lastExit, pending, removed }) => ({
         id: d.id,
@@ -538,6 +821,9 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
    * Services stay active.
    */
   private async reloadConfig(repo: RepoState): Promise<void> {
+    // A missing folder (deleted, drive disconnected) keeps the last known config: the Repo stays
+    // listed as missing with its Services until it comes back or is relocated.
+    if (!(await isFolder(repo.path))) return;
     const repoResult = await readRepoConfig(repo.path);
     const localResult = await readLocalConfig(this.appDataDir, repo.path);
     const exists = (r: ConfigResult) => !r.ok || r.config !== undefined;
@@ -569,7 +855,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     for (const definition of definitions) {
       const current = repo.services.get(definition.id);
       if (!current) {
-        next.set(definition.id, { definition, status: 'stopped' });
+        next.set(definition.id, { definition, status: 'stopped', output: new OutputBuffer() });
         continue;
       }
       current.removed = undefined;
@@ -661,12 +947,14 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private closeWatchers(): void {
     this.localConfigWatcher?.close();
     this.localConfigWatcher = undefined;
-    for (const repo of this.repos.values()) {
-      repo.watcher?.close();
-      repo.watcher = undefined;
-      clearTimeout(repo.reloadTimer);
-      repo.reloadTimer = undefined;
-    }
+    for (const repo of this.repos.values()) this.unwatchRepo(repo);
+  }
+
+  private unwatchRepo(repo: RepoState): void {
+    repo.watcher?.close();
+    repo.watcher = undefined;
+    clearTimeout(repo.reloadTimer);
+    repo.reloadTimer = undefined;
   }
 
   private getRepo(repoId: string): RepoState {
@@ -685,6 +973,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     return service;
+  }
+
+  /** Buffers output and emits it as `log`, so the buffer and the live stream never diverge. */
+  private appendOutput(repo: RepoState, service: ServiceState, data: string): void {
+    service.output.append(data);
+    this.emit('log', { repoId: repo.id, serviceId: service.definition.id, data });
   }
 
   private setStatus(repo: RepoState, service: ServiceState, status: ServiceStatus): void {

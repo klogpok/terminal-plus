@@ -93,6 +93,10 @@ export interface RepoView {
    * still lists Services, they come from the last valid config.
    */
   configError?: string;
+  /** True when the Repo folder no longer exists; its Services cannot start until it is relocated. */
+  folderMissing?: boolean;
+  /** Current git branch (or short commit when detached); absent for non-git folders. */
+  branch?: string;
   /** Dependency install state; see `InstallState`. */
   install?: InstallState;
   /** Absent means 'none' (kept optional so older builders stay valid). */
@@ -136,6 +140,17 @@ export interface ExitEvent extends ServiceRef {
   lastLines: string[];
 }
 
+/**
+ * A Repo was added, changed (folder missing/back, branch, relocated) or removed.
+ * `repoId` is the id clients know the Repo by; `repo` is its new state (`null` = removed). After
+ * `relocateRepo` the new state has a different id (ids derive from the path): replace in place.
+ * An unknown `repoId` with a non-null `repo` means the Repo was added (append it).
+ */
+export interface RepoChangedEvent {
+  repoId: string;
+  repo: RepoView | null;
+}
+
 /** A chunk of `pnpm install` pty output for a Repo (including ANSI sequences). */
 export interface InstallOutputEvent {
   repoId: string;
@@ -163,6 +178,9 @@ export interface ConfigChangedEvent {
 export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
+  repoChanged: RepoChangedEvent;
+  /** Live Service output. A client opening a tab first fetches `getServiceOutput`, see there. */
+  log: LogEvent;
   installOutput: InstallOutputEvent;
   installChanged: InstallChangedEvent;
   configChanged: ConfigChangedEvent;
@@ -186,6 +204,25 @@ export interface Commands {
   stopAll: { payload: { repoId: string }; result: null };
   /** "Stop all in all Repos": stops every Service in the Workspace (never Sessions). */
   stopAllRepos: { payload: Record<string, never>; result: null };
+  /** Without `path` the Server shows a folder picker; `null` result = the user cancelled it. */
+  addRepo: { payload: { path?: string; name?: string }; result: RepoView | null };
+  /** Stops every process of the Repo, removes it and its Local Config; never touches the folder. */
+  removeRepo: { payload: { repoId: string }; result: null };
+  /** Points a Repo at a new folder (picker when `path` is omitted), keeping name and color. */
+  relocateRepo: { payload: { repoId: string; path?: string }; result: RepoView | null };
+  openFolder: { payload: { repoId: string }; result: null };
+  /** Opens the Service's configured `url` in the default browser. */
+  openUrl: { payload: ServiceRef; result: null };
+  /**
+   * Buffered recent output of a Service (raw, ANSI included). Replies on one connection are ordered
+   * with events: `log` events received before this reply are already contained in the result,
+   * later ones are not. A tab drops `log` events until the reply, writes the result, then streams.
+   */
+  getServiceOutput: { payload: ServiceRef; result: string };
+  /** Keyboard input for a Service's pty (dropped when the Service is not running). */
+  writeToPty: { payload: ServiceRef & { data: string }; result: null };
+  /** Terminal size of a Service tab; the most recent resize from any client wins. */
+  resizePty: { payload: ServiceRef & { cols: number; rows: number }; result: null };
   /** Runs `pnpm install` in a pnpm Repo; replies when it has finished. */
   installDependencies: { payload: { repoId: string }; result: InstallResult };
   /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */

@@ -26,7 +26,7 @@ function button(root: ParentNode, label: string): HTMLButtonElement {
 }
 
 function repoHeader(repoId: string): HTMLElement {
-  return page.querySelector<HTMLElement>(`[data-repo-id="${repoId}"] .repo-header`)!;
+  return page.querySelector<HTMLElement>(`[data-repo-id="${repoId}"] dp-repo-header`)!;
 }
 
 const billing = aRepo({

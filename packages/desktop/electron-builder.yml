@@ -1,0 +1,32 @@
+# NSIS installer for the DevPanel desktop app: `pnpm build` at the repo root, then
+# `pnpm --filter @devpanel/desktop dist`. Output goes to packages/desktop/release (not committed).
+appId: com.devpanel.desktop
+productName: DevPanel
+artifactName: DevPanel-Setup-${version}.${ext}
+directories:
+  output: release
+  buildResources: assets
+files:
+  - dist/main.cjs
+  - assets/**
+  - package.json
+# The built Angular UI, served by the in-process Server from resources\web.
+extraResources:
+  - from: ../web/dist/browser
+    to: web
+# node-pty 1.1.0 is an N-API addon: its prebuilt win32 binaries load under Electron's ABI as is,
+# so no @electron/rebuild (which would need VS build tools).
+npmRebuild: false
+# Native binaries and winpty-agent.exe/conpty must be real files, not inside app.asar.
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+win:
+  target: nsis
+  icon: assets/icon.png
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DevPanel

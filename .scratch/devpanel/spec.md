@@ -179,6 +179,69 @@ DevPanel is a local app (a web UI on localhost now, an Electron desktop app late
 5. Auto-detection and Local Config, adding Repos from the UI, `.bat` launch.
 6. Electron desktop app.
 
+### Stack rationale
+
+- **Angular**: the UI is small and a lighter framework would do, but the team knows Angular, so any developer can maintain the tool. Bundle size does not matter for a local app, and Angular runs unchanged inside Electron. To keep the frontend simple: standalone components only, signals for state, no heavy UI libraries (the team's own UI kit is fine), and all backend traffic through `BackendService`.
+- **Electron, not Tauri**: Tauri needs a Rust backend, while the process and pty logic lives in Node.
+
+### File formats
+
+All app data lives in the app data directory (default `%APPDATA%\DevPanel`): `workspace.json`, `local-configs/<hash of the Repo path>.yml`, the PID file `processes.json` and the Access Key. The browser receives the key in the URL fragment: `http://127.0.0.1:7777/#key=<key>`.
+
+Workspace file (written by the UI; editing by hand is never required):
+
+```json
+{
+  "repos": [
+    { "name": "Billing", "path": "C:\\dev\\billing", "color": "#4f8cff" },
+    { "name": "Portal", "path": "C:\\dev\\portal", "color": "#22c55e" }
+  ]
+}
+```
+
+Repo Config `.devpanel.yml` in the Repo root, written and committed by developers (a Local Config has the same format):
+
+```yaml
+services:
+  - id: api
+    name: API
+    command: pnpm --filter @app/api dev
+    cwd: .
+    port: 3000
+    url: http://localhost:3000
+    healthUrl: http://localhost:3000/health   # optional
+    readyPattern: "listening on"              # optional, regex over the output
+    dependsOn: []
+    env:
+      NODE_ENV: development
+  - id: web
+    name: Frontend
+    command: pnpm --filter @app/web dev
+    port: 4200
+    url: http://localhost:4200
+    dependsOn: [api]
+```
+
+A Service without `port`, `healthUrl` and `readyPattern` is valid (e.g. `tsc --watch`).
+
+### UI layout
+
+- **Left panel**: the Repos, each with a color stripe, name and current git branch; inside, its Services with a status dot (🟢 running, 🟡 starting/stopping, 🟠 unhealthy, 🔴 crashed, ⚪ stopped, ⚪ with "завершился сам" for exited) and ▶ ■ ⟳.
+- **Repo header**: "Запустить всё", "Остановить всё", "Claude Code", "Терминал", "Открыть папку"; Services with a `url` get "Открыть в браузере".
+- **Right side**: tabs for Service output and Sessions; a tab takes its Repo's color, so Repos are never confused.
+- **Top bar**: "Остановить всё во всех репо" (Services only) and "Выйти из DevPanel" (with confirmation; stops everything, Sessions included, and the Server).
+- Confirmations name what will stop, e.g. removing a Repo: "В Billing работают 2 сервиса и 1 сессия Claude — они будут остановлены".
+
+## MVP acceptance criteria
+
+- Two or more Repos can be added and their Services run at the same time; outputs and Statuses never mix.
+- Stop kills the whole process tree and the port is freed.
+- A port conflict shows a plain message with a button that resolves it.
+- Exit stops every process; the next start finds Orphans (by PID and creation time) and offers to kill them.
+- Reloading the page stops neither Services nor Sessions: afterwards everything is back, output included.
+- Claude Code starts in the right Repo with one button and is fully interactive.
+- `core` imports nothing from Fastify or Electron, and Angular components reach the backend only through `BackendService`.
+
 ## Testing Decisions
 
 - **Good tests exercise external behavior only**: they drive the public interface and assert on observable results (events emitted, Statuses, processes alive or dead, ports free or taken, files on disk), never on internal classes, private state or call order.
@@ -405,6 +468,69 @@ DevPanel — локальное приложение (сейчас веб-UI н�
 4. Сессии Claude и оболочки.
 5. Автоопределение и Локальный конфиг, добавление Репо из UI, запуск через `.bat`.
 6. Десктопное приложение на Electron.
+
+### Обоснование стека
+
+- **Angular**: UI маленький, и хватило бы фреймворка полегче, но команда знает Angular, поэтому поддерживать тулзу сможет любой разработчик. Размер бандла для локального приложения неважен, а в Electron Angular работает без изменений. Чтобы фронт оставался простым: только standalone-компоненты, состояние на signals, без тяжёлых UI-библиотек (собственный UI-кит команды допустим), вся связь с бэкендом через `BackendService`.
+- **Electron, а не Tauri**: Tauri требует бэкенда на Rust, а логика процессов и pty у нас на Node.
+
+### Форматы файлов
+
+Все данные приложения лежат в каталоге данных (по умолчанию `%APPDATA%\DevPanel`): `workspace.json`, `local-configs/<хэш пути Репо>.yml`, PID-файл `processes.json` и Ключ доступа. Браузер получает ключ во фрагменте URL: `http://127.0.0.1:7777/#key=<ключ>`.
+
+Файл Workspace (его пишет UI; править вручную никогда не требуется):
+
+```json
+{
+  "repos": [
+    { "name": "Billing", "path": "C:\\dev\\billing", "color": "#4f8cff" },
+    { "name": "Portal", "path": "C:\\dev\\portal", "color": "#22c55e" }
+  ]
+}
+```
+
+Конфиг репо `.devpanel.yml` в корне Репо, его пишут и коммитят разработчики (Локальный конфиг имеет тот же формат):
+
+```yaml
+services:
+  - id: api
+    name: API
+    command: pnpm --filter @app/api dev
+    cwd: .
+    port: 3000
+    url: http://localhost:3000
+    healthUrl: http://localhost:3000/health   # необязательно
+    readyPattern: "listening on"              # необязательно, regex по выводу
+    dependsOn: []
+    env:
+      NODE_ENV: development
+  - id: web
+    name: Frontend
+    command: pnpm --filter @app/web dev
+    port: 4200
+    url: http://localhost:4200
+    dependsOn: [api]
+```
+
+Сервис без `port`, `healthUrl` и `readyPattern` допустим (например, `tsc --watch`).
+
+### Раскладка UI
+
+- **Левая панель**: Репо, у каждого цветная полоса, имя и текущая git-ветка; внутри его Сервисы со статус-точкой (🟢 running, 🟡 starting/stopping, 🟠 unhealthy, 🔴 crashed, ⚪ stopped, ⚪ с пометкой «завершился сам» для exited) и кнопками ▶ ■ ⟳.
+- **Заголовок Репо**: «Запустить всё», «Остановить всё», «Claude Code», «Терминал», «Открыть папку»; у Сервисов с `url` есть «Открыть в браузере».
+- **Правая часть**: вкладки вывода Сервисов и Сессий; вкладка окрашена в цвет своего Репо, чтобы Репо не путались.
+- **Верхняя панель**: «Остановить всё во всех репо» (только Сервисы) и «Выйти из DevPanel» (с подтверждением; останавливает всё, включая Сессии, и Сервер).
+- Подтверждения называют, что будет остановлено, например при удалении Репо: «В Billing работают 2 сервиса и 1 сессия Claude — они будут остановлены».
+
+## Критерии готовности MVP
+
+- Можно добавить 2+ Репо и одновременно запустить их Сервисы; вывод и Статусы не смешиваются.
+- «Стоп» убивает всё дерево процессов, и порт освобождается.
+- При конфликте портов показывается понятное сообщение с кнопкой решения.
+- Выход останавливает все процессы; следующий запуск находит Зомби (по PID и времени создания) и предлагает их убить.
+- Перезагрузка страницы не останавливает ни Сервисы, ни Сессии: после неё всё на месте, вместе с выводом.
+- Claude Code запускается в нужном Репо одной кнопкой и работает интерактивно.
+- `core` не импортирует ничего из Fastify или Electron, а Angular-компоненты обращаются к бэкенду только через `BackendService`.
 
 ## Решения по тестированию
 

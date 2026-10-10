@@ -102,8 +102,9 @@ export function createServer(options: ServerOptions): FastifyInstance {
     // Runs before the WebSocket upgrade: a rejected request never becomes a connection.
     scope.addHook('preValidation', async (request, reply) => {
       const origin = request.headers.origin;
-      // Browsers always send Origin; a non-browser client without one still needs the Access Key.
-      if (origin !== undefined && !allowedOrigin(origin)) {
+      // Every client is a page (browser tab or the desktop window) and browsers always send Origin:
+      // a request without one is not from our page.
+      if (origin === undefined || !allowedOrigin(origin)) {
         return reply.code(403).send({ error: 'Forbidden origin' });
       }
       const { key } = request.query as { key?: unknown };

@@ -105,11 +105,14 @@ class Client {
   }
 }
 
-function connect(options: { key?: string; origin?: string } = {}): Promise<WebSocket> {
+/** Connects like a browser tab of the Server's page; `origin: null` sends no Origin header. */
+function connect(options: { key?: string; origin?: string | null } = {}): Promise<WebSocket> {
   const key = options.key ?? devPanel.accessKey;
-  const socket = new WebSocket(`${devPanel.url.replace('http', 'ws')}/ws?key=${encodeURIComponent(key)}`, {
-    origin: options.origin ?? devPanel.url,
-  });
+  const origin = options.origin === undefined ? devPanel.url : options.origin;
+  const socket = new WebSocket(
+    `${devPanel.url.replace('http', 'ws')}/ws?key=${encodeURIComponent(key)}`,
+    origin === null ? {} : { origin },
+  );
   sockets.push(socket);
   return new Promise((resolve, reject) => {
     socket.once('open', () => resolve(socket));
@@ -277,5 +280,9 @@ describe('DevPanel Server', () => {
   it('rejects connections from a foreign Origin', async () => {
     await expect(connect({ origin: 'https://evil.example' })).rejects.toThrow('HTTP 403');
     await expect(connect({ origin: 'http://127.0.0.1:1' })).rejects.toThrow('HTTP 403');
+  });
+
+  it('rejects connections without an Origin, even with the correct Access Key', async () => {
+    await expect(connect({ origin: null })).rejects.toThrow('HTTP 403');
   });
 });

@@ -87,7 +87,10 @@ interface Reply {
 
 async function connect(): Promise<(type: string, payload: object) => Promise<Reply>> {
   const key = readFileSync(path.join(appDataDir, 'access-key'), 'utf8').trim();
-  const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?key=${encodeURIComponent(key)}`);
+  // The Server accepts only its own page's Origin, as the app window sends it.
+  const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?key=${encodeURIComponent(key)}`, {
+    origin: `http://127.0.0.1:${port}`,
+  });
   sockets.push(socket);
   await new Promise((resolve, reject) => {
     socket.once('open', resolve);

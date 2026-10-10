@@ -7,6 +7,7 @@ import { glob, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { SuggestedService } from '@devpanel/shared';
 import { parse as parseYaml } from 'yaml';
+import { readJsonFile } from './json-file.js';
 
 /** Scripts that start a long-running process. */
 const RUN_SCRIPTS = ['dev', 'start', 'serve'];
@@ -18,7 +19,7 @@ interface PackageJson {
 
 async function readPackageJson(file: string): Promise<PackageJson | undefined> {
   try {
-    const value: unknown = JSON.parse(await readFile(file, 'utf8'));
+    const value = await readJsonFile(file);
     return value && typeof value === 'object' ? (value as PackageJson) : undefined;
   } catch {
     return undefined;

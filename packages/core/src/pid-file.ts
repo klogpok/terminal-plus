@@ -9,9 +9,10 @@
  * the console (detached workers etc.), which is why the whole tree is recorded, not only the root.
  */
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Orphan, ProcessOwner } from '@devpanel/shared';
+import { readJsonFileSync } from './json-file.js';
 import { listProcesses, type ProcessInfo } from './ports.js';
 
 export const PID_FILE = 'processes.json';
@@ -61,7 +62,8 @@ export class PidFile {
 
   read(): PidRecord[] {
     try {
-      const content = JSON.parse(readFileSync(this.file, 'utf8')) as Partial<PidFileContent>;
+      const content = readJsonFileSync(this.file) as Partial<PidFileContent> | null;
+      if (!content) return [];
       return Array.isArray(content.processes) ? content.processes.filter(isRecord) : [];
     } catch {
       return [];

@@ -1,0 +1,17 @@
+<div class="toolbar">
+  <button type="button" class="tool" (click)="clear()">{{ strings.terminal.clear }}</button>
+  <button type="button" class="tool" (click)="copyAll()">{{ strings.terminal.copyAll }}</button>
+  <span class="search">
+    <input
+      #term
+      type="search"
+      [placeholder]="strings.terminal.search"
+      [attr.aria-label]="strings.terminal.search"
+      (keydown)="onSearchKey($event, term.value)"
+    />
+    <button type="button" class="tool" [title]="strings.terminal.findPrevious" [attr.aria-label]="strings.terminal.findPrevious" (click)="search(term.value, true)">↑</button>
+    <button type="button" class="tool" [title]="strings.terminal.findNext" [attr.aria-label]="strings.terminal.findNext" (click)="search(term.value)">↓</button>
+  </span>
+  <span class="notice" role="status">{{ notice() }}</span>
+</div>
+<div class="host" #host></div>

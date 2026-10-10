@@ -60,6 +60,22 @@ export const STRINGS = {
     details: 'Подробнее',
   },
 
+  terminal: {
+    /** Accessible name of a Service name in the left panel, e.g. "Открыть терминал API". */
+    open: (serviceName: string) => `Открыть терминал ${serviceName}`,
+    close: (serviceName: string) => `Закрыть вкладку ${serviceName}`,
+    tabsLabel: 'Терминалы',
+    empty: 'Нажмите на имя сервиса слева, чтобы открыть его терминал.',
+    clear: 'Очистить',
+    copyAll: 'Копировать всё',
+    copied: 'Скопировано',
+    copyFailed: 'Не удалось скопировать',
+    search: 'Поиск',
+    findNext: 'Найти дальше',
+    findPrevious: 'Найти раньше',
+    notFound: 'Не найдено',
+  },
+
   /** Plain-Russian messages: what happened (and what to do), without jargon. */
   errors: {
     repoNotFound: () => 'Этого Репо больше нет в списке. Обновите страницу.',

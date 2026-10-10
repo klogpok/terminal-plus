@@ -17,7 +17,12 @@
               role="img"
               [attr.aria-label]="strings.status[service.status]"
             ></span>
-            <span class="service-name">{{ service.name }}</span>
+            <button
+              type="button"
+              class="service-name"
+              [attr.aria-label]="strings.terminal.open(service.name)"
+              (click)="tabs.open({ repoId: repo.id, serviceId: service.id })"
+            >{{ service.name }}</button>
             <span class="service-actions">
               <button
                 type="button"

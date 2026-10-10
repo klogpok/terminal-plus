@@ -81,6 +81,8 @@ export interface ExitEvent extends ServiceRef {
 export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
+  /** Live Service output. A client opening a tab first fetches `getServiceOutput`, see there. */
+  log: LogEvent;
 }
 
 export type EventType = keyof Events;
@@ -95,6 +97,16 @@ export interface Commands {
   startService: { payload: ServiceRef; result: null };
   stopService: { payload: ServiceRef; result: null };
   restartService: { payload: ServiceRef; result: null };
+  /**
+   * Buffered recent output of a Service (raw, ANSI included). Replies on one connection are ordered
+   * with events: `log` events received before this reply are already contained in the result,
+   * later ones are not. A tab drops `log` events until the reply, writes the result, then streams.
+   */
+  getServiceOutput: { payload: ServiceRef; result: string };
+  /** Keyboard input for a Service's pty (dropped when the Service is not running). */
+  writeToPty: { payload: ServiceRef & { data: string }; result: null };
+  /** Terminal size of a Service tab; the most recent resize from any client wins. */
+  resizePty: { payload: ServiceRef & { cols: number; rows: number }; result: null };
 }
 
 export type CommandType = keyof Commands;

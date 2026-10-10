@@ -122,6 +122,27 @@ describe('DevPanel Server', () => {
     });
   });
 
+  it('streams Service output to every client and replays the buffer to a client that connects later', async () => {
+    const tab1 = new Client(await connect());
+    const snapshot = await tab1.send('getSnapshot', {});
+    const repoId = (snapshot as { result: { repos: { id: string }[] } }).result.repos[0]!.id;
+    const ref = { repoId, serviceId: 'api' };
+
+    await tab1.send('startService', ref);
+    await tab1.waitFor(
+      (m): m is EventMessage => m.kind === 'event' && m.type === 'log' && m.payload.data.includes('IDLE_STARTED'),
+    );
+
+    const tab2 = new Client(await connect());
+    const replay = await tab2.send('getServiceOutput', ref);
+    expect(replay).toMatchObject({ ok: true });
+    expect((replay as { result: string }).result).toContain('IDLE_STARTED');
+
+    expect(await tab2.send('writeToPty', { ...ref, data: 'x' })).toMatchObject({ ok: true });
+    expect(await tab2.send('resizePty', { ...ref, cols: 100, rows: 30 })).toMatchObject({ ok: true });
+    expect(await tab2.send('resizePty', { ...ref, cols: 0, rows: 30 })).toMatchObject({ ok: false, error: { code: 'badCommand' } });
+  });
+
   it('replies with a coded error for failing or malformed commands', async () => {
     const client = new Client(await connect());
 

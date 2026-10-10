@@ -47,6 +47,9 @@
               } @else if (service.configChanged) {
                 <span class="config-flag">{{ strings.config.serviceConfigChanged }}</span>
               }
+              @if (service.waitingFor) {
+                <span class="config-flag">{{ strings.waitingFor(service.waitingFor) }}</span>
+              }
             </span>
             <span class="service-actions">
               @if (service.url) {
@@ -66,14 +69,14 @@
               >▶</button>
               <button
                 type="button"
-                [disabled]="!canStop(service.status)"
+                [disabled]="!canStop(service)"
                 [title]="strings.actions.stop"
                 [attr.aria-label]="strings.actions.serviceAction(strings.actions.stop, service.name)"
                 (click)="backend.stopService(repo.id, service.id)"
               >■</button>
               <button
                 type="button"
-                [disabled]="!canStop(service.status)"
+                [disabled]="!canRestart(service.status)"
                 [title]="strings.actions.restart"
                 [attr.aria-label]="strings.actions.serviceAction(strings.actions.restart, service.name)"
                 (click)="backend.restartService(repo.id, service.id)"

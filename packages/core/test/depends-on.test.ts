@@ -109,6 +109,29 @@ describe('dependsOn: starting a Service starts its dependencies first', () => {
 
     await expect(start).resolves.toBeUndefined();
     expect(statusOf(core, 'api')).toBe('stopped');
+    expect(core.listRepos()[0]!.services.find((s) => s.id === 'api')!.waitingFor).toBeUndefined();
+  });
+
+  it('a dependent waiting for its dependencies shows which ones it waits for until it spawns', async () => {
+    const { core, repoId } = await setup([
+      { ...readyAfter('db', 300), name: 'DB' },
+      { ...readyAfter('cache', 600), name: 'Cache' },
+      readyAfter('api', 0, ['db', 'cache']),
+    ]);
+    const waits: (string[] | undefined)[] = [];
+    core.on('waitingChanged', (e) => {
+      if (e.serviceId === 'api') waits.push(e.waitingFor);
+    });
+
+    const start = core.startService(repoId, 'api');
+    await waitForStatus(core, repoId, 'db', 'starting');
+    const api = core.listRepos()[0]!.services.find((s) => s.id === 'api')!;
+    expect([api.status, api.waitingFor]).toEqual(['stopped', ['DB', 'Cache']]);
+    await start;
+
+    expect(statusOf(core, 'api')).toBe('starting');
+    expect(core.listRepos()[0]!.services.find((s) => s.id === 'api')!.waitingFor).toBeUndefined();
+    expect(waits).toEqual([['DB', 'Cache'], ['Cache'], undefined]);
   });
 });
 

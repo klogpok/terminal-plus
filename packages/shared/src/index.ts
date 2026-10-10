@@ -43,6 +43,11 @@ export interface ServiceView {
   removedFromConfig?: boolean;
   /** Its port is held by someone else: a start was blocked, or the port stayed taken after a Stop. */
   portConflict?: PortConflict;
+  /**
+   * A start is waiting for these dependencies (names, dependsOn order) to become `running`. The
+   * Status stays `stopped` meanwhile; stopping the Service cancels the start.
+   */
+  waitingFor?: string[];
 }
 
 /**
@@ -257,6 +262,11 @@ export interface PortConflictChangedEvent extends ServiceRef {
   portConflict?: PortConflict;
 }
 
+/** A start began, progressed or stopped waiting for dependencies (`waitingFor` absent once it no longer waits). */
+export interface WaitingChangedEvent extends ServiceRef {
+  waitingFor?: string[];
+}
+
 /** A Session was opened or finished by itself: its new state. */
 export interface SessionChangedEvent {
   session: SessionView;
@@ -277,6 +287,7 @@ export interface SessionOutputEvent {
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
   portConflictChanged: PortConflictChangedEvent;
+  waitingChanged: WaitingChangedEvent;
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
   repoChanged: RepoChangedEvent;

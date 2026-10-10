@@ -77,6 +77,26 @@ describe('status dots', () => {
   });
 });
 
+describe('a Service waiting for its dependencies', () => {
+  it('says which dependencies it waits for and can be stopped (cancelling the start)', async () => {
+    await transport.connectWith({ repos: [aRepo({ id: 'b1', services: [aService({ id: 'api', name: 'API', status: 'stopped' })] })] });
+    await stable();
+    transport.emit('waitingChanged', { repoId: 'b1', serviceId: 'api', waitingFor: ['DB', 'Cache'] });
+    await stable();
+
+    expect(serviceRow('api').textContent).toContain('ждёт запуска: DB, Cache');
+    const stop = [...serviceRow('api').querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Остановить API')!;
+    expect(stop.disabled).toBe(false);
+    stop.click();
+    expect(transport.lastCommand('stopService').payload).toEqual({ repoId: 'b1', serviceId: 'api' });
+
+    transport.emit('waitingChanged', { repoId: 'b1', serviceId: 'api' });
+    await stable();
+    expect(serviceRow('api').textContent).not.toContain('ждёт запуска');
+    expect(stop.disabled).toBe(true);
+  });
+});
+
 describe('a Service that ended by itself', () => {
   it('crashed: shows the exit code and the last lines as an error, with "Запустить снова"', async () => {
     await transport.connectWith({

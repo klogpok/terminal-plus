@@ -355,6 +355,13 @@ export class BackendService {
         );
         break;
       }
+      case 'waitingChanged': {
+        const { repoId, serviceId, waitingFor } = event.payload;
+        this.updateService(repoId, serviceId, ({ waitingFor: _old, ...service }) =>
+          waitingFor ? { ...service, waitingFor } : service,
+        );
+        break;
+      }
       case 'configChanged': {
         const { repo } = event.payload;
         this.reposState.update((repos) => repos.map((r) => (r.id === repo.id ? repo : r)));

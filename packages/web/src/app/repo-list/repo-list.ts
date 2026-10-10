@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import type { RepoView, ServiceStatus } from '@devpanel/shared';
+import type { RepoView, ServiceStatus, ServiceView } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
 import { AddRepo } from '../add-repo/add-repo';
 import { ConfigSuggestions } from '../config-suggestions/config-suggestions';
@@ -32,7 +32,12 @@ export class RepoList {
     return STARTABLE.has(status);
   }
 
-  protected canStop(status: ServiceStatus): boolean {
+  protected canStop(service: ServiceView): boolean {
+    // A start waiting for its dependencies is still `stopped`; ■ cancels it.
+    return ACTIVE.has(service.status) || service.waitingFor !== undefined;
+  }
+
+  protected canRestart(status: ServiceStatus): boolean {
     return ACTIVE.has(status);
   }
 

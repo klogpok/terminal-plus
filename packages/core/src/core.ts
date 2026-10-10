@@ -32,6 +32,7 @@ import {
   type Snapshot,
   type StatusChangedEvent,
   type SuggestedService,
+  type WaitingChangedEvent,
 } from '@devpanel/shared';
 import {
   LOCAL_CONFIG_DIR,
@@ -125,6 +126,7 @@ export interface CoreEvents {
   installOutput: [InstallOutputEvent];
   installChanged: [InstallChangedEvent];
   portConflictChanged: [PortConflictChangedEvent];
+  waitingChanged: [WaitingChangedEvent];
   orphansFound: [OrphansFoundEvent];
   sessionChanged: [SessionChangedEvent];
   sessionClosed: [SessionClosedEvent];
@@ -182,6 +184,8 @@ interface ServiceState {
   removed?: boolean;
   /** Its port is held by someone else (a blocked start, or still taken after a Stop). */
   portConflict?: PortConflict;
+  /** Ids of the dependencies a start in progress still waits for. */
+  waitingFor?: string[];
   /** PID file run id of the current process (see `ProcessRecorder`). */
   runId?: string;
 }
@@ -682,11 +686,36 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     // Port before dependencies: a blocked start should not bring up its dependencies first.
     await this.ensurePortFree(repo, service);
     if (signal.aborted || service.process) return;
-    await Promise.all(
-      (service.definition.dependsOn ?? []).map((depId) => this.startDependency(repo, service, depId, signal)),
-    );
+    const dependsOn = service.definition.dependsOn ?? [];
+    this.setWaiting(repo, service, dependsOn.filter((depId) => this.getService(repo, depId).status !== 'running'));
+    try {
+      await Promise.all(
+        dependsOn.map(async (depId) => {
+          await this.startDependency(repo, service, depId, signal);
+          this.setWaiting(repo, service, service.waitingFor?.filter((id) => id !== depId));
+        }),
+      );
+    } finally {
+      this.setWaiting(repo, service, undefined);
+    }
     if (signal.aborted || service.process) return;
     this.spawn(repo, service);
+  }
+
+  /** Records which dependencies a start still waits for (none: `undefined`) and announces changes. */
+  private setWaiting(repo: RepoState, service: ServiceState, depIds: string[] | undefined): void {
+    const next = depIds?.length ? depIds : undefined;
+    if (JSON.stringify(service.waitingFor) === JSON.stringify(next)) return;
+    service.waitingFor = next;
+    const waitingFor = this.waitingNames(repo, service);
+    this.emit('waitingChanged', { repoId: repo.id, serviceId: service.definition.id, ...(waitingFor && { waitingFor }) });
+  }
+
+  private waitingNames(repo: RepoState, service: ServiceState): string[] | undefined {
+    return service.waitingFor?.map((id) => {
+      const dep = repo.services.get(id)?.definition;
+      return dep?.name ?? id;
+    });
   }
 
   /** Starts one dependency if needed and waits for it to become `running`. */
@@ -1240,20 +1269,25 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       ...(repo.folderMissing && { folderMissing: true }),
       ...(repo.branch !== undefined && { branch: repo.branch }),
       ...this.installView(repo),
-      services: [...repo.services.values()].map(({ definition: d, status, lastExit, pending, removed, portConflict }) => ({
-        id: d.id,
-        name: d.name ?? d.id,
-        command: d.command,
-        ...(d.cwd !== undefined && { cwd: d.cwd }),
-        ...(d.port !== undefined && { port: d.port }),
-        ...(d.url !== undefined && { url: d.url }),
-        dependsOn: d.dependsOn ?? [],
-        status,
-        ...(lastExit !== undefined && { lastExit }),
-        ...(pending !== undefined && { configChanged: true }),
-        ...(removed && { removedFromConfig: true }),
-        ...(portConflict !== undefined && { portConflict }),
-      })),
+      services: [...repo.services.values()].map((service) => {
+        const { definition: d, status, lastExit, pending, removed, portConflict } = service;
+        const waitingFor = this.waitingNames(repo, service);
+        return {
+          id: d.id,
+          name: d.name ?? d.id,
+          command: d.command,
+          ...(d.cwd !== undefined && { cwd: d.cwd }),
+          ...(d.port !== undefined && { port: d.port }),
+          ...(d.url !== undefined && { url: d.url }),
+          dependsOn: d.dependsOn ?? [],
+          status,
+          ...(lastExit !== undefined && { lastExit }),
+          ...(pending !== undefined && { configChanged: true }),
+          ...(removed && { removedFromConfig: true }),
+          ...(portConflict !== undefined && { portConflict }),
+          ...(waitingFor !== undefined && { waitingFor }),
+        };
+      }),
     };
   }
 

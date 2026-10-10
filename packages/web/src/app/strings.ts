@@ -143,6 +143,9 @@ export const STRINGS = {
     exited: 'Завершился сам',
   } satisfies Record<ServiceStatus, string>,
 
+  /** Flag of a (still `stopped`) Service whose start waits for its dependencies. */
+  waitingFor: (dependencyNames: string[]) => `ждёт запуска: ${dependencyNames.join(', ')}`,
+
   actions: {
     start: 'Запустить',
     stop: 'Остановить',

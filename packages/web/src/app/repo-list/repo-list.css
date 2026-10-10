@@ -5,7 +5,7 @@
 .repo-body { flex: 1; padding: 8px 10px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .repo-name { font-weight: 600; }
 .services { list-style: none; margin: 0; padding: 0; }
-.service { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.service { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; padding: 3px 0; }
 .service-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .service-open { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; }
 .service-open:hover { text-decoration: underline; }

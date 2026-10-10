@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DevPanelError } from '@devpanel/shared';
 import type { DevPanelCore, ExitEvent, StatusChangedEvent } from '../src/index.js';
-import { Harness, fixtureCommand } from './harness.js';
+import { Harness, fixtureCommand, waitForStatus } from './harness.js';
 
 let h: Harness;
 beforeEach(() => {
@@ -55,11 +55,13 @@ describe('restartService', () => {
     const first = h.waitForOutput(core, repo.id, 'api', /CHILD_PID=(\d+)/);
     await core.startService(repo.id, 'api');
     const [, firstPid] = await first;
+    await waitForStatus(core, repo.id, 'api', 'running');
     const statuses = recordStatuses(core);
 
     const second = h.waitForOutput(core, repo.id, 'api', /CHILD_PID=(\d+)/);
     await core.restartService(repo.id, 'api');
     const [, secondPid] = await second;
+    await waitForStatus(core, repo.id, 'api', 'running');
 
     expect(secondPid).not.toBe(firstPid);
     expect(statuses).toEqual(['api:stopping', 'api:stopped', 'api:starting', 'api:running']);
@@ -72,7 +74,8 @@ describe('restartService', () => {
 
     await core.restartService(repo.id, 'api');
 
-    expect(core.listRepos()[0]!.services[0]!.status).toBe('running');
+    expect(core.listRepos()[0]!.services[0]!.status).toBe('starting');
+    await waitForStatus(core, repo.id, 'api', 'running');
   });
 });
 
@@ -83,6 +86,7 @@ describe('snapshot', () => {
     const core = await h.createCore();
     const billing = core.listRepos()[0]!;
     await core.startService(billing.id, 'api');
+    await waitForStatus(core, billing.id, 'api', 'running');
 
     const snapshot = core.snapshot();
 

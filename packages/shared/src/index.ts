@@ -35,11 +35,23 @@ export interface ServiceView {
   url?: string;
   dependsOn: string[];
   status: ServiceStatus;
+  /** How the Service ended by itself; set only while it is `crashed` or `exited`. */
+  lastExit?: ExitDetails;
   /** The config changed while the Service was running; it still runs the old definition until restarted. */
   configChanged?: boolean;
   /** The Service is gone from the config but still running; it disappears once it stops. */
   removedFromConfig?: boolean;
 }
+
+/** Exit code and the last output lines (ANSI stripped) of a Service that ended by itself. */
+export interface ExitDetails {
+  exitCode: number;
+  /** Up to `EXIT_TAIL_LINES` last lines of output. */
+  lastLines: string[];
+}
+
+/** How many last output lines a crashed or exited Service reports. */
+export const EXIT_TAIL_LINES = 30;
 
 /** Where a Repo's Services come from: its Repo Config, the Local Config, or nowhere yet. */
 export type ConfigSource = 'repo' | 'local' | 'none';
@@ -120,6 +132,8 @@ export interface ExitEvent extends ServiceRef {
   exitCode: number;
   /** True when the exit was caused by `stopService`. */
   stoppedByUser: boolean;
+  /** Last output lines, ANSI stripped (up to `EXIT_TAIL_LINES`). */
+  lastLines: string[];
 }
 
 /** A chunk of `pnpm install` pty output for a Repo (including ANSI sequences). */

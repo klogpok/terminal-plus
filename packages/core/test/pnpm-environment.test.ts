@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DevPanelError, type InstallState } from '@devpanel/shared';
 import { DEFAULT_ENVIRONMENT, type DevPanelCore } from '../src/index.js';
-import { Harness, fixtureCommand, stripAnsi } from './harness.js';
+import { Harness, fixtureCommand, stripAnsi, waitForStatus } from './harness.js';
 
 let h: Harness;
 beforeEach(() => {
@@ -149,7 +149,8 @@ describe('pnpm availability check on start', () => {
     await core.startService(repo.id, 'api');
 
     expect(probe.calls).toBe(1);
-    expect(core.listRepos()[0]!.services[0]!.status).toBe('running');
+    expect(core.listRepos()[0]!.services[0]!.status).toBe('starting');
+    await waitForStatus(core, repo.id, 'api', 'running');
   });
 
   it('never runs the check for a Repo without pnpm-lock.yaml', async () => {
@@ -161,6 +162,7 @@ describe('pnpm availability check on start', () => {
     await core.startService(repo.id, 'api');
 
     expect(probe.calls).toBe(0);
-    expect(core.listRepos()[0]!.services[0]!.status).toBe('running');
+    expect(core.listRepos()[0]!.services[0]!.status).toBe('starting');
+    await waitForStatus(core, repo.id, 'api', 'running');
   });
 });

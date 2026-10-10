@@ -1,0 +1,27 @@
+<header class="topbar">
+  <span class="app-title">{{ strings.appTitle }}</span>
+</header>
+@switch (backend.connection()) {
+  @case ('connecting') {
+    <div class="banner">{{ strings.connection.connecting }}</div>
+  }
+  @case ('closed') {
+    <div class="banner banner-error">
+      <dp-error-message [message]="strings.connection.closed + ' ' + strings.connection.closedHint" [details]="backend.connectionDetails()" />
+    </div>
+  }
+}
+<div class="layout">
+  <aside class="left">
+    <dp-repo-list />
+  </aside>
+  <main class="right">
+    @if (backend.errors().length) {
+      <div class="errors">
+        @for (error of backend.errors(); track error.id) {
+          <dp-error-message [message]="error.message" [details]="error.details" [dismissible]="true" (dismiss)="backend.dismissError(error.id)" />
+        }
+      </div>
+    }
+  </main>
+</div>

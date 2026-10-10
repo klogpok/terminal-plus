@@ -1,7 +1,15 @@
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
-import type { ServiceStatus } from '@devpanel/shared';
+import {
+  DevPanelError,
+  type ExitEvent,
+  type LogEvent,
+  type RepoView,
+  type ServiceStatus,
+  type Snapshot,
+  type StatusChangedEvent,
+} from '@devpanel/shared';
 import { readRepoConfig, type ServiceDefinition } from './config.js';
 import { readWorkspace } from './workspace.js';
 import { spawnService, type ServiceProcess } from './process.js';
@@ -35,48 +43,6 @@ export interface CoreOptions {
   /** App data directory: holds the Workspace file, Local Configs, PID file and Access Key. */
   appDataDir: string;
   timings?: Partial<CoreTimings>;
-}
-
-export interface ServiceView {
-  id: string;
-  name: string;
-  command: string;
-  cwd?: string;
-  port?: number;
-  url?: string;
-  dependsOn: string[];
-  status: ServiceStatus;
-}
-
-export interface RepoView {
-  id: string;
-  name: string;
-  path: string;
-  color?: string;
-  /** Set when the Repo Config cannot be read or is invalid. */
-  configError?: string;
-  services: ServiceView[];
-}
-
-export interface StatusChangedEvent {
-  repoId: string;
-  serviceId: string;
-  status: ServiceStatus;
-}
-
-export interface LogEvent {
-  repoId: string;
-  serviceId: string;
-  /** A chunk of pty output, including ANSI sequences. */
-  data: string;
-}
-
-export interface ExitEvent {
-  repoId: string;
-  serviceId: string;
-  exitCode: number;
-  /** True when the exit was caused by `stopService`. */
-  stoppedByUser: boolean;
 }
 
 export interface CoreEvents {
@@ -167,6 +133,11 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     }));
   }
 
+  /** Full state for a (re)connecting client. */
+  snapshot(): Snapshot {
+    return { repos: this.listRepos() };
+  }
+
   /** Starts a Service through `cmd.exe /d /s /c` in its working directory. */
   async startService(repoId: string, serviceId: string): Promise<void> {
     const repo = this.getRepo(repoId);
@@ -181,9 +152,15 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       proc = spawnService({ command: definition.command, cwd, env: definition.env });
     } catch (err) {
       this.setStatus(repo, service, 'crashed');
-      throw err;
+      throw new DevPanelError(
+        'spawnFailed',
+        { repoName: repo.name, serviceName: definition.name ?? definition.id },
+        `Failed to spawn "${definition.command}" in ${cwd}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
     service.process = proc;
+    // No readiness checks yet (ticket 04): a spawned Service counts as running right away.
+    this.setStatus(repo, service, 'running');
     proc.onData((data) => this.emit('log', { repoId: repo.id, serviceId, data }));
     proc.exited.then((exitCode) => {
       service.process = undefined;
@@ -211,6 +188,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     return service.stopping;
   }
 
+  /** Stops the Service if it runs (waiting for the exit), then starts it again. */
+  async restartService(repoId: string, serviceId: string): Promise<void> {
+    await this.stopService(repoId, serviceId);
+    await this.startService(repoId, serviceId);
+  }
+
   /** Stops every running Service. */
   async shutdown(): Promise<void> {
     const stops: Promise<void>[] = [];
@@ -224,13 +207,19 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   private getRepo(repoId: string): RepoState {
     const repo = this.repos.get(repoId);
-    if (!repo) throw new Error(`Unknown Repo "${repoId}"`);
+    if (!repo) throw new DevPanelError('repoNotFound', { repoId }, `Unknown Repo "${repoId}"`);
     return repo;
   }
 
   private getService(repo: RepoState, serviceId: string): ServiceState {
     const service = repo.services.get(serviceId);
-    if (!service) throw new Error(`Unknown Service "${serviceId}" in Repo "${repo.name}"`);
+    if (!service) {
+      throw new DevPanelError(
+        'serviceNotFound',
+        { repoName: repo.name, serviceId },
+        `Unknown Service "${serviceId}" in Repo "${repo.name}"`,
+      );
+    }
     return service;
   }
 

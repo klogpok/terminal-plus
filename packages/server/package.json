@@ -5,10 +5,21 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.test.json && vitest run",
+    "start": "node dist/main.js"
   },
   "dependencies": {
     "@devpanel/core": "workspace:*",
-    "@devpanel/shared": "workspace:*"
+    "@devpanel/shared": "workspace:*",
+    "@fastify/static": "^10.1.6",
+    "@fastify/websocket": "^11.3.4",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "vitest": "^4.1.11",
+    "ws": "^8.22.0"
   }
 }

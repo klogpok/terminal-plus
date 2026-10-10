@@ -41,7 +41,7 @@ describe('startService', () => {
 
     expect(cwdName).toBe('api');
     expect(forceColor).toBe('1');
-    expect(statuses).toEqual(['api:starting']);
+    expect(statuses).toEqual(['api:starting', 'api:running']);
   });
 
   it('runs the command through cmd.exe, so shell syntax works', async () => {
@@ -77,7 +77,7 @@ describe('stopService', () => {
 
     expect(Date.now() - started).toBeLessThan(10_000);
     await waitUntil(() => !isAlive(child!) && !isAlive(grandchild!));
-    expect(statuses).toEqual(['api:starting', 'api:stopping', 'api:stopped']);
+    expect(statuses).toEqual(['api:starting', 'api:running', 'api:stopping', 'api:stopped']);
     expect(core.listRepos()[0]!.services[0]!.status).toBe('stopped');
   });
 
@@ -126,6 +126,6 @@ describe('stopService', () => {
     expect(elapsed).toBeGreaterThanOrEqual(gracefulStopMs - 50);
     expect(isAlive(child!)).toBe(false);
     expect(isAlive(grandchild!)).toBe(false);
-    expect(statuses).toEqual(['api:starting', 'api:stopping', 'api:stopped']);
+    expect(statuses).toEqual(['api:starting', 'api:running', 'api:stopping', 'api:stopped']);
   });
 });

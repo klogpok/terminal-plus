@@ -2,5 +2,11 @@ packages:
   - packages/*
 # node-pty 1.1.0 ships win32-x64 prebuilds; its install script only checks for them
 # (and falls back to node-gyp, which needs VS build tools), so it is not needed.
+# The Angular toolchain packages below ship platform binaries/prebuilds as optional
+# dependencies; their install scripts only verify or rebuild them, so they are not needed either.
 allowBuilds:
   node-pty: false
+  '@parcel/watcher': false
+  esbuild: false
+  lmdb: false
+  msgpackr-extract: false

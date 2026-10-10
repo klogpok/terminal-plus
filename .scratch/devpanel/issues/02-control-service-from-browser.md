@@ -4,17 +4,17 @@
 
 **Blocked by:** 01 (Start and stop a Service with full process-tree kill).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The Server listens only on 127.0.0.1:7777, rejects WebSocket connections with a foreign Origin, and rejects connections without the correct Access Key (generated at start, stored in the app data directory, read by the client from the URL fragment).
-- [ ] Command and event types live in `shared` and are used by both Server and UI.
-- [ ] The left panel lists Repos (color stripe, name) and their Services with status dots and ▶ ■ ⟳ buttons that drive `core`.
-- [ ] `crashed` (non-zero exit without Stop) and `exited` (code 0 without Stop) are distinguished from `stopped`.
-- [ ] A snapshot query lets a reconnecting client rebuild the full state; reloading the page keeps Services running and shows them correctly.
-- [ ] Two browser tabs show the same state and both can control Services.
-- [ ] Angular components talk only to `BackendService`; a fake `BackendTransport` is used in UI tests (status dots, buttons sending the right commands, rebuild from snapshot).
-- [ ] All UI strings come from one file; errors render as a plain-Russian message with technical details under "Details".
-- [ ] One end-to-end Server test: a command round-trip over a real WebSocket, plus rejection without the Access Key.
+- [x] The Server listens only on 127.0.0.1:7777, rejects WebSocket connections with a foreign Origin, and rejects connections without the correct Access Key (generated at start, stored in the app data directory, read by the client from the URL fragment).
+- [x] Command and event types live in `shared` and are used by both Server and UI.
+- [x] The left panel lists Repos (color stripe, name) and their Services with status dots and ▶ ■ ⟳ buttons that drive `core`.
+- [x] `crashed` (non-zero exit without Stop) and `exited` (code 0 without Stop) are distinguished from `stopped`.
+- [x] A snapshot query lets a reconnecting client rebuild the full state; reloading the page keeps Services running and shows them correctly.
+- [x] Two browser tabs show the same state and both can control Services.
+- [x] Angular components talk only to `BackendService`; a fake `BackendTransport` is used in UI tests (status dots, buttons sending the right commands, rebuild from snapshot).
+- [x] All UI strings come from one file; errors render as a plain-Russian message with technical details under "Details".
+- [x] One end-to-end Server test: a command round-trip over a real WebSocket, plus rejection without the Access Key.
 
 ---
 
@@ -26,14 +26,14 @@
 
 **Блокируется:** 01 (Запуск и остановка Сервиса с убийством всего дерева процессов).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Сервер слушает только 127.0.0.1:7777, отклоняет WebSocket-подключения с чужим Origin и подключения без правильного Ключа доступа (создаётся при старте, хранится в каталоге данных приложения, клиент читает его из фрагмента URL).
-- [ ] Типы команд и событий лежат в `shared` и используются и Сервером, и UI.
-- [ ] Левая панель показывает Репо (цветная полоса, имя) и их Сервисы со статус-точками и кнопками ▶ ■ ⟳, которые управляют `core`.
-- [ ] `crashed` (ненулевой код без «Стоп») и `exited` (код 0 без «Стоп») отличаются от `stopped`.
-- [ ] Запрос снимка позволяет переподключившемуся клиенту восстановить всё состояние; перезагрузка страницы оставляет Сервисы работающими и показывает их правильно.
-- [ ] Две вкладки браузера показывают одно состояние, и обе могут управлять Сервисами.
-- [ ] Angular-компоненты общаются только с `BackendService`; в тестах UI используется фейковый `BackendTransport` (статус-точки, кнопки отправляют правильные команды, восстановление из снимка).
-- [ ] Все строки UI берутся из одного файла; ошибки показываются сообщением на понятном русском с техническими деталями под «Подробнее».
-- [ ] Один сквозной тест Сервера: команда туда и обратно через настоящий WebSocket, а также отказ без Ключа доступа.
+- [x] Сервер слушает только 127.0.0.1:7777, отклоняет WebSocket-подключения с чужим Origin и подключения без правильного Ключа доступа (создаётся при старте, хранится в каталоге данных приложения, клиент читает его из фрагмента URL).
+- [x] Типы команд и событий лежат в `shared` и используются и Сервером, и UI.
+- [x] Левая панель показывает Репо (цветная полоса, имя) и их Сервисы со статус-точками и кнопками ▶ ■ ⟳, которые управляют `core`.
+- [x] `crashed` (ненулевой код без «Стоп») и `exited` (код 0 без «Стоп») отличаются от `stopped`.
+- [x] Запрос снимка позволяет переподключившемуся клиенту восстановить всё состояние; перезагрузка страницы оставляет Сервисы работающими и показывает их правильно.
+- [x] Две вкладки браузера показывают одно состояние, и обе могут управлять Сервисами.
+- [x] Angular-компоненты общаются только с `BackendService`; в тестах UI используется фейковый `BackendTransport` (статус-точки, кнопки отправляют правильные команды, восстановление из снимка).
+- [x] Все строки UI берутся из одного файла; ошибки показываются сообщением на понятном русском с техническими деталями под «Подробнее».
+- [x] Один сквозной тест Сервера: команда туда и обратно через настоящий WebSocket, а также отказ без Ключа доступа.

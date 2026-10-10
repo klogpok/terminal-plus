@@ -79,6 +79,7 @@
                 (click)="backend.restartService(repo.id, service.id)"
               >⟳</button>
             </span>
+            <dp-port-conflict [service]="service" (resolve)="backend.resolvePortConflict(repo.id, service.id)" />
             <dp-service-exit [service]="service" (startAgain)="backend.startService(repo.id, service.id)" />
           </li>
         } @empty {

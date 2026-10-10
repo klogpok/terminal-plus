@@ -10,6 +10,9 @@ export type {
   ConfigChangedEvent,
   ExitEvent,
   LogEvent,
+  PortConflict,
+  PortConflictChangedEvent,
+  PortOwner,
   RepoChangedEvent,
   RepoView,
   ServiceView,
@@ -20,10 +23,13 @@ export { LOCAL_CONFIG_DIR, REPO_CONFIG_FILE, localConfigPath, type ServiceDefini
 export { WORKSPACE_FILE } from './workspace.js';
 export { windowsShell, type DesktopShell } from './shell.js';
 export {
+  ancestry,
   findPortListeners,
   isPortListening,
   listListeningSockets,
+  listProcesses,
   parseNetstatListeners,
   type PortListener,
+  type ProcessInfo,
 } from './ports.js';
 export { DEFAULT_ENVIRONMENT, PNPM_LOCK_FILE, type Environment } from './environment.js';

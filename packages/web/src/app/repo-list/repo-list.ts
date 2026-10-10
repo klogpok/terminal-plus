@@ -4,6 +4,7 @@ import { BackendService } from '../backend/backend.service';
 import { AddRepo } from '../add-repo/add-repo';
 import { ConfigSuggestions } from '../config-suggestions/config-suggestions';
 import { ErrorMessage } from '../error-message/error-message';
+import { PortConflictBlock } from '../port-conflict/port-conflict';
 import { RepoHeader } from '../repo-header/repo-header';
 import { repoColor } from '../repo-color';
 import { ServiceExit } from '../service-exit/service-exit';
@@ -17,7 +18,7 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
 /** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳. */
 @Component({
   selector: 'dp-repo-list',
-  imports: [ErrorMessage, ConfigSuggestions, ServiceExit, AddRepo, RepoHeader],
+  imports: [ErrorMessage, ConfigSuggestions, PortConflictBlock, ServiceExit, AddRepo, RepoHeader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './repo-list.html',
   styleUrl: './repo-list.css',

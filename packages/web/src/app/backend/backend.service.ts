@@ -85,6 +85,11 @@ export class BackendService {
     this.run('startService', { repoId, serviceId });
   }
 
+  /** Frees the Service's port (stops our Service or kills the foreign process), then starts it. */
+  resolvePortConflict(repoId: string, serviceId: string): void {
+    this.run('resolvePortConflict', { repoId, serviceId });
+  }
+
   stopService(repoId: string, serviceId: string): void {
     this.run('stopService', { repoId, serviceId });
   }
@@ -177,7 +182,11 @@ export class BackendService {
 
   /** Sends a command and shows any failure as a UI error. */
   run<K extends CommandType>(type: K, payload: CommandPayload<K>): void {
-    this.command(type, payload).catch((error: UiErrorInfo) => this.showError(error));
+    this.command(type, payload).catch((error: UiErrorInfo) => {
+      // A port conflict (from a start, restart or start all) is shown on the Service itself
+      // (`portConflict`), with its button; listing it again would only duplicate it.
+      if (error.code !== 'portTaken') this.showError(error);
+    });
   }
 
   // --- Events ---------------------------------------------------------------------------------
@@ -274,6 +283,13 @@ export class BackendService {
           const current = tab ?? { repoId, output: '', state: 'running' as const };
           return { ...current, output: (current.output + data).slice(-INSTALL_OUTPUT_LIMIT) };
         });
+        break;
+      }
+      case 'portConflictChanged': {
+        const { repoId, serviceId, portConflict } = event.payload;
+        this.updateService(repoId, serviceId, ({ portConflict: _old, ...service }) =>
+          portConflict ? { ...service, portConflict } : service,
+        );
         break;
       }
       case 'configChanged': {

@@ -41,6 +41,10 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: serviceRef,
     run: async (core, p) => (await core.restartService(p.repoId, p.serviceId), null),
   },
+  resolvePortConflict: {
+    payload: serviceRef,
+    run: async (core, p) => (await core.resolvePortConflict(p.repoId, p.serviceId), null),
+  },
   startAll: {
     payload: z.object({ repoId: z.string().min(1) }),
     run: async (core, p) => (await core.startAll(p.repoId), null),

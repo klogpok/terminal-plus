@@ -29,10 +29,16 @@ export interface ErrorParams {
   folderNotFound: { path: string };
   /** The Repo folder is missing, so the action (e.g. starting a Service) is impossible. */
   repoFolderMissing: { repoName: string };
-  /** `relocateRepo` while Services of the Repo are running. */
+  /** `relocateRepo` while Services or Sessions of the Repo are running. */
   repoBusy: { repoName: string };
   /** `openUrl` for a Service without a `url` in its config. */
   serviceHasNoUrl: { repoName: string; serviceName: string };
+  /** `openClaude`: `where claude` found nothing on PATH. */
+  claudeMissing: Record<string, never>;
+  /** A command named a Session that no longer exists (closed, or the Server restarted). */
+  sessionNotFound: Record<string, never>;
+  /** The Session process (shell or Claude Code) could not be spawned. */
+  sessionSpawnFailed: { repoName: string };
   /** The folder picker, Explorer or the browser could not be opened. */
   shellFailed: Record<string, never>;
   /** A malformed or unknown command reached the Server. */

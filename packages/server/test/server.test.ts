@@ -50,7 +50,14 @@ beforeEach(async () => {
     JSON.stringify({ repos: [{ path: repoPath, name: 'billing' }] }),
   );
   shell = new FakeShell();
-  devPanel = await startDevPanel({ appDataDir, port: 0, timings: { gracefulStopMs: 1000 }, shell });
+  devPanel = await startDevPanel({
+    appDataDir,
+    port: 0,
+    timings: { gracefulStopMs: 1000 },
+    shell,
+    // Never the real Claude Code.
+    environment: { isClaudeAvailable: async () => false },
+  });
 });
 
 afterEach(async () => {
@@ -160,6 +167,34 @@ describe('DevPanel Server', () => {
     expect(await tab2.send('writeToPty', { ...ref, data: 'x' })).toMatchObject({ ok: true });
     expect(await tab2.send('resizePty', { ...ref, cols: 100, rows: 30 })).toMatchObject({ ok: true });
     expect(await tab2.send('resizePty', { ...ref, cols: 0, rows: 30 })).toMatchObject({ ok: false, error: { code: 'badCommand' } });
+  });
+
+  it('opens, streams, restores and closes Sessions for every client', async () => {
+    const tab1 = new Client(await connect());
+    const tab2 = new Client(await connect());
+    const repoId = ((await tab1.send('getSnapshot', {})) as { result: { repos: { id: string }[] } }).result.repos[0]!.id;
+
+    expect(await tab1.send('openClaude', { repoId })).toMatchObject({ ok: false, error: { code: 'claudeMissing' } });
+
+    const opened = await tab1.send('openTerminal', { repoId });
+    expect(opened).toMatchObject({ ok: true, result: { repoId, kind: 'shell', state: 'running' } });
+    const sessionId = (opened as { result: { id: string } }).result.id;
+    await tab2.waitFor((m): m is EventMessage => m.kind === 'event' && m.type === 'sessionChanged' && m.payload.session.id === sessionId);
+
+    expect(await tab2.send('writeToSession', { sessionId, data: 'echo HI_^FROM_TAB2\r' })).toMatchObject({ ok: true });
+    await tab1.waitFor(
+      (m): m is EventMessage => m.kind === 'event' && m.type === 'sessionOutput' && m.payload.data.includes('HI_FROM_TAB2'),
+    );
+    expect(await tab2.send('resizeSession', { sessionId, cols: 100, rows: 30 })).toMatchObject({ ok: true });
+
+    // A page reload gets the Session from the snapshot and its output from the buffer.
+    const reloaded = new Client(await connect());
+    expect(await reloaded.send('getSnapshot', {})).toMatchObject({ result: { sessions: [{ id: sessionId }] } });
+    expect(((await reloaded.send('getSessionOutput', { sessionId })) as { result: string }).result).toContain('HI_FROM_TAB2');
+
+    expect(await reloaded.send('closeSession', { sessionId })).toMatchObject({ ok: true });
+    await tab1.waitFor((m): m is EventMessage => m.kind === 'event' && m.type === 'sessionClosed' && m.payload.sessionId === sessionId);
+    expect(await tab1.send('getSessionOutput', { sessionId })).toMatchObject({ ok: false, error: { code: 'sessionNotFound' } });
   });
 
   it('replies with a coded error for failing or malformed commands', async () => {

@@ -108,9 +108,29 @@ export interface RepoView {
   services: ServiceView[];
 }
 
+/** What a Session runs: Claude Code or a shell. */
+export type SessionKind = 'claude' | 'shell';
+
+/**
+ * An interactive Session (Claude Code or a shell) in a Repo folder; one UI tab per Session. A
+ * Session whose process exited by itself stays listed as `finished` until its tab is closed.
+ */
+export interface SessionView {
+  id: string;
+  repoId: string;
+  kind: SessionKind;
+  /** 1-based number among the open Sessions of the same kind in the same Repo ("Терминал 2"). */
+  number: number;
+  state: 'running' | 'finished';
+  /** Exit code once `finished`. */
+  exitCode?: number;
+}
+
 /** Full state, enough for a (re)connecting client to rebuild its UI. Grows with later tickets. */
 export interface Snapshot {
   repos: RepoView[];
+  /** Open Sessions (running or finished), in opening order. */
+  sessions: SessionView[];
 }
 
 /** Addresses one Service. */
@@ -174,6 +194,23 @@ export interface ConfigChangedEvent {
   repo: RepoView;
 }
 
+/** A Session was opened or finished by itself: its new state. */
+export interface SessionChangedEvent {
+  session: SessionView;
+}
+
+/** A Session was closed (its tab closed, or its Repo removed); its process tree is gone. */
+export interface SessionClosedEvent {
+  sessionId: string;
+  repoId: string;
+}
+
+/** A chunk of a Session's pty output (including ANSI sequences). */
+export interface SessionOutputEvent {
+  sessionId: string;
+  data: string;
+}
+
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
   statusChanged: StatusChangedEvent;
@@ -184,6 +221,10 @@ export interface Events {
   installOutput: InstallOutputEvent;
   installChanged: InstallChangedEvent;
   configChanged: ConfigChangedEvent;
+  sessionChanged: SessionChangedEvent;
+  sessionClosed: SessionClosedEvent;
+  /** Live Session output. A tab first fetches `getSessionOutput` (same ordering rule as `log`). */
+  sessionOutput: SessionOutputEvent;
 }
 
 export type EventType = keyof Events;
@@ -223,6 +264,18 @@ export interface Commands {
   saveLocalConfig: { payload: { repoId: string; services: ServiceConfig[] }; result: null };
   /** Deletes the Repo's Local Config (offered once a Repo Config exists). */
   deleteLocalConfig: { payload: { repoId: string }; result: null };
+  /** Opens a shell Session in the Repo folder. */
+  openTerminal: { payload: { repoId: string }; result: SessionView };
+  /** Opens a Claude Code Session in the Repo folder; fails with `claudeMissing` when not installed. */
+  openClaude: { payload: { repoId: string }; result: SessionView };
+  /** Ends a Session (kills its process tree if it still runs) and forgets it. */
+  closeSession: { payload: { sessionId: string }; result: null };
+  /** Buffered output of a Session; ordered with `sessionOutput` events like `getServiceOutput`. */
+  getSessionOutput: { payload: { sessionId: string }; result: string };
+  /** Keyboard input for a Session's pty (dropped once the Session has finished). */
+  writeToSession: { payload: { sessionId: string; data: string }; result: null };
+  /** Terminal size of a Session tab; the most recent resize from any client wins. */
+  resizeSession: { payload: { sessionId: string; cols: number; rows: number }; result: null };
 }
 
 export type CommandType = keyof Commands;

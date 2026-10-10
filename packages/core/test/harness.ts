@@ -172,11 +172,20 @@ export class Harness {
     timings: Partial<CoreTimings> = TEST_TIMINGS,
     options: Omit<CoreOptions, 'appDataDir' | 'timings'> = {},
   ): Promise<DevPanelCore> {
-    const core = new DevPanelCore({ shell: this.shell, ...options, appDataDir: this.appDataDir, timings });
-    this.cores.push(core);
-    core.on('log', (e) => {
-      for (const m of stripAnsi(e.data).matchAll(/PID=(\d+)/g)) this.pids.add(Number(m[1]));
+    const core = new DevPanelCore({
+      shell: this.shell,
+      ...options,
+      // Never the real Claude Code: tests that need it inject a probe and a fixture command.
+      environment: { isClaudeAvailable: async () => false, claudeCommand: 'exit 9009', ...options.environment },
+      appDataDir: this.appDataDir,
+      timings,
     });
+    this.cores.push(core);
+    const collectPids = (data: string) => {
+      for (const m of stripAnsi(data).matchAll(/PID=(\d+)/g)) this.pids.add(Number(m[1]));
+    };
+    core.on('log', (e) => collectPids(e.data));
+    core.on('sessionOutput', (e) => collectPids(e.data));
     await core.load();
     return core;
   }

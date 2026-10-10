@@ -7,6 +7,10 @@ import {
   type ConfigChangedEvent,
   type ConfigSource,
   type ExitEvent,
+  type InstallChangedEvent,
+  type InstallOutputEvent,
+  type InstallResult,
+  type InstallState,
   type LogEvent,
   type RepoChangedEvent,
   type RepoView,
@@ -34,6 +38,13 @@ import { spawnService, type ServiceProcess } from './process.js';
 import { windowsShell, type DesktopShell } from './shell.js';
 import { repoIdFor } from './repo-id.js';
 import { readGitBranch } from './git.js';
+import {
+  DEFAULT_ENVIRONMENT,
+  PNPM_LOCK_FILE,
+  isPnpmRepo,
+  needsInstall,
+  type Environment,
+} from './environment.js';
 
 /** Timing parameters; production defaults per the spec, tests pass short ones. */
 export interface CoreTimings {
@@ -66,6 +77,8 @@ export interface CoreOptions {
   timings?: Partial<CoreTimings>;
   /** Folder picker and folder/URL opener; defaults to the Windows implementation. */
   shell?: DesktopShell;
+  /** Tool environment (pnpm probe, install command); tests replace it. */
+  environment?: Partial<Environment>;
 }
 
 /** Colors assigned to new Repos, in order; the first one not used by another Repo wins. */
@@ -88,6 +101,18 @@ export interface CoreEvents {
   exit: [ExitEvent];
   configChanged: [ConfigChangedEvent];
   repoChanged: [RepoChangedEvent];
+  installOutput: [InstallOutputEvent];
+  installChanged: [InstallChangedEvent];
+}
+
+/** A running or finished `pnpm install` of one Repo. */
+interface InstallRun {
+  /** Set while the install runs. */
+  process?: ServiceProcess;
+  /** Resolves when the install has finished. */
+  done: Promise<InstallResult>;
+  /** Exit code of the finished install. */
+  exitCode?: number;
 }
 
 interface ServiceState {
@@ -107,6 +132,8 @@ interface RepoState {
   path: string;
   color?: string;
   configError?: string;
+  /** The last `installDependencies` run, if any. */
+  install?: InstallRun;
   configSource: ConfigSource;
   suggestions?: SuggestedService[];
   unusedLocalConfig: boolean;
@@ -161,12 +188,14 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private readonly shell: DesktopShell;
   private repos = new Map<string, RepoState>();
   private refreshTimer: NodeJS.Timeout | undefined;
+  private readonly environment: Environment;
 
   constructor(options: CoreOptions) {
     super();
     this.appDataDir = options.appDataDir;
     this.shell = options.shell ?? windowsShell;
     this.timings = { ...DEFAULT_TIMINGS, ...options.timings };
+    this.environment = { ...DEFAULT_ENVIRONMENT, ...options.environment };
   }
 
   /** Reads the Workspace file and each Repo's config, and starts watching the config files. */
@@ -269,11 +298,13 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   async removeRepo(repoId: string): Promise<void> {
     const repo = this.getRepo(repoId);
     // Ticket 09: also close the Repo's Sessions here.
-    await Promise.all(
-      [...repo.services.values()]
+    const install = repo.install?.process;
+    await Promise.all([
+      ...[...repo.services.values()]
         .filter((s) => s.process)
         .map((s) => this.stopService(repo.id, s.definition.id)),
-    );
+      ...(install ? [install.stop(this.timings.gracefulStopMs)] : []),
+    ]);
     if (this.repos.get(repoId) !== repo) return; // removed concurrently
     this.repos.delete(repoId);
     this.unwatchRepo(repo);
@@ -302,8 +333,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     await this.requireFolder(resolved);
-    if ([...repo.services.values()].some((s) => s.process)) {
-      throw new DevPanelError('repoBusy', { repoName: repo.name }, `Repo "${repo.name}" has running Services`);
+    if ([...repo.services.values()].some((s) => s.process) || repo.install?.process) {
+      throw new DevPanelError('repoBusy', { repoName: repo.name }, `Repo "${repo.name}" has running processes`);
     }
 
     const oldLocal = localConfigPath(this.appDataDir, repo.path);
@@ -420,6 +451,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     if (service.process) return;
     await this.requireRepoFolder(repo);
 
+    await this.ensurePnpm(repo);
+    if (service.process) return;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
     this.setStatus(repo, service, 'starting');
@@ -471,17 +504,90 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     await this.startService(repoId, serviceId);
   }
 
-  /** Stops every running Service. */
+  /**
+   * Runs the install command (`pnpm install`) in the folder of a pnpm Repo, in a pty, streaming
+   * `installOutput` and announcing `installChanged`. Resolves when it has finished; a call while an
+   * install of the same Repo runs joins that install.
+   */
+  async installDependencies(repoId: string): Promise<InstallResult> {
+    const repo = this.getRepo(repoId);
+    if (repo.install?.process) return repo.install.done;
+    if (!isPnpmRepo(repo.path)) {
+      throw new DevPanelError(
+        'notPnpmRepo',
+        { repoName: repo.name },
+        `Repo "${repo.name}" has no ${PNPM_LOCK_FILE}; DevPanel installs dependencies only for pnpm Repos`,
+      );
+    }
+    await this.ensurePnpm(repo);
+    if (repo.install?.process) return repo.install.done;
+
+    const command = this.environment.installCommand;
+    let proc: ServiceProcess;
+    try {
+      proc = spawnService({ command, cwd: repo.path });
+    } catch (err) {
+      throw new DevPanelError(
+        'spawnFailed',
+        { repoName: repo.name, serviceName: command },
+        `Failed to spawn "${command}" in ${repo.path}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    proc.onData((data) => this.emit('installOutput', { repoId: repo.id, data }));
+    const run: InstallRun = {
+      process: proc,
+      done: proc.exited.then((exitCode) => {
+        run.process = undefined;
+        run.exitCode = exitCode;
+        this.emitInstallChanged(repo);
+        return { ok: exitCode === 0, exitCode };
+      }),
+    };
+    repo.install = run;
+    this.emitInstallChanged(repo);
+    return run.done;
+  }
+
+  /** Stops every running Service (and any running dependency install). */
   async shutdown(): Promise<void> {
     this.stopRepoRefresh();
     const stops: Promise<void>[] = [];
     for (const repo of this.repos.values()) {
+      const install = repo.install?.process;
+      if (install) stops.push(install.stop(this.timings.gracefulStopMs));
       for (const service of repo.services.values()) {
         if (service.process) stops.push(this.stopService(repo.id, service.definition.id));
       }
     }
     this.closeWatchers();
     await Promise.all(stops);
+  }
+
+  private installState(repo: RepoState): InstallState | undefined {
+    if (repo.install?.process) return { state: 'running' };
+    if (!needsInstall(repo.path)) return undefined;
+    const exitCode = repo.install?.exitCode;
+    return exitCode !== undefined && exitCode !== 0 ? { state: 'failed', exitCode } : { state: 'needed' };
+  }
+
+  private emitInstallChanged(repo: RepoState): void {
+    this.emit('installChanged', { repoId: repo.id, ...this.installView(repo) });
+  }
+
+  private installView(repo: RepoState): { install?: InstallState } {
+    const install = this.installState(repo);
+    return install ? { install } : {};
+  }
+
+  /** In a pnpm Repo, fails with a coded error (shown with a hint) when pnpm is not on PATH. */
+  private async ensurePnpm(repo: RepoState): Promise<void> {
+    if (!isPnpmRepo(repo.path)) return;
+    if (await this.environment.isPnpmAvailable()) return;
+    throw new DevPanelError(
+      'pnpmMissing',
+      { repoName: repo.name },
+      `Repo "${repo.name}" has ${PNPM_LOCK_FILE} but "where pnpm" found nothing on PATH`,
+    );
   }
 
   // --- Config lifecycle -----------------------------------------------------------------------
@@ -517,6 +623,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       ...(repo.unusedLocalConfig && { unusedLocalConfig: true }),
       ...(repo.folderMissing && { folderMissing: true }),
       ...(repo.branch !== undefined && { branch: repo.branch }),
+      ...this.installView(repo),
       services: [...repo.services.values()].map(({ definition: d, status, pending, removed }) => ({
         id: d.id,
         name: d.name ?? d.id,

@@ -15,6 +15,10 @@ export interface ErrorParams {
   serviceNotFound: { repoName: string; serviceId: string };
   /** The Service process could not be spawned. */
   spawnFailed: { repoName: string; serviceName: string };
+  /** The Repo uses pnpm (has `pnpm-lock.yaml`) but `pnpm` is not on PATH. */
+  pnpmMissing: { repoName: string };
+  /** `installDependencies` was asked for a Repo that is not a pnpm Repo. */
+  notPnpmRepo: { repoName: string };
   /** The Repo Config is invalid or unreadable (shown on the Repo). */
   configInvalid: { repoName: string };
   /** `addRepo`/`relocateRepo`: the folder is already a Repo of the Workspace. */

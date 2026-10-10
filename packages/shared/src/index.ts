@@ -59,6 +59,18 @@ export interface SuggestedService extends ServiceConfig {
   preselected: boolean;
 }
 
+/**
+ * Dependency install state of a pnpm Repo (one with `pnpm-lock.yaml`). Absent on `RepoView` when
+ * nothing is to be done: not a pnpm Repo, or `node_modules` exists and no install is running.
+ */
+export type InstallState =
+  /** No `node_modules` yet: the UI offers "Install dependencies". */
+  | { state: 'needed' }
+  /** `pnpm install` is running. */
+  | { state: 'running' }
+  /** The last `pnpm install` failed and dependencies are still missing. */
+  | { state: 'failed'; exitCode: number };
+
 export interface RepoView {
   id: string;
   name: string;
@@ -73,6 +85,8 @@ export interface RepoView {
   folderMissing?: boolean;
   /** Current git branch (or short commit when detached); absent for non-git folders. */
   branch?: string;
+  /** Dependency install state; see `InstallState`. */
+  install?: InstallState;
   /** Absent means 'none' (kept optional so older builders stay valid). */
   configSource?: ConfigSource;
   /** Auto-detected Services; only when `configSource` is 'none'. */
@@ -123,6 +137,24 @@ export interface RepoChangedEvent {
   repo: RepoView | null;
 }
 
+/** A chunk of `pnpm install` pty output for a Repo (including ANSI sequences). */
+export interface InstallOutputEvent {
+  repoId: string;
+  data: string;
+}
+
+/** A Repo's `InstallState` changed; `install` absent = nothing to install any more. */
+export interface InstallChangedEvent {
+  repoId: string;
+  install?: InstallState;
+}
+
+/** Outcome of `installDependencies`. */
+export interface InstallResult {
+  ok: boolean;
+  exitCode: number;
+}
+
 /** A Repo's config was (re)loaded: replaces the whole Repo view. */
 export interface ConfigChangedEvent {
   repo: RepoView;
@@ -133,6 +165,8 @@ export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
   repoChanged: RepoChangedEvent;
+  installOutput: InstallOutputEvent;
+  installChanged: InstallChangedEvent;
   configChanged: ConfigChangedEvent;
 }
 
@@ -157,6 +191,8 @@ export interface Commands {
   openFolder: { payload: { repoId: string }; result: null };
   /** Opens the Service's configured `url` in the default browser. */
   openUrl: { payload: ServiceRef; result: null };
+  /** Runs `pnpm install` in a pnpm Repo; replies when it has finished. */
+  installDependencies: { payload: { repoId: string }; result: InstallResult };
   /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */
   saveLocalConfig: { payload: { repoId: string; services: ServiceConfig[] }; result: null };
   /** Deletes the Repo's Local Config (offered once a Repo Config exists). */

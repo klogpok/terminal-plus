@@ -8,6 +8,14 @@
       @if (repo.configError) {
         <dp-error-message [message]="configErrorMessage(repo)" [details]="repo.configError" />
       }
+      @if (repo.install) {
+        <button
+          type="button"
+          class="install-button"
+          [disabled]="repo.install.state === 'running'"
+          (click)="backend.installDependencies(repo.id)"
+        >{{ repo.install.state === 'running' ? strings.install.running : strings.install.button }}</button>
+      }
       @if (repo.unusedLocalConfig) {
         <div class="notice">
           <span>{{ strings.config.unusedLocalConfig }}</span>

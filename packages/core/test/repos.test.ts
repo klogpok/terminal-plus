@@ -143,6 +143,26 @@ describe('removeRepo', () => {
     expect(reloaded.listRepos().map((r) => r.name)).toEqual(['docs']);
   });
 
+  it('also stops a running dependency install of the Repo', async () => {
+    const repoPath = h.addRepo({ name: 'shop' });
+    writeFileSync(path.join(repoPath, 'pnpm-lock.yaml'), '');
+    const core = await h.createCore(undefined, {
+      environment: { installCommand: fixtureCommand('spawn-grandchild.mjs'), isPnpmAvailable: async () => true },
+    });
+    const repo = core.listRepos()[0]!;
+    let output = '';
+    core.on('installOutput', (e) => (output += e.data));
+    const install = core.installDependencies(repo.id);
+    await waitUntil(() => /GRANDCHILD_PID=(\d+)/.test(output));
+    const [, child, grandchild] = output.match(/CHILD_PID=(\d+) GRANDCHILD_PID=(\d+)/)!.map(Number);
+
+    await core.removeRepo(repo.id);
+    await install;
+
+    await waitUntil(() => !isAlive(child!) && !isAlive(grandchild!));
+    expect(core.listRepos()).toEqual([]);
+  });
+
   it('rejects an unknown Repo', async () => {
     const core = await h.createCore();
     expect(await codeOf(core.removeRepo('nope'))).toBe('repoNotFound');

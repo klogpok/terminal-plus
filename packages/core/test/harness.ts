@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stringify } from 'yaml';
-import { DevPanelCore, type CoreTimings, type DesktopShell } from '../src/index.js';
+import { DevPanelCore, type CoreOptions, type CoreTimings, type DesktopShell } from '../src/index.js';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -49,6 +49,8 @@ export interface RepoSpec {
   color?: string;
   /** Sub-directories to create inside the Repo folder. */
   dirs?: string[];
+  /** Extra files to create in the Repo folder: relative path -> content. */
+  files?: Record<string, string>;
 }
 
 /**
@@ -92,6 +94,10 @@ export class Harness {
     const repoPath = path.join(this.root, 'repos', spec.name);
     mkdirSync(repoPath, { recursive: true });
     for (const dir of spec.dirs ?? []) mkdirSync(path.join(repoPath, dir), { recursive: true });
+    for (const [file, content] of Object.entries(spec.files ?? {})) {
+      mkdirSync(path.dirname(path.join(repoPath, file)), { recursive: true });
+      writeFileSync(path.join(repoPath, file), content);
+    }
     const text = spec.configText ?? (spec.config === undefined ? undefined : stringify(spec.config));
     if (text !== undefined) writeFileSync(path.join(repoPath, '.devpanel.yml'), text);
     this.repos.push({ path: repoPath, name: spec.name, ...(spec.color && { color: spec.color }) });
@@ -109,9 +115,15 @@ export class Harness {
     return folder;
   }
 
-  /** Constructs `core` over the temporary app data directory with short timings and the fake shell. */
-  async createCore(timings: Partial<CoreTimings> = TEST_TIMINGS): Promise<DevPanelCore> {
-    const core = new DevPanelCore({ appDataDir: this.appDataDir, timings, shell: this.shell });
+  /**
+   * Constructs `core` over the temporary app data directory with short timings. The fake shell is
+   * used unless `options.shell` overrides it, so tests never open real dialogs or windows.
+   */
+  async createCore(
+    timings: Partial<CoreTimings> = TEST_TIMINGS,
+    options: Omit<CoreOptions, 'appDataDir' | 'timings'> = {},
+  ): Promise<DevPanelCore> {
+    const core = new DevPanelCore({ shell: this.shell, ...options, appDataDir: this.appDataDir, timings });
     this.cores.push(core);
     core.on('log', (e) => {
       for (const m of stripAnsi(e.data).matchAll(/PID=(\d+)/g)) this.pids.add(Number(m[1]));

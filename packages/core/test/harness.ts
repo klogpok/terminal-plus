@@ -84,7 +84,6 @@ export function isAlive(pid: number): boolean {
 
 /** Removes ANSI escape sequences that ConPTY adds to output. */
 export function stripAnsi(text: string): string {
-  // eslint-disable-next-line no-control-regex
   return text.replace(/\u001b\][^\u0007]*\u0007|\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b[@-_]/g, '');
 }
 

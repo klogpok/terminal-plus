@@ -27,6 +27,7 @@ const CTRL_C = '\x03';
  * After Ctrl+C, cmd.exe running a batch file (pnpm.cmd, npm.cmd shims) asks
  * "Terminate batch job (Y/N)?" (localized) and waits; we answer it so the graceful stop is not stalled.
  */
+// eslint-disable-next-line no-restricted-syntax -- matches cmd.exe's own Russian prompt; not UI text.
 const BATCH_PROMPT = /(\(Y\/N\)|\[Y\(да\)\/N\(нет\)\])\?\s*$/i;
 const ANSI = /\u001b\][^\u0007]*\u0007|\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b[@-_]/g;
 /** How long to wait for the pty exit event after the tree was killed. */

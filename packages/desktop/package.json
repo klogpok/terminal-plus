@@ -9,6 +9,7 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
+    "typecheck": "tsc -p tsconfig.test.json",
     "test": "tsc -p tsconfig.test.json && node scripts/bundle.mjs && vitest run",
     "start": "electron .",
     "dist": "electron-builder --win nsis"

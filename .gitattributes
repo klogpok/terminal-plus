@@ -1,2 +1,4 @@
 # cmd.exe misparses batch files with LF-only line endings.
 *.bat text eol=crlf
+# Git hooks run under sh, which chokes on CRLF.
+.githooks/* text eol=lf

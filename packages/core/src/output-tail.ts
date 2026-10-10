@@ -1,4 +1,3 @@
-// eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)|\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b[@-_]/g;
 
 /** Removes ANSI/OSC escape sequences (colors, cursor moves, window titles) that ConPTY output carries. */

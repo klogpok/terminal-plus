@@ -4,14 +4,14 @@
 
 **Blocked by:** 05 (Port conflicts).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Every spawned process is recorded in a PID file in the app data directory with PID, process creation time, Repo, and Service id or Session kind; entries are removed when the process ends.
-- [ ] `shutdown` stops every Service and Session, then the Server exits; the same happens on SIGINT, SIGTERM, console close (SIGHUP) and `beforeExit`.
-- [ ] The UI has an "Exit DevPanel" button with confirmation.
-- [ ] On start, `core` reports Orphans only for entries whose PID and creation time both match a live process (test includes a reused-PID negative case).
-- [ ] The UI lists found Orphans in plain Russian with a "Kill" action (`killOrphans`), which kills each Orphan's whole tree.
-- [ ] Port-conflict classification recognizes an Orphan owner ("…left over from the previous run") and `resolvePortConflict` handles it.
+- [x] Every spawned process is recorded in a PID file in the app data directory with PID, process creation time, Repo, and Service id or Session kind; entries are removed when the process ends.
+- [x] `shutdown` stops every Service and Session, then the Server exits; the same happens on SIGINT, SIGTERM, console close (SIGHUP) and `beforeExit`.
+- [x] The UI has an "Exit DevPanel" button with confirmation.
+- [x] On start, `core` reports Orphans only for entries whose PID and creation time both match a live process (test includes a reused-PID negative case).
+- [x] The UI lists found Orphans in plain Russian with a "Kill" action (`killOrphans`), which kills each Orphan's whole tree.
+- [x] Port-conflict classification recognizes an Orphan owner ("…left over from the previous run") and `resolvePortConflict` handles it.
 
 ---
 
@@ -23,11 +23,19 @@
 
 **Блокируется:** 05 (Конфликты портов).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Каждый порождённый процесс записывается в PID-файл в каталоге данных приложения с PID, временем создания процесса, Репо и id Сервиса или типом Сессии; записи удаляются, когда процесс завершается.
-- [ ] `shutdown` останавливает все Сервисы и Сессии, затем Сервер завершается; то же происходит при SIGINT, SIGTERM, закрытии консоли (SIGHUP) и `beforeExit`.
-- [ ] В UI есть кнопка «Выйти из DevPanel» с подтверждением.
-- [ ] При старте `core` сообщает о Зомби только для записей, у которых и PID, и время создания совпадают с живым процессом (тест включает отрицательный случай с переиспользованным PID).
-- [ ] UI показывает найденных Зомби на понятном русском с действием «Убить» (`killOrphans`), которое убивает всё дерево каждого Зомби.
-- [ ] Классификация конфликтов портов распознаёт Зомби-владельца («…остался с прошлого запуска»), и `resolvePortConflict` его обрабатывает.
+- [x] Каждый порождённый процесс записывается в PID-файл в каталоге данных приложения с PID, временем создания процесса, Репо и id Сервиса или типом Сессии; записи удаляются, когда процесс завершается.
+- [x] `shutdown` останавливает все Сервисы и Сессии, затем Сервер завершается; то же происходит при SIGINT, SIGTERM, закрытии консоли (SIGHUP) и `beforeExit`.
+- [x] В UI есть кнопка «Выйти из DevPanel» с подтверждением.
+- [x] При старте `core` сообщает о Зомби только для записей, у которых и PID, и время создания совпадают с живым процессом (тест включает отрицательный случай с переиспользованным PID).
+- [x] UI показывает найденных Зомби на понятном русском с действием «Убить» (`killOrphans`), которое убивает всё дерево каждого Зомби.
+- [x] Классификация конфликтов портов распознаёт Зомби-владельца («…остался с прошлого запуска»), и `resolvePortConflict` его обрабатывает.
+
+## Comments
+
+- Implementer (t07): PID file = `<appData>/processes.json`, one record per process (pid, FILETIME creation time, runId, Repo id/name, owner `service` {serviceId, serviceName} or `session` {sessionKind}). Each Service run / Session records its whole tree (pty root + descendants): right after spawn, 3 s later, when a Service becomes ready, and every 30 s; records go when the pty root exits. Reason: a hard kill of the Server closes the ConPTY, which kills its console processes, so survivors are typically descendants that left the console. An Orphan = all surviving records of one run. Session PIDs are recorded too (ticket 09). `shutdown` command replies after everything stopped, then the Server closes and the process exits; console close (SIGHUP) uses a 2 s grace.
+
+### Русский перевод
+
+- Исполнитель (t07): PID-файл = `<appData>/processes.json`, одна запись на процесс (pid, время создания в формате FILETIME, runId, id/имя Репо, владелец `service` {serviceId, serviceName} или `session` {sessionKind}). Каждый запуск Сервиса / Сессия записывает всё своё дерево (корень pty + потомки): сразу после запуска, через 3 с, когда Сервис становится готов, и каждые 30 с; записи удаляются, когда завершается корень pty. Причина: жёсткое убийство Сервера закрывает ConPTY, а вместе с ним гибнут его консольные процессы, поэтому выживают обычно потомки, ушедшие из консоли. Зомби = все выжившие записи одного запуска. PID Сессий тоже записываются (тикет 09). Команда `shutdown` отвечает после остановки всего, затем Сервер закрывается и процесс завершается; при закрытии консоли (SIGHUP) время на корректную остановку — 2 с.

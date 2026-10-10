@@ -5,7 +5,7 @@
  * Error messages are keyed by `ErrorCode` (packages/shared/src/errors.ts) plus client-side codes;
  * a new code fails to compile until its message is added here.
  */
-import type { ErrorParams, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
+import type { ErrorParams, Orphan, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
 
 /** Errors raised in the browser itself (not by the Server). */
 export interface ClientErrorParams {
@@ -31,7 +31,25 @@ export function describePortOwner(owner: PortOwner): string {
       return `сервисом ${owner.serviceName} из репо ${owner.repoName}`;
     case 'process':
       return `процессом ${owner.processName} (PID ${owner.pid})`;
+    case 'orphan': {
+      const { owner: what, repoName } = owner.orphan;
+      return what.kind === 'service'
+        ? `сервисом ${what.serviceName} из репо ${repoName}, который остался с прошлого запуска`
+        : `сессией ${sessionKindName(what.sessionKind)} из репо ${repoName}, которая осталась с прошлого запуска`;
+    }
   }
+}
+
+function sessionKindName(kind: SessionKind): string {
+  return kind === 'claude' ? 'Claude Code' : 'терминала';
+}
+
+/** One Orphan in plain words: "Сервис API из репо Billing остался с прошлого запуска". */
+export function describeOrphan({ owner, repoName }: Orphan): string {
+  if (owner.kind === 'service') return `Сервис ${owner.serviceName} из репо ${repoName} остался с прошлого запуска`;
+  return owner.sessionKind === 'claude'
+    ? `Сессия Claude Code из репо ${repoName} осталась с прошлого запуска`
+    : `Терминал из репо ${repoName} остался с прошлого запуска`;
 }
 
 /** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */
@@ -139,6 +157,23 @@ export const STRINGS = {
     stopAllRepos: 'Остановить всё во всех репо',
   },
 
+  /** "Exit DevPanel": stops every Service and Session, then the Server. */
+  exit: {
+    button: 'Выйти из DevPanel',
+    question: 'Выйти из DevPanel? Все сервисы и сессии будут остановлены.',
+    confirmYes: 'Да, выйти',
+    confirmNo: 'Отмена',
+    stopping: 'Останавливаем все сервисы и сессии…',
+    done: 'DevPanel выключен. Эту вкладку можно закрыть. Чтобы начать снова, запустите DevPanel ярлыком на рабочем столе.',
+  },
+
+  /** Processes left over from a previous run (after a crash or a forced shutdown). */
+  orphans: {
+    title: 'После прошлого запуска DevPanel остались работающие процессы:',
+    hint: 'Обычно их стоит завершить: они могут занимать порты и мешать запуску.',
+    kill: 'Убить',
+  },
+
   error: {
     details: 'Подробнее',
   },
@@ -174,8 +209,8 @@ export const STRINGS = {
       `Сервис ${serviceName} остановлен, но порт ${port} всё ещё занят ${describePortOwner(owner)}.`,
     /** The one button, by owner kind and by whether the Service starts afterwards. */
     resolve: {
-      start: { service: 'Остановить его и запустить наш', process: 'Завершить и запустить наш' },
-      stop: { service: 'Остановить его', process: 'Завершить' },
+      start: { service: 'Остановить его и запустить наш', process: 'Завершить и запустить наш', orphan: 'Завершить его и запустить наш' },
+      stop: { service: 'Остановить его', process: 'Завершить', orphan: 'Завершить его' },
     } satisfies Record<PortConflict['reason'], Record<PortOwnerKind, string>>,
     confirmKill: (processName: string, pid: number) =>
       `Завершить процесс ${processName} (PID ${pid})? Если это другая программа, её несохранённые данные пропадут.`,

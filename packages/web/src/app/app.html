@@ -8,15 +8,39 @@
     [attr.aria-label]="strings.actions.stopAllRepos"
     (click)="backend.stopAllRepos()"
   >■ {{ strings.actions.stopAllRepos }}</button>
+  <button
+    type="button"
+    class="exit-button"
+    [disabled]="backend.exit() !== 'none'"
+    [attr.aria-label]="strings.exit.button"
+    (click)="confirmingExit.set(true)"
+  >⏻ {{ strings.exit.button }}</button>
 </header>
-@switch (backend.connection()) {
-  @case ('connecting') {
-    <div class="banner">{{ strings.connection.connecting }}</div>
+@if (confirmingExit()) {
+  <div class="exit-confirm" role="alertdialog">
+    <span>{{ strings.exit.question }}</span>
+    <button type="button" class="danger" (click)="exit()">{{ strings.exit.confirmYes }}</button>
+    <button type="button" (click)="confirmingExit.set(false)">{{ strings.exit.confirmNo }}</button>
+  </div>
+}
+@switch (backend.exit()) {
+  @case ('exited') {
+    <div class="exited">{{ strings.exit.done }}</div>
   }
-  @case ('closed') {
-    <div class="banner banner-error">
-      <dp-error-message [message]="strings.connection.closed + ' ' + strings.connection.closedHint" [details]="backend.connectionDetails()" />
-    </div>
+  @case ('exiting') {
+    <div class="banner">{{ strings.exit.stopping }}</div>
+  }
+  @default {
+    @switch (backend.connection()) {
+      @case ('connecting') {
+        <div class="banner">{{ strings.connection.connecting }}</div>
+      }
+      @case ('closed') {
+        <div class="banner banner-error">
+          <dp-error-message [message]="strings.connection.closed + ' ' + strings.connection.closedHint" [details]="backend.connectionDetails()" />
+        </div>
+      }
+    }
   }
 }
 <div class="layout">
@@ -24,6 +48,18 @@
     <dp-repo-list />
   </aside>
   <main class="right">
+    @if (backend.orphans().length) {
+      <div class="orphans" role="alert">
+        <div>{{ strings.orphans.title }}</div>
+        <ul>
+          @for (orphan of backend.orphans(); track orphan.id) {
+            <li>{{ describeOrphan(orphan) }}</li>
+          }
+        </ul>
+        <div class="muted">{{ strings.orphans.hint }}</div>
+        <button type="button" class="danger" (click)="backend.killOrphans()">{{ strings.orphans.kill }}</button>
+      </div>
+    }
     @if (backend.errors().length) {
       <div class="errors">
         @for (error of backend.errors(); track error.id) {

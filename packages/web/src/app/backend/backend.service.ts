@@ -6,6 +6,7 @@ import type {
   EventMessage,
   EventType,
   Events,
+  Orphan,
   RepoChangedEvent,
   RepoView,
   ServerMessage,
@@ -19,6 +20,9 @@ import { describeError, type UiErrorInfo } from '../strings';
 import { BACKEND_TRANSPORT } from './backend-transport';
 
 export type ConnectionState = 'connecting' | 'open' | 'closed';
+
+/** "Exit DevPanel" from this tab: not requested, stopping everything, or done (Server gone). */
+export type ExitState = 'none' | 'exiting' | 'exited';
 
 /** An error shown to the user: plain-Russian message + technical details under "Details". */
 export interface UiError {
@@ -67,6 +71,12 @@ export class BackendService {
   readonly repos = this.reposState.asReadonly();
   /** Open Sessions (running or finished), in opening order; each has one tab. */
   readonly sessions = this.sessionsState.asReadonly();
+  private readonly orphansState = signal<Orphan[]>([]);
+  /** Processes left over from a previous run of the Server, not killed yet. */
+  readonly orphans = this.orphansState.asReadonly();
+  private readonly exitState = signal<ExitState>('none');
+  /** "Exit DevPanel" progress in this tab. */
+  readonly exit = this.exitState.asReadonly();
   readonly errors = this.errorsState.asReadonly();
   /** Open `pnpm install` output tabs (one per Repo). */
   readonly installTabs = this.installTabsState.asReadonly();
@@ -116,6 +126,23 @@ export class BackendService {
   /** "Stop all in all Repos": every Service in the Workspace, never Sessions. */
   stopAllRepos(): void {
     this.run('stopAllRepos', {});
+  }
+
+  /** "Exit DevPanel" (the UI confirms first): stops every Service and Session, then the Server. */
+  exitDevPanel(): void {
+    this.exitState.set('exiting');
+    this.command('shutdown', {}).then(
+      () => this.exitState.set('exited'),
+      (error: UiErrorInfo) => {
+        this.exitState.set('none');
+        this.showError(error);
+      },
+    );
+  }
+
+  /** Kills every Orphan (each with its whole process tree). */
+  killOrphans(): void {
+    this.run('killOrphans', {});
   }
 
   /** Runs `pnpm install` in a pnpm Repo and opens a tab with its output. */
@@ -252,6 +279,7 @@ export class BackendService {
       (snapshot) => {
         this.reposState.set(snapshot.repos);
         this.sessionsState.set(snapshot.sessions);
+        this.orphansState.set(snapshot.orphans ?? []);
       },
       (error: UiErrorInfo) => this.showError(error),
     );
@@ -334,6 +362,9 @@ export class BackendService {
       }
       case 'repoChanged':
         this.applyRepoChange(event.payload);
+        break;
+      case 'orphansFound':
+        this.orphansState.set(event.payload.orphans);
         break;
       case 'sessionChanged':
         this.applySession(event.payload.session);

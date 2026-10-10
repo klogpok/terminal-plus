@@ -12,7 +12,7 @@
 - [x] Closing a Session tab calls `closeSession` (with confirmation if alive) and kills the Session's process tree.
 - [x] A self-exited Session stays listed as finished until its tab is closed.
 - [x] After a page reload, open Sessions reappear with their buffered output.
-- [ ] Sessions are recorded for Orphan detection and stopped on Exit. (Stopped on Exit: done. PID-file recording belongs to ticket 07, see Comments.)
+- [x] Sessions are recorded for Orphan detection and stopped on Exit. (PID-file recording done in ticket 07.)
 - [x] "Stop all" commands leave Sessions running (test); `removeRepo` ends the Repo's Sessions (test).
 
 ---
@@ -33,7 +33,7 @@
 - [x] Закрытие вкладки Сессии вызывает `closeSession` (с подтверждением, если она жива) и убивает дерево процессов Сессии.
 - [x] Сессия, завершившаяся сама, остаётся в списке как завершённая, пока её вкладку не закроют.
 - [x] После перезагрузки страницы открытые Сессии появляются снова с буферизованным выводом.
-- [ ] Сессии записываются для обнаружения Зомби и останавливаются при Выходе. (Остановка при Выходе: сделано. Запись в PID-файл — тикет 07, см. Комментарии.)
+- [x] Сессии записываются для обнаружения Зомби и останавливаются при Выходе. (Запись в PID-файл сделана в тикете 07.)
 - [x] Команды «Остановить всё» оставляют Сессии работающими (тест); `removeRepo` завершает Сессии Репо (тест).
 
 ## Comments

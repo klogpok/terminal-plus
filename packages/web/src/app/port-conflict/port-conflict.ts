@@ -61,6 +61,7 @@ export class PortConflictBlock {
     return {
       message: reason === 'stop' ? this.strings.stillTaken(name, port, owner) : this.strings.taken(port, owner),
       button: this.strings.resolve[reason][owner.kind],
+      // Only a foreign process asks first; an Orphan is DevPanel's own leftover (one click).
       needsConfirm: owner.kind === 'process',
       confirm: owner.kind === 'process' ? this.strings.confirmKill(owner.processName, owner.pid) : '',
     };

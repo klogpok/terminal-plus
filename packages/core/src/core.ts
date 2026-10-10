@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, watch, type FSWatcher } from 'node:fs';
 import { mkdir, rename, stat } from 'node:fs/promises';
@@ -23,6 +24,11 @@ import {
   type RepoView,
   type ServiceConfig,
   type ServiceStatus,
+  type SessionChangedEvent,
+  type SessionClosedEvent,
+  type SessionKind,
+  type SessionOutputEvent,
+  type SessionView,
   type Snapshot,
   type StatusChangedEvent,
   type SuggestedService,
@@ -120,6 +126,23 @@ export interface CoreEvents {
   installChanged: [InstallChangedEvent];
   portConflictChanged: [PortConflictChangedEvent];
   orphansFound: [OrphansFoundEvent];
+  sessionChanged: [SessionChangedEvent];
+  sessionClosed: [SessionClosedEvent];
+  sessionOutput: [SessionOutputEvent];
+}
+
+/** An open Session (running, or finished by itself and still shown in its tab). */
+interface SessionState {
+  id: string;
+  repoId: string;
+  kind: SessionKind;
+  number: number;
+  /** Set while the process runs. */
+  process?: ServiceProcess;
+  exitCode?: number;
+  output: OutputBuffer;
+  /** Set once `closeSession` (or Repo removal / shutdown) began ending it. */
+  closing?: Promise<void>;
 }
 
 /** A running or finished `pnpm install` of one Repo. */
@@ -272,13 +295,14 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   readonly appDataDir: string;
   private readonly shell: DesktopShell;
   private repos = new Map<string, RepoState>();
+  /** Open Sessions by id, in opening order. */
+  private readonly sessions = new Map<string, SessionState>();
   private refreshTimer: NodeJS.Timeout | undefined;
   private readonly environment: Environment;
   private readonly pidFile: PidFile;
   /**
-   * Records every spawned process in the PID file. Ticket 09: a Session calls
-   * `recorder.track(pty.pid, { repoId, repoName, owner: { kind: 'session', sessionKind } })` after
-   * spawning and `recorder.forget(runId)` when it exits; `shutdown` must close Sessions too.
+   * Records every spawned Service and Session process tree in the PID file: `track` right after the
+   * spawn, `refresh` when a Service becomes ready, `forget` when the pty root exits.
    */
   private readonly recorder: ProcessRecorder;
   /** Orphans found by `load` and not killed yet, with their matching PID file records. */
@@ -397,9 +421,9 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
    */
   async removeRepo(repoId: string): Promise<void> {
     const repo = this.getRepo(repoId);
-    // Ticket 09: also close the Repo's Sessions here.
     const install = repo.install?.process;
     await Promise.all([
+      this.closeSessions(repo.id),
       // stopService also cancels a start still waiting for its dependencies.
       ...[...repo.services.keys()].map((serviceId) => this.stopService(repo.id, serviceId)),
       ...(install ? [install.stop(this.timings.gracefulStopMs)] : []),
@@ -432,7 +456,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     await this.requireFolder(resolved);
-    if ([...repo.services.values()].some((s) => s.process) || repo.install?.process) {
+    const liveSession = [...this.sessions.values()].some((s) => s.repoId === repoId && s.process);
+    if ([...repo.services.values()].some((s) => s.process) || repo.install?.process || liveSession) {
       throw new DevPanelError('repoBusy', { repoName: repo.name }, `Repo "${repo.name}" has running processes`);
     }
 
@@ -449,6 +474,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     await this.saveWorkspace();
     const view = this.repoView(moved);
     this.emit('repoChanged', { repoId, repo: view });
+    // Finished Sessions (still shown in their tabs) follow the Repo to its new id.
+    for (const session of this.sessions.values()) {
+      if (session.repoId !== repoId || moved.id === repoId) continue;
+      session.repoId = moved.id;
+      this.emit('sessionChanged', { session: this.sessionView(session) });
+    }
     return view;
   }
 
@@ -541,7 +572,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   /** Full state for a (re)connecting client. */
   snapshot(): Snapshot {
     const orphans = this.listOrphans();
-    return { repos: this.listRepos(), ...(orphans.length && { orphans }) };
+    return { repos: this.listRepos(), sessions: this.listSessions(), ...(orphans.length && { orphans }) };
   }
 
   // --- Orphans ----------------------------------------------------------------------------------
@@ -922,16 +953,135 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     return run.done;
   }
 
+  // --- Sessions -------------------------------------------------------------------------------
+
+  /** Opens a shell Session in the Repo folder. */
+  async openTerminal(repoId: string): Promise<SessionView> {
+    const repo = this.getRepo(repoId);
+    await this.requireRepoFolder(repo);
+    return this.openSession(repo, 'shell', this.environment.shellCommand);
+  }
+
+  /** Opens a Claude Code Session (`claude` through `cmd.exe`) in the Repo folder, after `where claude`. */
+  async openClaude(repoId: string): Promise<SessionView> {
+    const repo = this.getRepo(repoId);
+    await this.requireRepoFolder(repo);
+    if (!(await this.environment.isClaudeAvailable())) {
+      throw new DevPanelError('claudeMissing', {}, '"where claude" found nothing on PATH');
+    }
+    return this.openSession(this.getRepo(repoId), 'claude', this.environment.claudeCommand);
+  }
+
   /**
-   * Exit: stops every running Service (and any running dependency install); their PID file records
-   * go as they exit. `gracefulStopMs` overrides the grace period (e.g. a closing console window
-   * leaves Windows only a few seconds). Ticket 09: close every Session here too.
+   * Ends a Session: kills its whole process tree if it still runs, then forgets it and emits
+   * `sessionClosed`. Closing an unknown (already closed) Session does nothing.
+   */
+  closeSession(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return Promise.resolve();
+    session.closing ??= (async () => {
+      // No graceful period: closing the tab is the user's explicit "end it" (confirmed in the UI).
+      await session.process?.stop(0);
+      this.sessions.delete(session.id);
+      this.emit('sessionClosed', { sessionId: session.id, repoId: session.repoId });
+    })();
+    return session.closing;
+  }
+
+  /** Buffered output of a Session (raw, with ANSI sequences), for a newly opened tab. */
+  getSessionOutput(sessionId: string): string {
+    return this.getSession(sessionId).output.text();
+  }
+
+  /** Keyboard input for a Session's pty; dropped once it has finished. */
+  writeToSession(sessionId: string, data: string): void {
+    this.getSession(sessionId).process?.write(data);
+  }
+
+  /** Resizes a Session's pty. Clients are equal peers: the most recent resize wins. */
+  resizeSession(sessionId: string, cols: number, rows: number): void {
+    this.getSession(sessionId).process?.resize(cols, rows);
+  }
+
+  /** Open Sessions (running and finished), in opening order. */
+  listSessions(): SessionView[] {
+    return [...this.sessions.values()].map((s) => this.sessionView(s));
+  }
+
+  private openSession(repo: RepoState, kind: SessionKind, command: string): SessionView {
+    const taken = new Set(
+      [...this.sessions.values()].filter((s) => s.repoId === repo.id && s.kind === kind).map((s) => s.number),
+    );
+    let number = 1;
+    while (taken.has(number)) number++;
+    let proc: ServiceProcess;
+    try {
+      proc = spawnService({ command, cwd: repo.path });
+    } catch (err) {
+      throw new DevPanelError(
+        'sessionSpawnFailed',
+        { repoName: repo.name },
+        `Failed to spawn "${command}" in ${repo.path}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    const session: SessionState = { id: randomUUID(), repoId: repo.id, kind, number, process: proc, output: new OutputBuffer() };
+    this.sessions.set(session.id, session);
+    const runId = this.recorder.track(proc.pid, {
+      repoId: repo.id,
+      repoName: repo.name,
+      owner: { kind: 'session', sessionKind: kind },
+    });
+    proc.onData((data) => {
+      session.output.append(data);
+      this.emit('sessionOutput', { sessionId: session.id, data });
+    });
+    void proc.exited.then((exitCode) => {
+      this.recorder.forget(runId);
+      session.process = undefined;
+      session.exitCode = exitCode;
+      // Ended by `closeSession`: it is forgotten there; otherwise it stays listed as finished.
+      if (session.closing || this.sessions.get(session.id) !== session) return;
+      this.emit('sessionChanged', { session: this.sessionView(session) });
+    });
+    const view = this.sessionView(session);
+    this.emit('sessionChanged', { session: view });
+    return view;
+  }
+
+  private sessionView(session: SessionState): SessionView {
+    return {
+      id: session.id,
+      repoId: session.repoId,
+      kind: session.kind,
+      number: session.number,
+      state: session.process ? 'running' : 'finished',
+      ...(session.exitCode !== undefined && { exitCode: session.exitCode }),
+    };
+  }
+
+  private getSession(sessionId: string): SessionState {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new DevPanelError('sessionNotFound', {}, `Unknown Session "${sessionId}"`);
+    return session;
+  }
+
+  /** Ends every Session of a Repo (all of them when `repoId` is omitted). */
+  private closeSessions(repoId?: string): Promise<void[]> {
+    return Promise.all(
+      [...this.sessions.values()].filter((s) => repoId === undefined || s.repoId === repoId).map((s) => this.closeSession(s.id)),
+    );
+  }
+
+  /**
+   * Exit: stops every running Service, every Session and any running dependency install; their PID
+   * file records go as they exit. `gracefulStopMs` overrides the grace period of Services (a closing
+   * console window leaves Windows only a few seconds).
    */
   async shutdown(options: { gracefulStopMs?: number } = {}): Promise<void> {
     const graceful = options.gracefulStopMs ?? this.timings.gracefulStopMs;
     this.stopRepoRefresh();
     this.recorder.stopTimer();
-    const stops: Promise<void>[] = [];
+    const stops: Promise<unknown>[] = [this.closeSessions()];
     for (const repo of this.repos.values()) {
       const install = repo.install?.process;
       if (install) stops.push(install.stop(graceful));

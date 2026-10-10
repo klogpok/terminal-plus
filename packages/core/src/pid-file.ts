@@ -37,6 +37,8 @@ interface PidFileContent {
 
 /** While runs are live, their trees are re-recorded this often (children come and go). */
 const REFRESH_INTERVAL_MS = 30_000;
+/** One extra recording this long after the spawn, once the program under cmd.exe is up. */
+const FOLLOW_UP_MS = 3_000;
 
 function isRecord(value: unknown): value is PidRecord {
   const r = value as PidRecord;
@@ -131,6 +133,8 @@ export class ProcessRecorder {
     const runId = randomUUID();
     this.runs.set(runId, { ...info, rootPid });
     this.refresh(runId);
+    // The root (cmd.exe) starts the real program only now; record the tree again shortly.
+    setTimeout(() => this.refresh(runId), FOLLOW_UP_MS).unref();
     this.timer ??= setInterval(() => {
       for (const id of this.runs.keys()) this.refresh(id);
     }, REFRESH_INTERVAL_MS).unref();

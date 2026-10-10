@@ -33,6 +33,7 @@ type CommandHandlers = { [K in CommandType]: CommandHandler<K> };
 
 const serviceRef = z.object({ repoId: z.string().min(1), serviceId: z.string().min(1) });
 const repoRef = z.object({ repoId: z.string().min(1) });
+const sessionRef = z.object({ sessionId: z.string().min(1) });
 const ptySize = z.number().int().min(1).max(1000);
 const empty =z.object({}).transform(() => ({}) as Record<string, never>);
 
@@ -130,6 +131,25 @@ export const COMMAND_HANDLERS: CommandHandlers = {
       context.requestExit();
       return null;
     },
+  },
+  openTerminal: { payload: repoRef, run: (core, p) => core.openTerminal(p.repoId) },
+  openClaude: { payload: repoRef, run: (core, p) => core.openClaude(p.repoId) },
+  closeSession: {
+    payload: sessionRef,
+    run: async (core, p) => (await core.closeSession(p.sessionId), null),
+  },
+  getSessionOutput: {
+    payload: sessionRef,
+    // Synchronous on purpose, like `getServiceOutput`.
+    run: (core, p) => core.getSessionOutput(p.sessionId),
+  },
+  writeToSession: {
+    payload: sessionRef.extend({ data: z.string() }),
+    run: (core, p) => (core.writeToSession(p.sessionId, p.data), null),
+  },
+  resizeSession: {
+    payload: sessionRef.extend({ cols: ptySize, rows: ptySize }),
+    run: (core, p) => (core.resizeSession(p.sessionId, p.cols, p.rows), null),
   },
 };
 

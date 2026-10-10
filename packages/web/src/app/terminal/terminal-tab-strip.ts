@@ -1,15 +1,23 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
-import type { ServiceRef } from '@devpanel/shared';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import type { ServiceRef, SessionView } from '@devpanel/shared';
 import { BackendService, type InstallTab } from '../backend/backend.service';
 import { InstallOutput } from '../install-output/install-output';
 import { repoColor } from '../repo-color';
 import { STRINGS } from '../strings';
-import { ServiceTerminal } from './service-terminal';
-import { TerminalTabs, installTabKey, tabKey } from './terminal-tabs.service';
+import { ServiceTerminal, type TerminalRef } from './service-terminal';
+import { TerminalTabs, installTabKey, sessionTabKey, tabKey } from './terminal-tabs.service';
+
+interface TabBase {
+  key: string;
+  title: string;
+  label: string;
+  color: string;
+}
 
 type OpenTab =
-  | { kind: 'service'; key: string; title: string; label: string; color: string; ref: ServiceRef }
-  | { kind: 'install'; key: string; title: string; label: string; color: string; install: InstallTab };
+  | (TabBase & { kind: 'service'; ref: ServiceRef })
+  | (TabBase & { kind: 'session'; session: SessionView; ref: TerminalRef; ended: string })
+  | (TabBase & { kind: 'install'; install: InstallTab });
 
 /**
  * Right area: one tab per open Service terminal (and per `pnpm install` run), colored like its
@@ -37,6 +45,21 @@ export class TerminalTabStrip {
       if (!repo || !service) continue;
       const key = tabKey(ref);
       result.push({ kind: 'service', key, title: `${repo.name} · ${service.name}`, label: service.name, color: repoColor(repo), ref });
+    }
+    for (const session of this.backend.sessions()) {
+      const repo = repos.find((r) => r.id === session.repoId);
+      const label = STRINGS.sessions.label(session.kind, session.number);
+      const finished = session.state === 'finished';
+      result.push({
+        kind: 'session',
+        key: sessionTabKey(session.id),
+        title: `${repo?.name ?? ''} · ${label}${finished ? ` ${STRINGS.sessions.finishedMark}` : ''}`,
+        label,
+        color: repo ? repoColor(repo) : 'var(--muted)',
+        session,
+        ref: { sessionId: session.id },
+        ended: finished ? STRINGS.sessions.finished(session.exitCode) : '',
+      });
     }
     for (const install of this.backend.installTabs()) {
       const repo = repos.find((r) => r.id === install.repoId);
@@ -66,8 +89,26 @@ export class TerminalTabStrip {
     });
   }
 
+  /** Key of the running Session tab whose close awaits confirmation. */
+  protected readonly confirmingKey = signal<string | null>(null);
+  /** That tab, while its Session still runs (a Session that ended meanwhile needs no confirmation). */
+  protected readonly confirming = computed(() => {
+    const key = this.confirmingKey();
+    const tab = this.openTabs().find((t) => t.key === key);
+    return tab?.kind === 'session' && tab.session.state === 'running' ? tab : undefined;
+  });
+
   protected close(tab: OpenTab): void {
     if (tab.kind === 'service') this.tabs.close(tab.ref);
-    else this.backend.closeInstallTab(tab.install.repoId);
+    else if (tab.kind === 'install') this.backend.closeInstallTab(tab.install.repoId);
+    else if (tab.session.state === 'running') this.confirmingKey.set(tab.key);
+    else this.backend.closeSession(tab.session.id);
+  }
+
+  /** Ends the Session whose close was confirmed. */
+  protected confirmClose(): void {
+    const tab = this.confirming();
+    this.confirmingKey.set(null);
+    if (tab) this.backend.closeSession(tab.session.id);
   }
 }

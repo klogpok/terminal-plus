@@ -14,18 +14,27 @@ export interface Environment {
   isPnpmAvailable(): Promise<boolean>;
   /** The shell command `installDependencies` runs in the Repo folder. */
   installCommand: string;
+  /** Is Claude Code callable (`where claude` succeeds)? Asked on every `openClaude`. */
+  isClaudeAvailable(): Promise<boolean>;
+  /** The command a Claude Code Session runs (through `cmd.exe`) in the Repo folder. */
+  claudeCommand: string;
+  /** The command a shell Session runs (through `cmd.exe`) in the Repo folder. */
+  shellCommand: string;
 }
 
-/** `where pnpm` exits 0 when pnpm (or the corepack shim) is on PATH. Never rejects. */
-function wherePnpm(): Promise<boolean> {
+/** `where <tool>` exits 0 when the tool (or a shim of it) is on PATH. Never rejects. */
+function where(tool: string): Promise<boolean> {
   return new Promise((resolve) => {
-    execFile('where', ['pnpm'], { windowsHide: true }, (error) => resolve(!error));
+    execFile('where', [tool], { windowsHide: true }, (error) => resolve(!error));
   });
 }
 
 export const DEFAULT_ENVIRONMENT: Environment = {
-  isPnpmAvailable: wherePnpm,
+  isPnpmAvailable: () => where('pnpm'),
   installCommand: 'pnpm install',
+  isClaudeAvailable: () => where('claude'),
+  claudeCommand: 'claude',
+  shellCommand: 'cmd.exe',
 };
 
 export function isPnpmRepo(repoPath: string): boolean {

@@ -11,7 +11,7 @@
           [attr.aria-controls]="'panel-' + tab.key"
           [title]="tab.title"
           (click)="tabs.selectKey(tab.key)"
-        ><span class="dot" [style.background-color]="tab.color"></span>{{ tab.label }}</button>
+        ><span class="dot" [style.background-color]="tab.color"></span>{{ tab.label }}@if (tab.kind === 'session' && tab.session.state === 'finished') {<span class="finished">{{ ' ' + strings.sessions.finishedMark }}</span>}</button>
         <button
           type="button"
           class="close"
@@ -22,8 +22,26 @@
       </span>
     }
   </div>
+  @if (confirming(); as tab) {
+    <div class="close-confirm" role="alertdialog" [style.border-left-color]="tab.color">
+      <span>{{ strings.sessions.confirmClose(tab.label) }}</span>
+      <button type="button" class="danger" (click)="confirmClose()">{{ strings.sessions.confirmYes }}</button>
+      <button type="button" (click)="confirmingKey.set(null)">{{ strings.sessions.confirmNo }}</button>
+    </div>
+  }
   @for (tab of openTabs(); track tab.key) {
     @switch (tab.kind) {
+      @case ('session') {
+        <dp-service-terminal
+          role="tabpanel"
+          [id]="'panel-' + tab.key"
+          [attr.aria-labelledby]="'tab-' + tab.key"
+          [class.hidden]="tab.key !== activeKey()"
+          [ref]="tab.ref"
+          [active]="tab.key === activeKey()"
+          [ended]="tab.ended"
+        />
+      }
       @case ('service') {
         <dp-service-terminal
           role="tabpanel"

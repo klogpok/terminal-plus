@@ -14,4 +14,7 @@
   </span>
   <span class="notice" role="status">{{ notice() }}</span>
 </div>
+@if (ended(); as ended) {
+  <div class="ended" role="status">{{ ended }}</div>
+}
 <div class="host" #host></div>

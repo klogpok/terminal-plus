@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
-import type { RepoView, ServiceStatus } from '@devpanel/shared';
+import type { RepoView, ServiceStatus, SessionKind } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
 import { STRINGS } from '../strings';
+import { TerminalTabs, sessionTabKey } from '../terminal/terminal-tabs.service';
 
 /** Statuses in which a Service has a live process that removing the Repo would stop. */
 const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy', 'stopping']);
@@ -23,6 +24,8 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
       }
       <span class="repo-actions">
         @if (!repo().folderMissing) {
+          <button type="button" [title]="strings.repos.openClaudeLabel(repo().name)" [attr.aria-label]="strings.repos.openClaudeLabel(repo().name)" (click)="openSession('claude')">{{ strings.repos.openClaude }}</button>
+          <button type="button" [title]="strings.repos.openTerminalLabel(repo().name)" [attr.aria-label]="strings.repos.openTerminalLabel(repo().name)" (click)="openSession('shell')">{{ strings.repos.openTerminal }}</button>
           <button type="button" [title]="strings.repos.openFolder" [attr.aria-label]="strings.repos.openFolder" (click)="backend.openFolder(repo().id)">📂</button>
         }
         <button
@@ -92,8 +95,21 @@ export class RepoHeader {
   protected readonly strings = STRINGS;
   readonly repo = input.required<RepoView>();
   protected readonly confirming = signal(false);
-  /** Names of the Services that removing the Repo will stop. Ticket 09 adds Sessions here. */
-  protected readonly running = computed(() => this.repo().services.filter((s) => LIVE.has(s.status)).map((s) => s.name));
+  private readonly tabs = inject(TerminalTabs);
+  /** Names of the Services and running Sessions that removing the Repo will stop. */
+  protected readonly running = computed(() => [
+    ...this.repo().services.filter((s) => LIVE.has(s.status)).map((s) => s.name),
+    ...this.backend
+      .sessions()
+      .filter((s) => s.repoId === this.repo().id && s.state === 'running')
+      .map((s) => STRINGS.sessions.label(s.kind, s.number)),
+  ]);
+
+  /** Opens a Claude Code or shell Session in this Repo and shows its tab. */
+  protected async openSession(kind: SessionKind): Promise<void> {
+    const session = await this.backend.openSession(this.repo().id, kind);
+    if (session) this.tabs.selectKey(sessionTabKey(session.id));
+  }
 
   /** "Start all" is enabled while some Service can be started (and the folder exists). */
   protected readonly anyStartable = computed(

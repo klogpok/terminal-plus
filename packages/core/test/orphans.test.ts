@@ -135,6 +135,27 @@ describe('Orphans', () => {
     expect(events).toEqual([{ orphans: [] }]);
   });
 
+  it('a Session left running by a crashed Server is an Orphan of Session kind; killing it kills its tree', async () => {
+    h.addRepo({ name: 'Billing', config: { services: [] } });
+    const crashed = await h.createCore();
+    const session = await crashed.openTerminal(repoId(crashed, 'Billing'));
+    let output = '';
+    crashed.on('sessionOutput', (e) => (output += e.data));
+    crashed.writeToSession(session.id, `${fixtureCommand('spawn-grandchild.mjs')}\r`);
+    await waitUntil(() => /CHILD_PID=(\d+) GRANDCHILD_PID=(\d+)/.test(output.replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')), 'the fixture in the Session');
+    const [, child, grandchild] = output.replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '').match(/CHILD_PID=(\d+) GRANDCHILD_PID=(\d+)/)!.map(Number);
+    // Recorded by the follow-up recording a few seconds after the Session started.
+    await waitUntil(() => [child!, grandchild!].every((pid) => pidEntries().some((e) => e.pid === pid)), 'the Session tree to be recorded');
+    expect(pidEntries().find((e) => e.pid === child)).toMatchObject({ repoName: 'Billing', owner: { kind: 'session', sessionKind: 'shell' } });
+
+    const core = await h.createCore();
+    expect(core.listOrphans()).toEqual([
+      expect.objectContaining({ repoName: 'Billing', owner: { kind: 'session', sessionKind: 'shell' } }),
+    ]);
+    await core.killOrphans();
+    await waitDead([child!, grandchild!]);
+  });
+
   it('a process that merely reused a recorded PID is not an Orphan and is never killed', async () => {
     h.addRepo({ name: 'Billing', config: { services: [] } });
     // A process unrelated to DevPanel (spawned by the test) now has a PID that was once recorded.

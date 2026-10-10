@@ -4,16 +4,16 @@
 
 **Blocked by:** 03 (Service terminal), 08 (Manage Repos from the UI).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `openClaude` checks `where claude` and, if missing, returns a plain-Russian error; otherwise it spawns `claude` through `cmd.exe` in the Repo folder.
-- [ ] `openTerminal` spawns a shell in the Repo folder; `core` tests use it as the Session fixture.
-- [ ] Session tabs support input, resize, buffered replay and the same Repo coloring as Service tabs.
-- [ ] Closing a Session tab calls `closeSession` (with confirmation if alive) and kills the Session's process tree.
-- [ ] A self-exited Session stays listed as finished until its tab is closed.
-- [ ] After a page reload, open Sessions reappear with their buffered output.
-- [ ] Sessions are recorded for Orphan detection and stopped on Exit.
-- [ ] "Stop all" commands leave Sessions running (test); `removeRepo` ends the Repo's Sessions (test).
+- [x] `openClaude` checks `where claude` and, if missing, returns a plain-Russian error; otherwise it spawns `claude` through `cmd.exe` in the Repo folder.
+- [x] `openTerminal` spawns a shell in the Repo folder; `core` tests use it as the Session fixture.
+- [x] Session tabs support input, resize, buffered replay and the same Repo coloring as Service tabs.
+- [x] Closing a Session tab calls `closeSession` (with confirmation if alive) and kills the Session's process tree.
+- [x] A self-exited Session stays listed as finished until its tab is closed.
+- [x] After a page reload, open Sessions reappear with their buffered output.
+- [ ] Sessions are recorded for Orphan detection and stopped on Exit. (Stopped on Exit: done. PID-file recording belongs to ticket 07, see Comments.)
+- [x] "Stop all" commands leave Sessions running (test); `removeRepo` ends the Repo's Sessions (test).
 
 ---
 
@@ -25,13 +25,21 @@
 
 **Блокируется:** 03 (Терминал Сервиса), 08 (Управление Репо из UI).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] `openClaude` проверяет `where claude` и, если его нет, возвращает ошибку на понятном русском; иначе запускает `claude` через `cmd.exe` в папке Репо.
-- [ ] `openTerminal` запускает оболочку в папке Репо; тесты `core` используют её как фикстуру Сессии.
-- [ ] Вкладки Сессий поддерживают ввод, resize, воспроизведение буфера и ту же окраску цветом Репо, что и вкладки Сервисов.
-- [ ] Закрытие вкладки Сессии вызывает `closeSession` (с подтверждением, если она жива) и убивает дерево процессов Сессии.
-- [ ] Сессия, завершившаяся сама, остаётся в списке как завершённая, пока её вкладку не закроют.
-- [ ] После перезагрузки страницы открытые Сессии появляются снова с буферизованным выводом.
-- [ ] Сессии записываются для обнаружения Зомби и останавливаются при Выходе.
-- [ ] Команды «Остановить всё» оставляют Сессии работающими (тест); `removeRepo` завершает Сессии Репо (тест).
+- [x] `openClaude` проверяет `where claude` и, если его нет, возвращает ошибку на понятном русском; иначе запускает `claude` через `cmd.exe` в папке Репо.
+- [x] `openTerminal` запускает оболочку в папке Репо; тесты `core` используют её как фикстуру Сессии.
+- [x] Вкладки Сессий поддерживают ввод, resize, воспроизведение буфера и ту же окраску цветом Репо, что и вкладки Сервисов.
+- [x] Закрытие вкладки Сессии вызывает `closeSession` (с подтверждением, если она жива) и убивает дерево процессов Сессии.
+- [x] Сессия, завершившаяся сама, остаётся в списке как завершённая, пока её вкладку не закроют.
+- [x] После перезагрузки страницы открытые Сессии появляются снова с буферизованным выводом.
+- [ ] Сессии записываются для обнаружения Зомби и останавливаются при Выходе. (Остановка при Выходе: сделано. Запись в PID-файл — тикет 07, см. Комментарии.)
+- [x] Команды «Остановить всё» оставляют Сессии работающими (тест); `removeRepo` завершает Сессии Репо (тест).
+
+## Comments
+
+- Implementer (t09): Sessions are spawned only in `DevPanelCore.openSession` and ended only in `DevPanelCore.closeSession` (also used by `removeRepo` and `shutdown`). Ticket 07 should record Session PIDs (kind `claude`/`shell`, Repo) in the PID file at those two spots; that part of the Orphan checkbox is left to 07. Session commands are separate from the Service ones: `getSessionOutput`, `writeToSession`, `resizeSession`; events `sessionChanged`, `sessionClosed`, `sessionOutput`; `Snapshot.sessions`.
+
+### Русский перевод
+
+- Исполнитель (t09): Сессии запускаются только в `DevPanelCore.openSession` и завершаются только в `DevPanelCore.closeSession` (его же используют `removeRepo` и `shutdown`). Тикет 07 должен записывать PID Сессий (вид `claude`/`shell`, Репо) в PID-файл в этих двух местах; эта часть пункта про Зомби оставлена тикету 07. Команды Сессий отделены от команд Сервисов: `getSessionOutput`, `writeToSession`, `resizeSession`; события `sessionChanged`, `sessionClosed`, `sessionOutput`; `Snapshot.sessions`.

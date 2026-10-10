@@ -25,6 +25,9 @@ export const FORWARDED_EVENTS = [
   'portConflictChanged',
   'repoChanged',
   'orphansFound',
+  'sessionChanged',
+  'sessionClosed',
+  'sessionOutput',
 ] as const satisfies readonly (EventType & keyof CoreEvents)[];
 
 // Compile-time check: what `core` emits for a forwarded event fits the `shared` event payload.
@@ -40,6 +43,9 @@ const forwardedEventsMatch: CheckForwarded = {
   portConflictChanged: true,
   repoChanged: true,
   orphansFound: true,
+  sessionChanged: true,
+  sessionClosed: true,
+  sessionOutput: true,
 };
 void forwardedEventsMatch;
 

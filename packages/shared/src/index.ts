@@ -44,6 +44,10 @@ export interface RepoView {
   color?: string;
   /** Set when the Repo Config cannot be read or is invalid (technical, English). */
   configError?: string;
+  /** True when the Repo folder no longer exists; its Services cannot start until it is relocated. */
+  folderMissing?: boolean;
+  /** Current git branch (or short commit when detached); absent for non-git folders. */
+  branch?: string;
   services: ServiceView[];
 }
 
@@ -77,10 +81,22 @@ export interface ExitEvent extends ServiceRef {
   stoppedByUser: boolean;
 }
 
+/**
+ * A Repo was added, changed (folder missing/back, branch, relocated) or removed.
+ * `repoId` is the id clients know the Repo by; `repo` is its new state (`null` = removed). After
+ * `relocateRepo` the new state has a different id (ids derive from the path): replace in place.
+ * An unknown `repoId` with a non-null `repo` means the Repo was added (append it).
+ */
+export interface RepoChangedEvent {
+  repoId: string;
+  repo: RepoView | null;
+}
+
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
+  repoChanged: RepoChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -95,6 +111,15 @@ export interface Commands {
   startService: { payload: ServiceRef; result: null };
   stopService: { payload: ServiceRef; result: null };
   restartService: { payload: ServiceRef; result: null };
+  /** Without `path` the Server shows a folder picker; `null` result = the user cancelled it. */
+  addRepo: { payload: { path?: string; name?: string }; result: RepoView | null };
+  /** Stops every process of the Repo, removes it and its Local Config; never touches the folder. */
+  removeRepo: { payload: { repoId: string }; result: null };
+  /** Points a Repo at a new folder (picker when `path` is omitted), keeping name and color. */
+  relocateRepo: { payload: { repoId: string; path?: string }; result: RepoView | null };
+  openFolder: { payload: { repoId: string }; result: null };
+  /** Opens the Service's configured `url` in the default browser. */
+  openUrl: { payload: ServiceRef; result: null };
 }
 
 export type CommandType = keyof Commands;

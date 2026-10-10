@@ -1,6 +1,7 @@
 export {
   DevPanelCore,
   DEFAULT_TIMINGS,
+  REPO_COLORS,
   type CoreEvents,
   type CoreOptions,
   type CoreTimings,
@@ -8,6 +9,7 @@ export {
 export type {
   ExitEvent,
   LogEvent,
+  RepoChangedEvent,
   RepoView,
   ServiceView,
   Snapshot,
@@ -15,3 +17,5 @@ export type {
 } from '@devpanel/shared';
 export { REPO_CONFIG_FILE, type ServiceDefinition } from './config.js';
 export { WORKSPACE_FILE } from './workspace.js';
+export { windowsShell, type DesktopShell } from './shell.js';
+export { localConfigPath } from './local-config.js';

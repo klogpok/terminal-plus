@@ -1,4 +1,4 @@
-import { DevPanelCore, type CoreTimings } from '@devpanel/core';
+import { DevPanelCore, type CoreTimings, type DesktopShell } from '@devpanel/core';
 import { DEFAULT_PORT } from '@devpanel/shared';
 import { createAccessKey } from './access-key.js';
 import { createServer } from './server.js';
@@ -11,6 +11,8 @@ export interface StartOptions {
   /** Default 7777; tests pass 0 for a free port. */
   port?: number;
   timings?: Partial<CoreTimings>;
+  /** Folder picker / opener; defaults to the Windows one. Tests pass a fake. */
+  shell?: DesktopShell;
   webRoot?: string;
   extraOrigins?: string[];
   logger?: boolean;
@@ -29,7 +31,7 @@ export interface RunningDevPanel {
 
 /** Loads `core`, creates a fresh Access Key, and starts the Server on 127.0.0.1. */
 export async function startDevPanel(options: StartOptions): Promise<RunningDevPanel> {
-  const core = new DevPanelCore({ appDataDir: options.appDataDir, timings: options.timings });
+  const core = new DevPanelCore({ appDataDir: options.appDataDir, timings: options.timings, shell: options.shell });
   await core.load();
   const accessKey = await createAccessKey(options.appDataDir);
   const app = createServer({

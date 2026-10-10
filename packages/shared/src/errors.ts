@@ -17,6 +17,20 @@ export interface ErrorParams {
   spawnFailed: { repoName: string; serviceName: string };
   /** The Repo Config is invalid or unreadable (shown on the Repo). */
   configInvalid: { repoName: string };
+  /** `addRepo`/`relocateRepo`: the folder is already a Repo of the Workspace. */
+  repoAlreadyAdded: { path: string; repoName: string };
+  /** `addRepo`: another Repo already has this name; retry `addRepo` with `path` and another name. */
+  repoNameTaken: { name: string; path: string };
+  /** `addRepo`/`relocateRepo`: the chosen path is not an existing folder. */
+  folderNotFound: { path: string };
+  /** The Repo folder is missing, so the action (e.g. starting a Service) is impossible. */
+  repoFolderMissing: { repoName: string };
+  /** `relocateRepo` while Services of the Repo are running. */
+  repoBusy: { repoName: string };
+  /** `openUrl` for a Service without a `url` in its config. */
+  serviceHasNoUrl: { repoName: string; serviceName: string };
+  /** The folder picker, Explorer or the browser could not be opened. */
+  shellFailed: Record<string, never>;
   /** A malformed or unknown command reached the Server. */
   badCommand: Record<string, never>;
   /** Anything unexpected. */

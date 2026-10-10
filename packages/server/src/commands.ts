@@ -22,7 +22,8 @@ interface CommandHandler<K extends CommandType> {
 type CommandHandlers = { [K in CommandType]: CommandHandler<K> };
 
 const serviceRef = z.object({ repoId: z.string().min(1), serviceId: z.string().min(1) });
-const empty = z.object({}).transform(() => ({}) as Record<string, never>);
+const repoRef = z.object({ repoId: z.string().min(1) });
+const empty =z.object({}).transform(() => ({}) as Record<string, never>);
 
 export const COMMAND_HANDLERS: CommandHandlers = {
   getSnapshot: { payload: empty, run: (core) => core.snapshot() },
@@ -37,6 +38,26 @@ export const COMMAND_HANDLERS: CommandHandlers = {
   restartService: {
     payload: serviceRef,
     run: async (core, p) => (await core.restartService(p.repoId, p.serviceId), null),
+  },
+  addRepo: {
+    payload: z.object({ path: z.string().min(1).optional(), name: z.string().trim().min(1).max(100).optional() }),
+    run: (core, p) => core.addRepo(p),
+  },
+  removeRepo: {
+    payload: repoRef,
+    run: async (core, p) => (await core.removeRepo(p.repoId), null),
+  },
+  relocateRepo: {
+    payload: z.object({ repoId: z.string().min(1), path: z.string().min(1).optional() }),
+    run: (core, p) => core.relocateRepo(p.repoId, p.path),
+  },
+  openFolder: {
+    payload: repoRef,
+    run: async (core, p) => (await core.openFolder(p.repoId), null),
+  },
+  openUrl: {
+    payload: serviceRef,
+    run: async (core, p) => (await core.openUrl(p.repoId, p.serviceId), null),
   },
 };
 

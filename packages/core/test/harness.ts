@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stringify } from 'yaml';
-import { DevPanelCore, type CoreTimings } from '../src/index.js';
+import { DevPanelCore, type CoreTimings, type DesktopShell } from '../src/index.js';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -45,14 +45,41 @@ export interface RepoSpec {
   config?: unknown;
   /** Raw `.devpanel.yml` text, overrides `config`. */
   configText?: string;
+  /** Repo color stored in the Workspace file. */
+  color?: string;
   /** Sub-directories to create inside the Repo folder. */
   dirs?: string[];
 }
 
+/**
+ * Test double for the desktop shell: never opens a real dialog, Explorer or browser.
+ * Set `nextPick` to the folder the "user" picks (`undefined` = cancelled).
+ */
+export class FakeShell implements DesktopShell {
+  nextPick: string | undefined;
+  picks = 0;
+  readonly openedFolders: string[] = [];
+  readonly openedUrls: string[] = [];
+
+  async pickFolder(): Promise<string | undefined> {
+    this.picks++;
+    return this.nextPick;
+  }
+
+  async openFolder(folder: string): Promise<void> {
+    this.openedFolders.push(folder);
+  }
+
+  async openUrl(url: string): Promise<void> {
+    this.openedUrls.push(url);
+  }
+}
+
 export class Harness {
   readonly root = mkdtempSync(path.join(tmpdir(), 'devpanel-test-'));
+  readonly shell = new FakeShell();
   readonly appDataDir = path.join(this.root, 'appdata');
-  private readonly repos: { path: string; name: string }[] = [];
+  private readonly repos: { path: string; name: string; color?: string }[] = [];
   private readonly cores: DevPanelCore[] = [];
   private readonly pids = new Set<number>();
 
@@ -67,7 +94,7 @@ export class Harness {
     for (const dir of spec.dirs ?? []) mkdirSync(path.join(repoPath, dir), { recursive: true });
     const text = spec.configText ?? (spec.config === undefined ? undefined : stringify(spec.config));
     if (text !== undefined) writeFileSync(path.join(repoPath, '.devpanel.yml'), text);
-    this.repos.push({ path: repoPath, name: spec.name });
+    this.repos.push({ path: repoPath, name: spec.name, ...(spec.color && { color: spec.color }) });
     writeFileSync(
       path.join(this.appDataDir, 'workspace.json'),
       JSON.stringify({ repos: this.repos }, null, 2),
@@ -75,9 +102,16 @@ export class Harness {
     return repoPath;
   }
 
-  /** Constructs `core` over the temporary app data directory with short timings. */
+  /** Creates a folder under the temp root without adding it to the Workspace. Returns its path. */
+  makeFolder(relative: string): string {
+    const folder = path.join(this.root, relative);
+    mkdirSync(folder, { recursive: true });
+    return folder;
+  }
+
+  /** Constructs `core` over the temporary app data directory with short timings and the fake shell. */
   async createCore(timings: Partial<CoreTimings> = TEST_TIMINGS): Promise<DevPanelCore> {
-    const core = new DevPanelCore({ appDataDir: this.appDataDir, timings });
+    const core = new DevPanelCore({ appDataDir: this.appDataDir, timings, shell: this.shell });
     this.cores.push(core);
     core.on('log', (e) => {
       for (const m of stripAnsi(e.data).matchAll(/PID=(\d+)/g)) this.pids.add(Number(m[1]));

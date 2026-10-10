@@ -9,12 +9,30 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import type { CommandType, CommandPayload, ServerMessage, EventMessage, ReplyMessage } from '@devpanel/shared';
+import type { DesktopShell } from '@devpanel/core';
 import { ACCESS_KEY_FILE, startDevPanel, type RunningDevPanel } from '../src/index.js';
 
-const IDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'idle.mjs');
+/** Never opens a real dialog, Explorer or browser. */
+class FakeShell implements DesktopShell {
+  nextPick: string | undefined;
+  readonly openedFolders: string[] = [];
+  readonly openedUrls: string[] = [];
+  async pickFolder() {
+    return this.nextPick;
+  }
+  async openFolder(folder: string) {
+    this.openedFolders.push(folder);
+  }
+  async openUrl(url: string) {
+    this.openedUrls.push(url);
+  }
+}
+
+const IDLE =path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'idle.mjs');
 
 let root: string;
 let devPanel: RunningDevPanel;
+let shell: FakeShell;
 const sockets: WebSocket[] = [];
 
 beforeEach(async () => {
@@ -31,7 +49,8 @@ beforeEach(async () => {
     path.join(appDataDir, 'workspace.json'),
     JSON.stringify({ repos: [{ path: repoPath, name: 'billing' }] }),
   );
-  devPanel = await startDevPanel({ appDataDir, port: 0, timings: { gracefulStopMs: 1000 } });
+  shell = new FakeShell();
+  devPanel = await startDevPanel({ appDataDir, port: 0, timings: { gracefulStopMs: 1000 }, shell });
 });
 
 afterEach(async () => {
@@ -136,6 +155,35 @@ describe('DevPanel Server', () => {
     expect(await client.send('formatDisk' as never, {} as never)).toMatchObject({
       ok: false,
       error: { code: 'badCommand' },
+    });
+  });
+
+  it('adds a Repo picked by the Server-side folder picker and tells every client', async () => {
+    const tab1 = new Client(await connect());
+    const tab2 = new Client(await connect());
+    const folder = path.join(root, 'Docs');
+    mkdirSync(folder);
+    shell.nextPick = folder;
+
+    const reply = await tab1.send('addRepo', {});
+
+    expect(reply).toMatchObject({ ok: true, result: { name: 'Docs', path: folder } });
+    const event = await tab2.waitFor(
+      (m): m is EventMessage => m.kind === 'event' && m.type === 'repoChanged',
+    );
+    expect(event.payload).toMatchObject({ repo: { name: 'Docs', path: folder } });
+  });
+
+  it('opens folders and Service URLs through the Server', async () => {
+    const client = new Client(await connect());
+    const snapshot = (await client.send('getSnapshot', {})) as { result: { repos: { id: string; path: string }[] } };
+    const repo = snapshot.result.repos[0]!;
+
+    expect(await client.send('openFolder', { repoId: repo.id })).toMatchObject({ ok: true, result: null });
+    expect(shell.openedFolders).toEqual([repo.path]);
+    expect(await client.send('openUrl', { repoId: repo.id, serviceId: 'api' })).toMatchObject({
+      ok: false,
+      error: { code: 'serviceHasNoUrl' },
     });
   });
 

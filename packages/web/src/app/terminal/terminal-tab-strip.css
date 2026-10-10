@@ -6,5 +6,5 @@
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .close { width: 22px; height: 22px; margin-right: 4px; border: 0; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; }
 .close:hover { background: var(--border); color: var(--fg); }
-dp-service-terminal.hidden { display: none; }
+dp-service-terminal.hidden, dp-install-output.hidden { display: none; }
 .muted { color: var(--muted); font-size: 13px; }

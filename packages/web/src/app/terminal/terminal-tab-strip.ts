@@ -1,26 +1,23 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import type { RepoView, ServiceRef, ServiceView } from '@devpanel/shared';
-import { BackendService } from '../backend/backend.service';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
+import type { ServiceRef } from '@devpanel/shared';
+import { BackendService, type InstallTab } from '../backend/backend.service';
+import { InstallOutput } from '../install-output/install-output';
 import { repoColor } from '../repo-color';
 import { STRINGS } from '../strings';
 import { ServiceTerminal } from './service-terminal';
-import { TerminalTabs, tabKey } from './terminal-tabs.service';
+import { TerminalTabs, installTabKey, tabKey } from './terminal-tabs.service';
 
-interface OpenTab {
-  key: string;
-  ref: ServiceRef;
-  repo: RepoView;
-  service: ServiceView;
-  color: string;
-}
+type OpenTab =
+  | { kind: 'service'; key: string; title: string; label: string; color: string; ref: ServiceRef }
+  | { kind: 'install'; key: string; title: string; label: string; color: string; install: InstallTab };
 
 /**
- * Right area: one tab per open Service terminal, colored like its Repo. Every open terminal stays
- * mounted (hidden when not shown) so it keeps streaming.
+ * Right area: one tab per open Service terminal (and per `pnpm install` run), colored like its
+ * Repo. Every open terminal stays mounted (hidden when not shown) so it keeps streaming.
  */
 @Component({
   selector: 'dp-terminal-tabs',
-  imports: [ServiceTerminal],
+  imports: [ServiceTerminal, InstallOutput],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './terminal-tab-strip.html',
   styleUrl: './terminal-tab-strip.css',
@@ -37,7 +34,15 @@ export class TerminalTabStrip {
     for (const ref of this.tabs.tabs()) {
       const repo = repos.find((r) => r.id === ref.repoId);
       const service = repo?.services.find((s) => s.id === ref.serviceId);
-      if (repo && service) result.push({ key: tabKey(ref), ref, repo, service, color: repoColor(repo) });
+      if (!repo || !service) continue;
+      const key = tabKey(ref);
+      result.push({ kind: 'service', key, title: `${repo.name} · ${service.name}`, label: service.name, color: repoColor(repo), ref });
+    }
+    for (const install of this.backend.installTabs()) {
+      const repo = repos.find((r) => r.id === install.repoId);
+      const label = STRINGS.install.title(repo?.name ?? install.repoId);
+      const color = repo ? repoColor(repo) : 'var(--muted)';
+      result.push({ kind: 'install', key: installTabKey(install.repoId), title: label, label, color, install });
     }
     return result;
   });
@@ -48,4 +53,21 @@ export class TerminalTabStrip {
     const active = this.tabs.active();
     return tabs.some((t) => t.key === active) ? active : (tabs[0]?.key ?? null);
   });
+
+  constructor() {
+    // A newly started install (from this or another browser tab) comes to the front.
+    let known = new Set<string>();
+    effect(() => {
+      const repoIds = new Set(this.backend.installTabs().map((t) => t.repoId));
+      for (const repoId of repoIds) {
+        if (!known.has(repoId)) untracked(() => this.tabs.selectKey(installTabKey(repoId)));
+      }
+      known = repoIds;
+    });
+  }
+
+  protected close(tab: OpenTab): void {
+    if (tab.kind === 'service') this.tabs.close(tab.ref);
+    else this.backend.closeInstallTab(tab.install.repoId);
+  }
 }

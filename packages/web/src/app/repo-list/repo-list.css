@@ -6,8 +6,9 @@
 .repo-name { font-weight: 600; }
 .services { list-style: none; margin: 0; padding: 0; }
 .service { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-.service-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; }
-.service-name:hover { text-decoration: underline; }
+.service-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-open { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; }
+.service-open:hover { text-decoration: underline; }
 .service-actions { display: flex; gap: 2px; }
 .service-actions button { width: 26px; height: 24px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 0; }
 .service-actions button:disabled { opacity: 0.35; cursor: default; }
@@ -18,4 +19,9 @@
 .status-unhealthy { background: #f97316; border-color: #ea580c; }
 .status-crashed { background: #ef4444; border-color: #dc2626; }
 .status-stopped, .status-exited { background: #f8fafc; border-color: #94a3b8; }
+.install-button { align-self: flex-start; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 13px; }
+.install-button:disabled { opacity: 0.6; cursor: default; }
 .muted { color: var(--muted); font-size: 13px; }
+.config-flag { display: block; font-size: 11px; color: #c2410c; white-space: normal; }
+.notice { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; font-size: 13px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+.notice button { border: 1px solid var(--accent); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; padding: 3px 10px; }

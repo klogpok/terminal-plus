@@ -13,6 +13,11 @@ export function tabKey(ref: ServiceRef): string {
   return `${ref.repoId}/${ref.serviceId}`;
 }
 
+/** Key of a Repo's `pnpm install` tab (those tabs live in `BackendService.installTabs`). */
+export function installTabKey(repoId: string): string {
+  return `install:${repoId}`;
+}
+
 /**
  * Which Service terminal tabs are open in this browser tab, and which one is shown. Remembered in
  * localStorage so a page reload reopens them (a per-viewer convenience; the output itself lives on
@@ -38,8 +43,9 @@ export class TerminalTabs {
     this.save();
   }
 
-  select(ref: ServiceRef): void {
-    this.activeState.set(tabKey(ref));
+  /** Shows the tab with this key (`tabKey` or `installTabKey`). */
+  selectKey(key: string): void {
+    this.activeState.set(key);
     this.save();
   }
 

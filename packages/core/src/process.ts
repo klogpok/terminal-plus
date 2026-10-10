@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import * as pty from 'node-pty';
 
 export interface SpawnOptions {
@@ -30,10 +31,6 @@ const BATCH_PROMPT = /(\(Y\/N\)|\[Y\(да\)\/N\(нет\)\])\?\s*$/i;
 const ANSI = /\u001b\][^\u0007]*\u0007|\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b[@-_]/g;
 /** How long to wait for the pty exit event after the tree was killed. */
 const EXIT_AFTER_KILL_MS = 5_000;
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** `taskkill /T /F` on a PID: kills the process and all its descendants. Never rejects. */
 export function killTree(pid: number): Promise<void> {

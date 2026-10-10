@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, watch, type FSWatcher } from 'node:fs';
 import { mkdir, rename, stat } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
 import {
   DevPanelError,
@@ -257,10 +258,6 @@ function isProcessAlive(pid: number): boolean {
 const PORT_POLL_MS = 200;
 /** After a Stop, how long the port may take to be released before its owner is reported. */
 const PORT_RELEASE_AFTER_STOP_MS = 1_000;
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** Technical (English) description of a port owner for error details. */
 function describeOwner(owner: PortOwner): string {

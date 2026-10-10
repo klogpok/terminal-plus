@@ -56,11 +56,11 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     run: async (core, p) => (await core.resolvePortConflict(p.repoId, p.serviceId), null),
   },
   startAll: {
-    payload: z.object({ repoId: z.string().min(1) }),
+    payload: repoRef,
     run: async (core, p) => (await core.startAll(p.repoId), null),
   },
   stopAll: {
-    payload: z.object({ repoId: z.string().min(1) }),
+    payload: repoRef,
     run: async (core, p) => (await core.stopAll(p.repoId), null),
   },
   stopAllRepos: { payload: empty, run: async (core) => (await core.stopAllRepos(), null) },
@@ -98,7 +98,7 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     run: (core, p) => (core.resizePty(p.repoId, p.serviceId, p.cols, p.rows), null),
   },
   installDependencies: {
-    payload: z.object({ repoId: z.string().min(1) }),
+    payload: repoRef,
     run: (core, p) => core.installDependencies(p.repoId),
   },
   saveLocalConfig: {
@@ -116,7 +116,7 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     run: async (core, p) => (await core.saveLocalConfig(p.repoId, p.services), null),
   },
   deleteLocalConfig: {
-    payload: z.object({ repoId: z.string().min(1) }),
+    payload: repoRef,
     run: async (core, p) => (await core.deleteLocalConfig(p.repoId), null),
   },
   killOrphans: {

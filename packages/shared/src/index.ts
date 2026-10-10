@@ -180,6 +180,12 @@ export interface Commands {
   startService: { payload: ServiceRef; result: null };
   stopService: { payload: ServiceRef; result: null };
   restartService: { payload: ServiceRef; result: null };
+  /** "Start all": starts every Service of the Repo in dependsOn order (Services only, never Sessions). */
+  startAll: { payload: { repoId: string }; result: null };
+  /** "Stop all": stops every Service of the Repo (Services only, never Sessions). */
+  stopAll: { payload: { repoId: string }; result: null };
+  /** "Stop all in all Repos": stops every Service in the Workspace (never Sessions). */
+  stopAllRepos: { payload: Record<string, never>; result: null };
   /** Runs `pnpm install` in a pnpm Repo; replies when it has finished. */
   installDependencies: { payload: { repoId: string }; result: InstallResult };
   /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */

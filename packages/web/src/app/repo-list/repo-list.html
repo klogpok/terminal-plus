@@ -3,7 +3,27 @@
   <section class="repo" [attr.data-repo-id]="repo.id">
     <div class="repo-stripe" [style.background-color]="repoColor(repo)"></div>
     <div class="repo-body">
-      <div class="repo-name">{{ repo.name }}</div>
+      <div class="repo-header">
+        <span class="repo-name">{{ repo.name }}</span>
+        @if (repo.services.length) {
+          <span class="repo-actions">
+            <button
+              type="button"
+              [disabled]="!anyStartable(repo)"
+              [title]="strings.actions.repoAction(strings.actions.startAll, repo.name)"
+              [attr.aria-label]="strings.actions.repoAction(strings.actions.startAll, repo.name)"
+              (click)="backend.startAll(repo.id)"
+            >▶ {{ strings.actions.startAll }}</button>
+            <button
+              type="button"
+              [disabled]="!anyStoppable(repo)"
+              [title]="strings.actions.repoAction(strings.actions.stopAll, repo.name)"
+              [attr.aria-label]="strings.actions.repoAction(strings.actions.stopAll, repo.name)"
+              (click)="backend.stopAll(repo.id)"
+            >■ {{ strings.actions.stopAll }}</button>
+          </span>
+        }
+      </div>
       @if (repo.configError) {
         <dp-error-message [message]="configErrorMessage(repo)" [details]="repo.configError" />
       }

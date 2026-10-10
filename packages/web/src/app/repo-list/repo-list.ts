@@ -33,6 +33,14 @@ export class RepoList {
     return ACTIVE.has(status);
   }
 
+  protected anyStartable(repo: RepoView): boolean {
+    return repo.services.some((s) => STARTABLE.has(s.status) && !s.removedFromConfig);
+  }
+
+  protected anyStoppable(repo: RepoView): boolean {
+    return repo.services.some((s) => ACTIVE.has(s.status));
+  }
+
   protected repoColor(repo: RepoView): string {
     if (repo.color) return repo.color;
     let hash = 0;

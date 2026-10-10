@@ -92,6 +92,21 @@ export class BackendService {
     this.run('restartService', { repoId, serviceId });
   }
 
+  /** "Start all" of one Repo (dependsOn order is kept by the Server). */
+  startAll(repoId: string): void {
+    this.run('startAll', { repoId });
+  }
+
+  /** "Stop all" of one Repo: Services only, never Sessions. */
+  stopAll(repoId: string): void {
+    this.run('stopAll', { repoId });
+  }
+
+  /** "Stop all in all Repos": every Service in the Workspace, never Sessions. */
+  stopAllRepos(): void {
+    this.run('stopAllRepos', {});
+  }
+
   /** Runs `pnpm install` in a pnpm Repo and opens a tab with its output. */
   installDependencies(repoId: string): void {
     this.updateInstallTab(repoId, () => ({ repoId, output: '', state: 'running' }));

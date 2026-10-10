@@ -41,6 +41,31 @@ export interface ServiceView {
   configChanged?: boolean;
   /** The Service is gone from the config but still running; it disappears once it stops. */
   removedFromConfig?: boolean;
+  /** Its port is held by someone else: a start was blocked, or the port stayed taken after a Stop. */
+  portConflict?: PortConflict;
+}
+
+/**
+ * Who holds a port, classified by `kind`. Add a kind here (and a case in the UI strings) to support
+ * a new owner; ticket 07 adds Orphans.
+ */
+export type PortOwner =
+  /** A DevPanel Service (of another Repo, or another Service of the same Repo). */
+  | { kind: 'service'; pid: number; repoId: string; repoName: string; serviceId: string; serviceName: string }
+  /** Any other process. */
+  | { kind: 'process'; pid: number; processName: string };
+
+export type PortOwnerKind = PortOwner['kind'];
+
+/** A port held by someone else, attached to the Service that needs it. */
+export interface PortConflict {
+  port: number;
+  owner: PortOwner;
+  /**
+   * `start`: the port blocked a start; resolving frees it and starts the Service.
+   * `stop`: the port stayed taken after the Service stopped; resolving only frees it.
+   */
+  reason: 'start' | 'stop';
 }
 
 /** Exit code and the last output lines (ANSI stripped) of a Service that ended by itself. */
@@ -159,8 +184,14 @@ export interface ConfigChangedEvent {
   repo: RepoView;
 }
 
+/** A Service's `portConflict` appeared, changed or was cleared (`portConflict` absent). */
+export interface PortConflictChangedEvent extends ServiceRef {
+  portConflict?: PortConflict;
+}
+
 /** Events sent to clients, by name. Names match the `core` event names. */
 export interface Events {
+  portConflictChanged: PortConflictChangedEvent;
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
   installOutput: InstallOutputEvent;
@@ -180,6 +211,11 @@ export interface Commands {
   startService: { payload: ServiceRef; result: null };
   stopService: { payload: ServiceRef; result: null };
   restartService: { payload: ServiceRef; result: null };
+  /**
+   * Frees the Service's port (stops the owning Service or kills the foreign process), waits until it
+   * is free, then starts the Service, unless the conflict came from a Stop.
+   */
+  resolvePortConflict: { payload: ServiceRef; result: null };
   /** Runs `pnpm install` in a pnpm Repo; replies when it has finished. */
   installDependencies: { payload: { repoId: string }; result: InstallResult };
   /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */

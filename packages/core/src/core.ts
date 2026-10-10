@@ -14,6 +14,9 @@ import {
   type InstallResult,
   type InstallState,
   type LogEvent,
+  type PortConflict,
+  type PortConflictChangedEvent,
+  type PortOwner,
   type RepoView,
   type ServiceConfig,
   type ServiceStatus,
@@ -35,7 +38,8 @@ import {
 } from './config.js';
 import { detectServices } from './detect.js';
 import { readWorkspace } from './workspace.js';
-import { spawnService, type ServiceProcess } from './process.js';
+import { killTree, spawnService, type ServiceProcess } from './process.js';
+import { ancestry, findPortListeners, listProcesses, type ProcessInfo } from './ports.js';
 import { OutputTail } from './output-tail.js';
 import { watchReadiness, type ReadinessWatch } from './readiness.js';
 import {
@@ -60,6 +64,8 @@ export interface CoreTimings {
   unhealthyPollMs: number;
   /** Interval of git branch refresh. */
   branchRefreshMs: number;
+  /** How long resolving a port conflict waits for the port to become free. */
+  portFreeTimeoutMs: number;
 }
 
 export const DEFAULT_TIMINGS: CoreTimings = {
@@ -69,6 +75,7 @@ export const DEFAULT_TIMINGS: CoreTimings = {
   healthPollMs: 1_000,
   unhealthyPollMs: 5_000,
   branchRefreshMs: 10_000,
+  portFreeTimeoutMs: 15_000,
 };
 
 export interface CoreOptions {
@@ -86,6 +93,7 @@ export interface CoreEvents {
   configChanged: [ConfigChangedEvent];
   installOutput: [InstallOutputEvent];
   installChanged: [InstallChangedEvent];
+  portConflictChanged: [PortConflictChangedEvent];
 }
 
 /** A running or finished `pnpm install` of one Repo. */
@@ -111,6 +119,8 @@ interface ServiceState {
   pending?: ServiceDefinition;
   /** Gone from the config while running; dropped once the Service exits. */
   removed?: boolean;
+  /** Its port is held by someone else (a blocked start, or still taken after a Stop). */
+  portConflict?: PortConflict;
 }
 
 interface RepoState {
@@ -153,6 +163,25 @@ function isProcessAlive(pid: number): boolean {
     return true;
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/** How often port occupancy is re-checked while waiting for a port to become free. */
+const PORT_POLL_MS = 200;
+/** After a Stop, how long the port may take to be released before its owner is reported. */
+const PORT_RELEASE_AFTER_STOP_MS = 1_000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Technical (English) description of a port owner for error details. */
+function describeOwner(owner: PortOwner): string {
+  switch (owner.kind) {
+    case 'service':
+      return `Service "${owner.serviceName}" of Repo "${owner.repoName}"`;
+    case 'process':
+      return owner.processName;
   }
 }
 
@@ -220,6 +249,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
     await this.ensurePnpm(repo);
     if (service.process) return;
+    await this.ensurePortFree(repo, service);
+    if (service.process) return;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
     service.lastExit = undefined;
@@ -284,10 +315,79 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     service.readiness?.dispose();
     service.readiness = undefined;
     this.setStatus(repo, service, 'stopping');
-    service.stopping = proc.stop(this.timings.gracefulStopMs).finally(() => {
-      service.stopping = undefined;
-    });
+    service.stopping = proc
+      .stop(this.timings.gracefulStopMs)
+      .then(() => this.checkPortReleased(repo, service))
+      .finally(() => {
+        service.stopping = undefined;
+      });
     return service.stopping;
+  }
+
+  /** After a Stop: confirms the Service's port was released; otherwise records who still holds it. */
+  private async checkPortReleased(repo: RepoState, service: ServiceState): Promise<void> {
+    const { port } = service.definition;
+    if (port === undefined) return;
+    try {
+      if (await this.waitPortFree(port, PORT_RELEASE_AFTER_STOP_MS)) {
+        this.setPortConflict(repo, service, undefined);
+        return;
+      }
+      const owner = await this.findPortOwner(port);
+      this.setPortConflict(repo, service, owner && { port, owner, reason: 'stop' });
+    } catch {
+      // netstat failed: the next start checks the port again.
+    }
+  }
+
+  /**
+   * Frees the Service's port: stops the DevPanel Service that holds it, or kills the foreign process
+   * (with its tree). Waits until the port is free, then starts the Service, unless the conflict came
+   * from a Stop. The owner is looked up afresh, so a stale conflict never kills the wrong process.
+   */
+  async resolvePortConflict(repoId: string, serviceId: string): Promise<void> {
+    const repo = this.getRepo(repoId);
+    const service = this.getService(repo, serviceId);
+    const startAfter = service.portConflict?.reason !== 'stop';
+    const { port } = service.definition;
+    if (port !== undefined) {
+      const owner = await this.findPortOwner(port);
+      if (owner) await this.freePortFrom(owner);
+      if (!(await this.waitPortFree(port, this.timings.portFreeTimeoutMs))) {
+        const serviceName = service.definition.name ?? service.definition.id;
+        throw new DevPanelError(
+          'portNotFreed',
+          { repoName: repo.name, serviceName, port },
+          `Port ${port} was still listened on ${this.timings.portFreeTimeoutMs} ms after freeing it from ${owner ? describeOwner(owner) : 'nobody'}`,
+        );
+      }
+    }
+    this.setPortConflict(repo, service, undefined);
+    if (startAfter) await this.startService(repoId, serviceId);
+  }
+
+  /** Stops our Service or kills the foreign process holding a port. */
+  private async freePortFrom(owner: PortOwner): Promise<void> {
+    switch (owner.kind) {
+      case 'service':
+        await this.stopService(owner.repoId, owner.serviceId);
+        return;
+      case 'process':
+        // Never kill the DevPanel Server itself.
+        if (owner.pid === process.pid) return;
+        await killTree(owner.pid);
+        return;
+    }
+  }
+
+  /** Polls until nothing listens on `port`; false if it is still taken after `timeoutMs`. */
+  private async waitPortFree(port: number, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      if ((await findPortListeners(port)).length === 0) return true;
+      if (Date.now() >= deadline) return false;
+      await delay(PORT_POLL_MS);
+    }
   }
 
   /** Stops the Service if it runs (waiting for the exit), then starts it again. */
@@ -370,6 +470,77 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     return install ? { install } : {};
   }
 
+  // --- Ports ------------------------------------------------------------------------------------
+
+  /**
+   * Before a start: when the Service's port is held (on any address), records the conflict and
+   * fails with `portTaken` instead of spawning.
+   */
+  private async ensurePortFree(repo: RepoState, service: ServiceState): Promise<void> {
+    const { port } = service.definition;
+    if (port === undefined) return;
+    const owner = await this.findPortOwner(port);
+    if (!owner) {
+      this.setPortConflict(repo, service, undefined);
+      return;
+    }
+    this.setPortConflict(repo, service, { port, owner, reason: 'start' });
+    const serviceName = service.definition.name ?? service.definition.id;
+    throw new DevPanelError(
+      'portTaken',
+      { repoName: repo.name, serviceName, port, owner },
+      `Port ${port} is listened on by PID ${owner.pid} (${describeOwner(owner)}); "${serviceName}" was not started`,
+    );
+  }
+
+  /**
+   * Who listens on `port`, or undefined when it is free. A listener whose process descends from one
+   * of our live Services is that Service; anything else is a foreign process.
+   */
+  private async findPortOwner(port: number): Promise<PortOwner | undefined> {
+    const listeners = await findPortListeners(port);
+    if (listeners.length === 0) return undefined;
+    let processes: Map<number, ProcessInfo>;
+    try {
+      processes = await listProcesses();
+    } catch {
+      processes = new Map();
+    }
+    const servicesByPid = new Map<number, { repo: RepoState; service: ServiceState }>();
+    for (const repo of this.repos.values()) {
+      for (const service of repo.services.values()) {
+        if (service.process) servicesByPid.set(service.process.pid, { repo, service });
+      }
+    }
+    for (const { pid } of listeners) {
+      for (const ancestor of ancestry(pid, processes)) {
+        const ours = servicesByPid.get(ancestor);
+        if (!ours) continue;
+        const { definition } = ours.service;
+        return {
+          kind: 'service',
+          pid,
+          repoId: ours.repo.id,
+          repoName: ours.repo.name,
+          serviceId: definition.id,
+          serviceName: definition.name ?? definition.id,
+        };
+      }
+    }
+    const { pid } = listeners[0]!;
+    return { kind: 'process', pid, processName: processes.get(pid)?.name ?? `PID ${pid}` };
+  }
+
+  private setPortConflict(repo: RepoState, service: ServiceState, conflict: PortConflict | undefined): void {
+    if (JSON.stringify(service.portConflict) === JSON.stringify(conflict)) return;
+    service.portConflict = conflict;
+    this.emit('portConflictChanged', {
+      repoId: repo.id,
+      serviceId: service.definition.id,
+      ...(conflict && { portConflict: conflict }),
+    });
+  }
+
   /** In a pnpm Repo, fails with a coded error (shown with a hint) when pnpm is not on PATH. */
   private async ensurePnpm(repo: RepoState): Promise<void> {
     if (!isPnpmRepo(repo.path)) return;
@@ -413,7 +584,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       ...(repo.suggestions !== undefined && { suggestions: repo.suggestions }),
       ...(repo.unusedLocalConfig && { unusedLocalConfig: true }),
       ...this.installView(repo),
-      services: [...repo.services.values()].map(({ definition: d, status, lastExit, pending, removed }) => ({
+      services: [...repo.services.values()].map(({ definition: d, status, lastExit, pending, removed, portConflict }) => ({
         id: d.id,
         name: d.name ?? d.id,
         command: d.command,
@@ -425,6 +596,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
         ...(lastExit !== undefined && { lastExit }),
         ...(pending !== undefined && { configChanged: true }),
         ...(removed && { removedFromConfig: true }),
+        ...(portConflict !== undefined && { portConflict }),
       })),
     };
   }

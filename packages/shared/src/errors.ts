@@ -7,8 +7,14 @@
  * details)` in `core`, and add the message to `errors` in `packages/web/src/app/strings.ts`.
  */
 
+import type { PortOwner } from './index.js';
+
 /** Error codes and the parameters their messages need. */
 export interface ErrorParams {
+  /** A start was refused because the Service's port is held by `owner`. */
+  portTaken: { repoName: string; serviceName: string; port: number; owner: PortOwner };
+  /** Resolving a port conflict did not free the port in time. */
+  portNotFreed: { repoName: string; serviceName: string; port: number };
   /** A command named a Repo id that is not in the Workspace. */
   repoNotFound: { repoId: string };
   /** A command named a Service id that is not in the Repo's config. */

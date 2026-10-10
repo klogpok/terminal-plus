@@ -21,6 +21,7 @@ export const FORWARDED_EVENTS = [
   'configChanged',
   'installOutput',
   'installChanged',
+  'portConflictChanged',
 ] as const satisfies readonly (EventType & keyof CoreEvents)[];
 
 // Compile-time check: what `core` emits for a forwarded event fits the `shared` event payload.
@@ -32,6 +33,7 @@ const forwardedEventsMatch: CheckForwarded = {
   configChanged: true,
   installOutput: true,
   installChanged: true,
+  portConflictChanged: true,
 };
 void forwardedEventsMatch;
 

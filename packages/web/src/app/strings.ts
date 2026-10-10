@@ -5,7 +5,7 @@
  * Error messages are keyed by `ErrorCode` (packages/shared/src/errors.ts) plus client-side codes;
  * a new code fails to compile until its message is added here.
  */
-import type { ErrorParams, ServiceStatus } from '@devpanel/shared';
+import type { ErrorParams, PortConflict, PortOwner, PortOwnerKind, ServiceStatus } from '@devpanel/shared';
 
 /** Errors raised in the browser itself (not by the Server). */
 export interface ClientErrorParams {
@@ -20,6 +20,19 @@ type AllErrorParams = ErrorParams & ClientErrorParams;
 export type UiErrorInfo = {
   [C in UiErrorCode]: { code: C; params: AllErrorParams[C]; details: string };
 }[UiErrorCode];
+
+/**
+ * Who holds a port, in the instrumental case: "сервисом API из репо Billing" / "процессом node.exe
+ * (PID 1234)". A new `PortOwner` kind fails to compile until it gets a case here.
+ */
+export function describePortOwner(owner: PortOwner): string {
+  switch (owner.kind) {
+    case 'service':
+      return `сервисом ${owner.serviceName} из репо ${owner.repoName}`;
+    case 'process':
+      return `процессом ${owner.processName} (PID ${owner.pid})`;
+  }
+}
 
 export const STRINGS = {
   appTitle: 'DevPanel',
@@ -84,6 +97,22 @@ export const STRINGS = {
     startAgain: 'Запустить снова',
   },
 
+  /** A Service's port held by someone else (see `PortConflict`). */
+  portConflict: {
+    taken: (port: number, owner: PortOwner) => `Порт ${port} занят ${describePortOwner(owner)}.`,
+    stillTaken: (serviceName: string, port: number, owner: PortOwner) =>
+      `Сервис ${serviceName} остановлен, но порт ${port} всё ещё занят ${describePortOwner(owner)}.`,
+    /** The one button, by owner kind and by whether the Service starts afterwards. */
+    resolve: {
+      start: { service: 'Остановить его и запустить наш', process: 'Завершить и запустить наш' },
+      stop: { service: 'Остановить его', process: 'Завершить' },
+    } satisfies Record<PortConflict['reason'], Record<PortOwnerKind, string>>,
+    confirmKill: (processName: string, pid: number) =>
+      `Завершить процесс ${processName} (PID ${pid})? Если это другая программа, её несохранённые данные пропадут.`,
+    confirmYes: 'Да, завершить',
+    confirmNo: 'Отмена',
+  },
+
   install: {
     button: 'Установить зависимости',
     running: 'Устанавливаем…',
@@ -99,6 +128,9 @@ export const STRINGS = {
 
   /** Plain-Russian messages: what happened (and what to do), without jargon. */
   errors: {
+    portTaken: (p) => `Сервис ${p.serviceName} не запущен: порт ${p.port} занят ${describePortOwner(p.owner)}.`,
+    portNotFreed: (p) =>
+      `Порт ${p.port} так и не освободился, поэтому сервис ${p.serviceName} не запущен. Попробуйте ещё раз.`,
     repoNotFound: () => 'Этого Репо больше нет в списке. Обновите страницу.',
     serviceNotFound: (p) => `В репо ${p.repoName} больше нет сервиса «${p.serviceId}». Обновите страницу.`,
     spawnFailed: (p) => `Не удалось запустить сервис ${p.serviceName} из репо ${p.repoName}.`,

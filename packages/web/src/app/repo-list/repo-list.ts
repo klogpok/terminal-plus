@@ -3,6 +3,7 @@ import type { RepoView, ServiceStatus } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
 import { ConfigSuggestions } from '../config-suggestions/config-suggestions';
 import { ErrorMessage } from '../error-message/error-message';
+import { PortConflictBlock } from '../port-conflict/port-conflict';
 import { ServiceExit } from '../service-exit/service-exit';
 import { STRINGS, describeError } from '../strings';
 
@@ -16,7 +17,7 @@ const PALETTE = ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6
 /** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳. */
 @Component({
   selector: 'dp-repo-list',
-  imports: [ErrorMessage, ConfigSuggestions, ServiceExit],
+  imports: [ErrorMessage, ConfigSuggestions, PortConflictBlock, ServiceExit],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './repo-list.html',
   styleUrl: './repo-list.css',

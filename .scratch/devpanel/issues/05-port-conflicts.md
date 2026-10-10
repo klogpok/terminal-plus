@@ -4,14 +4,14 @@
 
 **Blocked by:** 04 (Readiness and the full Service Status model).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Starting a Service whose port is held (on IPv4, IPv6 or any-address) does not spawn it and reports a conflict instead.
-- [ ] The owner is classified as either a DevPanel Service from another Repo (named by Service and Repo) or a foreign process (named by process name and PID).
-- [ ] `resolvePortConflict` stops our Service or kills the foreign process, waits until the port is free, then starts the requested Service; tests cover both owner kinds.
-- [ ] Killing a foreign process requires a confirmation in the UI.
-- [ ] After a Stop, a port still held is reported with its owner and a kill button.
-- [ ] Conflict messages follow the plain-Russian error pattern.
+- [x] Starting a Service whose port is held (on IPv4, IPv6 or any-address) does not spawn it and reports a conflict instead.
+- [x] The owner is classified as either a DevPanel Service from another Repo (named by Service and Repo) or a foreign process (named by process name and PID).
+- [x] `resolvePortConflict` stops our Service or kills the foreign process, waits until the port is free, then starts the requested Service; tests cover both owner kinds.
+- [x] Killing a foreign process requires a confirmation in the UI.
+- [x] After a Stop, a port still held is reported with its owner and a kill button.
+- [x] Conflict messages follow the plain-Russian error pattern.
 
 ---
 
@@ -23,11 +23,11 @@
 
 **Блокируется:** 04 (Готовность и полная модель Статусов сервиса).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Запуск Сервиса, чей порт занят (на IPv4, IPv6 или любом адресе), не порождает процесс, а сообщает о конфликте.
-- [ ] Владелец классифицируется либо как Сервис DevPanel из другого Репо (называются Сервис и Репо), либо как чужой процесс (называются имя процесса и PID).
-- [ ] `resolvePortConflict` останавливает наш Сервис или убивает чужой процесс, ждёт, пока порт освободится, затем запускает нужный Сервис; тесты покрывают оба типа владельца.
-- [ ] Убийство чужого процесса требует подтверждения в UI.
-- [ ] Если после остановки порт всё ещё занят, сообщается его владелец и показывается кнопка «Завершить».
-- [ ] Сообщения о конфликтах следуют шаблону ошибок на понятном русском.
+- [x] Запуск Сервиса, чей порт занят (на IPv4, IPv6 или любом адресе), не порождает процесс, а сообщает о конфликте.
+- [x] Владелец классифицируется либо как Сервис DevPanel из другого Репо (называются Сервис и Репо), либо как чужой процесс (называются имя процесса и PID).
+- [x] `resolvePortConflict` останавливает наш Сервис или убивает чужой процесс, ждёт, пока порт освободится, затем запускает нужный Сервис; тесты покрывают оба типа владельца.
+- [x] Убийство чужого процесса требует подтверждения в UI.
+- [x] Если после остановки порт всё ещё занят, сообщается его владелец и показывается кнопка «Завершить».
+- [x] Сообщения о конфликтах следуют шаблону ошибок на понятном русском.

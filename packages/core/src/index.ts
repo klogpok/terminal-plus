@@ -23,6 +23,7 @@ export type {
 } from '@devpanel/shared';
 export { LOCAL_CONFIG_DIR, REPO_CONFIG_FILE, localConfigPath, type ServiceDefinition } from './config.js';
 export { WORKSPACE_FILE } from './workspace.js';
+export { UI_LANGUAGE_FILE, readUiLanguage } from './ui-language.js';
 export { PID_FILE } from './pid-file.js';
 export { windowsShell, type DesktopShell } from './shell.js';
 export {

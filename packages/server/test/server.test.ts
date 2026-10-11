@@ -277,6 +277,22 @@ describe('DevPanel Server', () => {
     expect(await client.send('killOrphans', {})).toMatchObject({ ok: true, result: null });
   });
 
+  it('sets the UI Language, tells every client, and rejects an unknown language', async () => {
+    const tab1 = new Client(await connect());
+    const tab2 = new Client(await connect());
+
+    expect(await tab1.send('setUiLanguage', { language: 'de' } as never)).toMatchObject({
+      ok: false,
+      error: { code: 'badCommand' },
+    });
+    expect(await tab1.send('setUiLanguage', { language: 'ru' })).toMatchObject({ ok: true, result: null });
+    const event = await tab2.waitFor(
+      (m): m is EventMessage => m.kind === 'event' && m.type === 'uiLanguageChanged',
+    );
+    expect(event.payload).toEqual({ language: 'ru' });
+    expect(await tab2.send('getSnapshot', {})).toMatchObject({ result: { uiLanguage: 'ru' } });
+  });
+
   it('rejects connections from a foreign Origin', async () => {
     await expect(connect({ origin: 'https://evil.example' })).rejects.toThrow('HTTP 403');
     await expect(connect({ origin: 'http://127.0.0.1:1' })).rejects.toThrow('HTTP 403');

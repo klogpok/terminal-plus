@@ -9,7 +9,16 @@
  * Error messages are keyed by `ErrorCode` (packages/shared/src/errors.ts) plus client-side codes;
  * a new code fails to compile until its message is added to both sets.
  */
-import type { ErrorParams, Orphan, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
+import type {
+  ErrorParams,
+  Orphan,
+  PortConflict,
+  PortOwner,
+  PortOwnerKind,
+  ServiceStatus,
+  SessionKind,
+  UiLanguage,
+} from '@devpanel/shared';
 import { EN_STRINGS } from './strings.en';
 
 /** Errors raised in the browser itself (not by the Server). */
@@ -23,9 +32,6 @@ export type AllErrorParams = ErrorParams & ClientErrorParams;
 
 /** The shape of a UI string set; the English set defines it. */
 export type UiStrings = typeof EN_STRINGS;
-
-/** A UI Language: which string set the page shows. */
-export type UiLanguage = 'en' | 'ru';
 
 /** An error from the Server (`ErrorInfo`) or from the client. */
 export type UiErrorInfo = {
@@ -175,6 +181,12 @@ const RU_STRINGS: UiStrings = {
     done: 'DevPanel выключен. Эту вкладку можно закрыть. Чтобы начать снова, запустите DevPanel ярлыком на рабочем столе.',
   },
 
+  /** The UI Language switch in the header; each language is named in its own language. */
+  uiLanguage: {
+    label: 'Язык',
+    names: { en: 'English', ru: 'Русский' },
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'После прошлого запуска DevPanel остались работающие процессы:',
@@ -277,6 +289,7 @@ const RU_STRINGS: UiStrings = {
     sessionSpawnFailed: (p) => `Не удалось открыть сессию в репо ${p.repoName}.`,
     serviceHasNoUrl: (p) => `У сервиса ${p.serviceName} из репо ${p.repoName} не указан адрес для браузера.`,
     shellFailed: () => 'Не удалось открыть окно Windows. Попробуйте ещё раз.',
+    uiLanguageNotSaved: () => 'Не удалось сохранить выбор языка, поэтому DevPanel остаётся на текущем языке. Попробуйте ещё раз.',
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',
@@ -287,10 +300,17 @@ const STRING_SETS: Record<UiLanguage, UiStrings> = { en: EN_STRINGS, ru: RU_STRI
 
 /** The loaded UI string set. English until `useUiStrings` picks another at page load. */
 export let STRINGS: UiStrings = EN_STRINGS;
+let loadedLanguage: UiLanguage = 'en';
 
 /** Loads the string set of a UI Language; called once at page load, before Angular starts. */
 export function useUiStrings(language: UiLanguage): void {
   STRINGS = STRING_SETS[language];
+  loadedLanguage = language;
+}
+
+/** The UI Language of the loaded string set. */
+export function loadedUiLanguage(): UiLanguage {
+  return loadedLanguage;
 }
 
 /** The plain-language message for an error, in the loaded set. */

@@ -8,6 +8,17 @@
     [attr.aria-label]="strings.actions.stopAllRepos"
     (click)="backend.stopAllRepos()"
   >■ {{ strings.actions.stopAllRepos }}</button>
+  <div class="ui-language" role="group" [attr.aria-label]="strings.uiLanguage.label">
+    @for (language of uiLanguages; track language) {
+      <button
+        type="button"
+        [attr.data-ui-language]="language"
+        [attr.lang]="language"
+        [attr.aria-pressed]="language === activeUiLanguage"
+        (click)="chooseUiLanguage(language)"
+      >{{ strings.uiLanguage.names[language] }}</button>
+    }
+  </div>
   <button
     type="button"
     class="exit-button"

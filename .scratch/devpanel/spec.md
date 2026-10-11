@@ -8,7 +8,7 @@ A team member with no programming experience works on several repositories at on
 
 ## Solution
 
-DevPanel is a local app (a web UI on localhost now, an Electron desktop app later) that lists every Repo in the user's Workspace and, for each Repo, its Services. The user starts, stops and restarts Services with buttons, sees a clear Service Status for each, watches each Service's live, interactive terminal in its own tab, and opens Claude Code or a shell Session in the Repo folder with one click. DevPanel owns all processes through the DevPanel Server: closing or reloading the browser tab changes nothing, and only an explicit Exit stops everything. Stopping a Service kills its whole process tree and verifies the port is free. Port conflicts, missing tools, crashes and leftover Orphans from a previous run are explained in plain Russian, each with a button that resolves it.
+DevPanel is a local app (a web UI on localhost now, an Electron desktop app later) that lists every Repo in the user's Workspace and, for each Repo, its Services. The user starts, stops and restarts Services with buttons, sees a clear Service Status for each, watches each Service's live, interactive terminal in its own tab, and opens Claude Code or a shell Session in the Repo folder with one click. DevPanel owns all processes through the DevPanel Server: closing or reloading the browser tab changes nothing, and only an explicit Exit stops everything. Stopping a Service kills its whole process tree and verifies the port is free. Port conflicts, missing tools, crashes and leftover Orphans from a previous run are explained in plain language (English by default, Russian), each with a button that resolves it.
 
 ## User Stories
 
@@ -110,7 +110,7 @@ DevPanel is a local app (a web UI on localhost now, an Electron desktop app late
 70. As a team member, I want closing the browser tab to keep everything running, so that I do not lose work by closing a window.
 71. As a team member, I want an "Exit DevPanel" button (with confirmation) that stops everything, so that I have one obvious way to shut it all down.
 72. As a team member, I want closing the DevPanel console window to also count as Exit, so that processes never outlive DevPanel.
-73. As a team member, I want all errors shown in plain Russian with technical details hidden under "Details", so that I understand what happened without jargon.
+73. As a team member, I want all errors shown in plain language (English by default, Russian) with technical details hidden under "Details", so that I understand what happened without jargon.
 74. As a team member, I want the DevPanel Server reachable only from my machine and protected by an Access Key, so that no website or local program can run commands through it.
 75. As a maintainer, I want all UI strings kept in one place, so that adding English later is straightforward.
 
@@ -246,7 +246,7 @@ A Service without `port`, `healthUrl` and `readyPattern` is valid (e.g. `tsc --w
 
 - **Good tests exercise external behavior only**: they drive the public interface and assert on observable results (events emitted, Statuses, processes alive or dead, ports free or taken, files on disk), never on internal classes, private state or call order.
 - **Seam 1 — the `core` public interface**, with real processes on Windows. Tests construct `core` with a temporary app data directory and short timings, add Repos pointing at temporary fixture folders, and run small Node fixture scripts as Service commands. The fixtures can: spawn a grandchild process; listen on a given port on IPv4, IPv6 or any-address; print a ready line after a delay; exit with a given code after a delay; ignore Ctrl+C; and echo stdin. This covers tree kill, port freeing, port conflict classification and resolution, Orphan detection (including a reused-PID negative case), every Status transition, dependsOn ordering and failure reporting, config precedence, watching and invalid-config fallback, Repo identity rules, missing folders, output buffering with restart separators, Sessions (using a shell instead of `claude`), and Exit stopping everything. There is no OS-adapter seam: `netstat`, `taskkill` and `tasklist` run for real.
-- **Seam 2 — `BackendTransport`** in the Angular app. Components and `BackendService` are tested against a fake transport that records commands and emits events: Status dots, error messages in plain Russian, conflict buttons sending the right command, Session tab close confirmation, state rebuilt from a snapshot after reconnect, config-changed and folder-missing indicators.
+- **Seam 2 — `BackendTransport`** in the Angular app. Components and `BackendService` are tested against a fake transport that records commands and emits events: Status dots, error messages in plain language (English by default, Russian), conflict buttons sending the right command, Session tab close confirmation, state rebuilt from a snapshot after reconnect, config-changed and folder-missing indicators.
 - **Server**: one or two end-to-end tests over a real WebSocket: a command round-trip through the `shared` contract, and rejection of connections without the Access Key or with a foreign Origin.
 - **Prior art**: none yet; this is a greenfield repo. The first `core` tests establish the fixture-script pattern that the others follow.
 
@@ -262,7 +262,6 @@ A Service without `port`, `healthUrl` and `readyPattern` is valid (e.g. `tsc --w
 - Remote access, multiple users, or listening on anything other than 127.0.0.1.
 - Accepting arbitrary commands from the UI beyond Claude and a shell in a known Repo folder.
 - macOS and Linux.
-- An English UI (strings are only prepared for it).
 
 ## Further Notes
 
@@ -298,7 +297,7 @@ A Service without `port`, `healthUrl` and `readyPattern` is valid (e.g. `tsc --w
 
 ## Решение
 
-DevPanel — локальное приложение (сейчас веб-UI на localhost, позже десктоп на Electron). Оно показывает все Репо из Workspace пользователя, а внутри каждого Репо — его Сервисы. Пользователь запускает, останавливает и перезапускает Сервисы кнопками и видит понятный Статус каждого. Живой интерактивный терминал каждого Сервиса открыт в отдельной вкладке. Одним кликом можно открыть Сессию Claude Code или оболочки в папке Репо. Всеми процессами владеет Сервер DevPanel: закрытие или перезагрузка вкладки браузера ничего не меняет, и только явный Выход останавливает всё. Остановка Сервиса убивает всё дерево его процессов и проверяет, что порт освободился. Конфликты портов, отсутствующие инструменты, падения и Зомби, оставшиеся с прошлого запуска, объясняются понятным русским языком, и у каждого случая есть кнопка, которая его решает.
+DevPanel — локальное приложение (сейчас веб-UI на localhost, позже десктоп на Electron). Оно показывает все Репо из Workspace пользователя, а внутри каждого Репо — его Сервисы. Пользователь запускает, останавливает и перезапускает Сервисы кнопками и видит понятный Статус каждого. Живой интерактивный терминал каждого Сервиса открыт в отдельной вкладке. Одним кликом можно открыть Сессию Claude Code или оболочки в папке Репо. Всеми процессами владеет Сервер DevPanel: закрытие или перезагрузка вкладки браузера ничего не меняет, и только явный Выход останавливает всё. Остановка Сервиса убивает всё дерево его процессов и проверяет, что порт освободился. Конфликты портов, отсутствующие инструменты, падения и Зомби, оставшиеся с прошлого запуска, объясняются понятным языком (по умолчанию английским, есть русский), и у каждого случая есть кнопка, которая его решает.
 
 ## Пользовательские истории
 
@@ -400,7 +399,7 @@ DevPanel — локальное приложение (сейчас веб-UI н�
 70. Как член команды, я хочу, чтобы закрытие вкладки браузера оставляло всё работающим, чтобы не терять работу из-за закрытого окна.
 71. Как член команды, я хочу кнопку «Выйти из DevPanel» (с подтверждением), которая останавливает всё, чтобы был один очевидный способ всё выключить.
 72. Как член команды, я хочу, чтобы закрытие консольного окна DevPanel тоже считалось Выходом, чтобы процессы никогда не переживали DevPanel.
-73. Как член команды, я хочу, чтобы все ошибки показывались понятным русским языком, а технические детали были спрятаны под «Подробнее», чтобы понимать, что случилось, без жаргона.
+73. Как член команды, я хочу, чтобы все ошибки показывались понятным языком (по умолчанию английским, есть русский), а технические детали были спрятаны под «Подробнее», чтобы понимать, что случилось, без жаргона.
 74. Как член команды, я хочу, чтобы Сервер DevPanel был доступен только с моей машины и защищён Ключом доступа, чтобы ни сайт, ни локальная программа не могли выполнять через него команды.
 75. Как сопровождающий, я хочу, чтобы все строки UI хранились в одном месте, чтобы потом было просто добавить английский.
 
@@ -536,7 +535,7 @@ services:
 
 - **Хорошие тесты проверяют только внешнее поведение**: они работают через публичный интерфейс и проверяют наблюдаемые результаты (испущенные события, Статусы, живы ли процессы, свободны ли порты, файлы на диске), но никогда не внутренние классы, приватное состояние или порядок вызовов.
 - **Шов 1 — публичный интерфейс `core`**, с настоящими процессами на Windows. Тесты создают `core` со временным каталогом данных и короткими таймингами, добавляют Репо, указывающие на временные папки-фикстуры, и используют маленькие Node-скрипты-фикстуры как команды Сервисов. Фикстуры умеют: порождать процесс-внука; слушать заданный порт на IPv4, IPv6 или любом адресе; печатать строку готовности с задержкой; выходить с заданным кодом после задержки; игнорировать Ctrl+C; повторять stdin. Это покрывает убийство дерева процессов, освобождение порта, классификацию и разрешение конфликтов портов, обнаружение Зомби (включая отрицательный случай с переиспользованным PID), все переходы Статусов, порядок dependsOn и сообщения о сбоях, приоритет конфигов, отслеживание изменений и откат к последнему валидному конфигу, правила идентичности Репо, пропавшие папки, буферизацию вывода с разделителями перезапуска, Сессии (с оболочкой вместо `claude`) и остановку всего при Выходе. Шва-адаптера для ОС нет: `netstat`, `taskkill` и `tasklist` выполняются по-настоящему.
-- **Шов 2 — `BackendTransport`** в Angular-приложении. Компоненты и `BackendService` тестируются с фейковым транспортом, который записывает команды и испускает события: статус-точки, сообщения об ошибках на понятном русском, кнопки конфликтов, отправляющие правильную команду, подтверждение закрытия вкладки Сессии, восстановление состояния из снимка после переподключения, индикаторы изменения конфига и пропавшей папки.
+- **Шов 2 — `BackendTransport`** в Angular-приложении. Компоненты и `BackendService` тестируются с фейковым транспортом, который записывает команды и испускает события: статус-точки, сообщения об ошибках на понятном языке (по умолчанию английском, можно русском), кнопки конфликтов, отправляющие правильную команду, подтверждение закрытия вкладки Сессии, восстановление состояния из снимка после переподключения, индикаторы изменения конфига и пропавшей папки.
 - **Сервер**: один-два сквозных теста через настоящий WebSocket: команда туда и обратно по контракту `shared` и отклонение подключений без Ключа доступа или с чужим Origin.
 - **Прецеденты**: пока нет, репозиторий новый. Первые тесты `core` задают паттерн скриптов-фикстур, которому следуют остальные.
 
@@ -552,7 +551,6 @@ services:
 - Удалённый доступ, несколько пользователей или прослушивание чего-либо, кроме 127.0.0.1.
 - Приём произвольных команд из UI, кроме Claude и оболочки в папке известного Репо.
 - macOS и Linux.
-- Английский интерфейс (строки только подготовлены для него).
 
 ## Дополнительные заметки
 

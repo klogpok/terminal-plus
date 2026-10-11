@@ -4,6 +4,12 @@
 .stop-all-repos, .exit-button, .exit-confirm button, .orphans button { height: 26px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 0 10px; }
 .stop-all-repos:disabled, .exit-button:disabled { opacity: 0.35; cursor: default; }
 .stop-all-repos:not(:disabled):hover, .exit-button:not(:disabled):hover, .exit-confirm button:hover, .orphans button:hover { border-color: var(--accent); }
+.ui-language { display: flex; }
+.ui-language button { height: 26px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); cursor: pointer; font-size: 12px; padding: 0 8px; }
+.ui-language button:first-child { border-radius: 4px 0 0 4px; }
+.ui-language button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+.ui-language button[aria-pressed='true'] { color: var(--fg); font-weight: 600; cursor: default; }
+.ui-language button[aria-pressed='false']:hover { color: var(--fg); border-color: var(--accent); }
 button.danger { border-color: var(--error-border); }
 .exit-confirm { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--error-bg); font-size: 13px; }
 .exited { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--border); background: var(--panel); }

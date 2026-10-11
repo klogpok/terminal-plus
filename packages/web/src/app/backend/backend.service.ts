@@ -15,8 +15,10 @@ import type {
   ServiceView,
   SessionKind,
   SessionView,
+  UiLanguage,
 } from '@devpanel/shared';
-import { describeError, type UiErrorInfo } from '../strings';
+import { describeError, loadedUiLanguage, type UiErrorInfo } from '../strings';
+import { RELOAD_PAGE, cacheUiLanguage } from '../ui-language';
 import { BACKEND_TRANSPORT } from './backend-transport';
 
 export type ConnectionState = 'connecting' | 'open' | 'closed';
@@ -57,6 +59,7 @@ interface Pending {
 @Injectable({ providedIn: 'root' })
 export class BackendService {
   private readonly transport = inject(BACKEND_TRANSPORT);
+  private readonly reloadPage = inject(RELOAD_PAGE);
 
   private readonly connectionState = signal<ConnectionState>('connecting');
   private readonly connectionDetailsState = signal('');
@@ -138,6 +141,11 @@ export class BackendService {
         this.showError(error);
       },
     );
+  }
+
+  /** Asks the Server to store the UI Language; every tab reloads on `uiLanguageChanged`. */
+  setUiLanguage(language: UiLanguage): void {
+    this.run('setUiLanguage', { language });
   }
 
   /** Kills every Orphan (each with its whole process tree). */
@@ -280,6 +288,7 @@ export class BackendService {
         this.reposState.set(snapshot.repos);
         this.sessionsState.set(snapshot.sessions);
         this.orphansState.set(snapshot.orphans ?? []);
+        this.followUiLanguage(snapshot.uiLanguage);
       },
       (error: UiErrorInfo) => this.showError(error),
     );
@@ -379,7 +388,18 @@ export class BackendService {
       case 'sessionClosed':
         this.forgetSession(event.payload.sessionId);
         break;
+      case 'uiLanguageChanged':
+        this.followUiLanguage(event.payload.language);
+        break;
     }
+  }
+
+  /**
+   * The Server's UI Language is the source of truth: when it differs from the loaded string set,
+   * cache it and reload the page in it. Services and Sessions keep running; the page restores them.
+   */
+  private followUiLanguage(language: UiLanguage): void {
+    if (language !== loadedUiLanguage() && cacheUiLanguage(language)) this.reloadPage();
   }
 
   /** Adds or replaces a Session (idempotent: command results and events may both arrive). */

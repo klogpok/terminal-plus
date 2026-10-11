@@ -183,6 +183,12 @@ export interface SessionView {
   exitCode?: number;
 }
 
+/**
+ * UI Language: which language DevPanel shows its text in. One value per DevPanel app data folder;
+ * English when nothing is stored.
+ */
+export type UiLanguage = 'en' | 'ru';
+
 /** Full state, enough for a (re)connecting client to rebuild its UI. Grows with later tickets. */
 export interface Snapshot {
   repos: RepoView[];
@@ -190,11 +196,18 @@ export interface Snapshot {
   sessions: SessionView[];
   /** Orphans found on Server start and not killed yet (absent = none). */
   orphans?: Orphan[];
+  /** The stored UI Language; a tab that loaded another string set switches to it. */
+  uiLanguage: UiLanguage;
 }
 
 /** The current list of Orphans: found on Server start, then after each kill (empty = none left). */
 export interface OrphansFoundEvent {
   orphans: Orphan[];
+}
+
+/** The UI Language was changed (`setUiLanguage`); every tab reloads in it. */
+export interface UiLanguageChangedEvent {
+  language: UiLanguage;
 }
 
 /** Addresses one Service. */
@@ -302,6 +315,7 @@ export interface Events {
   sessionClosed: SessionClosedEvent;
   /** Live Session output. A tab first fetches `getSessionOutput` (same ordering rule as `log`). */
   sessionOutput: SessionOutputEvent;
+  uiLanguageChanged: UiLanguageChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -371,6 +385,11 @@ export interface Commands {
   writeToSession: { payload: { sessionId: string; data: string }; result: null };
   /** Terminal size of a Session tab; the most recent resize from any client wins. */
   resizeSession: { payload: { sessionId: string; cols: number; rows: number }; result: null };
+  /**
+   * Stores the UI Language in the app data folder and emits `uiLanguageChanged`; setting the current
+   * value again does nothing. Fails with `uiLanguageNotSaved` when the file cannot be written.
+   */
+  setUiLanguage: { payload: { language: UiLanguage }; result: null };
 }
 
 export type CommandType = keyof Commands;

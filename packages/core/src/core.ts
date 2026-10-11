@@ -23,6 +23,8 @@ import {
   type SessionView,
   type Snapshot,
   type StatusChangedEvent,
+  type UiLanguage,
+  type UiLanguageChangedEvent,
   type WaitingChangedEvent,
 } from '@devpanel/shared';
 import {
@@ -39,6 +41,7 @@ import {
 } from './config.js';
 import { detectServices } from './detect.js';
 import { readWorkspace, writeWorkspace } from './workspace.js';
+import { readUiLanguage, writeUiLanguage } from './ui-language.js';
 import { killTree, spawnService, type ServiceProcess } from './process.js';
 import { listProcesses, type ProcessInfo } from './ports.js';
 import { PID_FILE, PidFile, ProcessRecorder, matches, orphansFrom, type PidRecord } from './pid-file.js';
@@ -121,6 +124,7 @@ export interface CoreEvents extends SessionEvents {
   portConflictChanged: [PortConflictChangedEvent];
   waitingChanged: [WaitingChangedEvent];
   orphansFound: [OrphansFoundEvent];
+  uiLanguageChanged: [UiLanguageChangedEvent];
 }
 
 /** Files in a Repo root whose change triggers a config reload. */
@@ -195,6 +199,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private readonly recorder: ProcessRecorder;
   /** Orphans found by `load` and not killed yet, with their matching PID file records. */
   private orphans: { orphan: Orphan; records: PidRecord[] }[] = [];
+  /** The stored UI Language, read by `load`. */
+  private uiLanguage: UiLanguage = 'en';
 
   constructor(options: CoreOptions) {
     super();
@@ -223,6 +229,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
    */
   async load(): Promise<void> {
     await this.findOrphans();
+    this.uiLanguage = await readUiLanguage(this.appDataDir);
     this.closeWatchers();
     const workspace = await readWorkspace(this.appDataDir);
     const repos = new Map<string, RepoState>();
@@ -467,7 +474,24 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   /** Full state for a (re)connecting client. */
   snapshot(): Snapshot {
     const orphans = this.listOrphans();
-    return { repos: this.listRepos(), sessions: this.listSessions(), ...(orphans.length && { orphans }) };
+    return {
+      repos: this.listRepos(),
+      sessions: this.listSessions(),
+      ...(orphans.length && { orphans }),
+      uiLanguage: this.uiLanguage,
+    };
+  }
+
+  /** Stores the UI Language and announces it; the current value again is a no-op. */
+  async setUiLanguage(language: UiLanguage): Promise<void> {
+    if (language === this.uiLanguage) return;
+    try {
+      await writeUiLanguage(this.appDataDir, language);
+    } catch (err) {
+      throw new DevPanelError('uiLanguageNotSaved', {}, `Could not write the UI Language file: ${(err as Error).message}`);
+    }
+    this.uiLanguage = language;
+    this.emit('uiLanguageChanged', { language });
   }
 
   // --- Orphans ----------------------------------------------------------------------------------

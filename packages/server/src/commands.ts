@@ -132,6 +132,10 @@ export const COMMAND_HANDLERS: CommandHandlers = {
       return null;
     },
   },
+  setUiLanguage: {
+    payload: z.object({ language: z.enum(['en', 'ru']) }),
+    run: async (core, p) => (await core.setUiLanguage(p.language), null),
+  },
   openTerminal: { payload: repoRef, run: (core, p) => core.openTerminal(p.repoId) },
   openClaude: { payload: repoRef, run: (core, p) => core.openClaude(p.repoId) },
   closeSession: {

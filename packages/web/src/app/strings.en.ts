@@ -151,6 +151,13 @@ export const EN_STRINGS = {
     done: 'DevPanel is off. You can close this tab. To start again, use the DevPanel desktop shortcut.',
   },
 
+  /** The UI Language switch in the header; each language is named in its own language. */
+  uiLanguage: {
+    label: 'Language',
+    // eslint-disable-next-line no-restricted-syntax -- each language is named in its own language
+    names: { en: 'English', ru: 'Русский' },
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'Some processes from the previous DevPanel run are still running:',
@@ -257,6 +264,7 @@ export const EN_STRINGS = {
     sessionSpawnFailed: (p) => `Could not open a Session in the ${p.repoName} Repo.`,
     serviceHasNoUrl: (p) => `The ${p.serviceName} Service in the ${p.repoName} Repo has no address for the browser.`,
     shellFailed: () => 'Could not open a Windows window. Try again.',
+    uiLanguageNotSaved: () => 'Could not save the language choice, so DevPanel stays in the current language. Try again.',
     badCommand: () => 'DevPanel did not understand the command. Reload the page.',
     internal: () => 'Something went wrong inside DevPanel.',
     connectionLost: () => 'Lost connection to DevPanel, so the command was not carried out. Try again in a few seconds.',

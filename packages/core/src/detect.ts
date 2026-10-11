@@ -41,7 +41,7 @@ function scriptNames(pkg: PackageJson): string[] {
 }
 
 /** A Service id from free text: lowercase letters, digits and dashes. */
-function slug(text: string): string {
+export function slug(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')

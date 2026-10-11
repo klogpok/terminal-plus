@@ -140,7 +140,6 @@ describe('Local Config', () => {
     expect(folderState(repoPath)).toEqual(before);
     const repo = repoNamed(core, 'site');
     expect(repo.configSource).toBe('local');
-    expect(repo.suggestions).toBeUndefined();
     expect(repo.services.map((s) => [s.id, s.name, s.command, s.status])).toEqual([
       ['dev', 'Dev server', 'pnpm run dev', 'stopped'],
     ]);

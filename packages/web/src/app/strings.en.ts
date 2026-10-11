@@ -114,6 +114,30 @@ export const EN_STRINGS = {
       `The Repo Config of the ${repoName} Repo has a mistake, so its previous version stays in use for now. Show the details to a developer.`,
   },
 
+  /** "+ Add Service" and "Remove" for Repos without a Repo Config (they edit the Local Config). */
+  editConfig: {
+    add: 'Add Service',
+    formTitle: 'New Service (saved only on this computer)',
+    pickLabel: 'Detected script',
+    pickOwn: 'My own command',
+    nameLabel: 'Name',
+    commandLabel: 'Command',
+    more: 'More',
+    portLabel: 'Port',
+    urlLabel: 'Address for the browser',
+    readyPatternLabel: 'Ready when the output contains',
+    dependsOnLabel: 'Start these first:',
+    submit: 'Add',
+    cancel: 'Cancel',
+    remove: 'Remove',
+    /** Accessible name of the Service remove button, e.g. "Remove API". */
+    removeService: (serviceName: string) => `Remove ${serviceName}`,
+    removeQuestion: (serviceName: string) => `Remove the ${serviceName} Service?`,
+    removeRunning: 'The Service is running — stop and remove it?',
+    removeDependents: (names: string[]) => `These Services will no longer wait for it: ${names.join(', ')}.`,
+    removeConfirm: 'Remove',
+  },
+
   /** Label shown next to each status dot (also its tooltip). */
   status: {
     stopped: 'Stopped',
@@ -251,6 +275,35 @@ export const EN_STRINGS = {
       `The ${p.repoName} Repo does not use pnpm, so DevPanel does not install its dependencies. Ask a developer.`,
     configInvalid: (p) =>
       `The Repo Config of the ${p.repoName} Repo has a mistake, so its Services are not shown. Show the details to a developer.`,
+    localConfigInvalid: (p) =>
+      `The Local Config of the ${p.repoName} Repo has a mistake, so its Services cannot be changed. Show the details to a developer.`,
+    repoConfigInUse: (p) =>
+      `The Services of the ${p.repoName} Repo come from its Repo Config, which the developers write. Ask a developer to change them.`,
+    serviceInvalid: (p) => {
+      switch (p.problem) {
+        case 'required':
+          return p.field === 'name' ? 'Enter a name.' : 'Enter a command.';
+        case 'nameTaken':
+          return 'A Service with this name already exists. Choose another name.';
+        case 'portUsed':
+          return `Port ${p.port} is already used by the ${p.serviceName} Service. Choose another port.`;
+        case 'invalid':
+          switch (p.field) {
+            case 'port':
+              return 'Enter a port number from 1 to 65535.';
+            case 'url':
+              return 'Enter a full address, for example http://localhost:3000.';
+            case 'readyPattern':
+              return 'DevPanel cannot use this text as a pattern. Leave it empty or ask a developer.';
+            case 'dependsOn':
+              return 'One of the chosen Services no longer exists. Reload the page.';
+            case undefined:
+              return 'The Service was not added. Show the details to a developer.';
+            default:
+              return 'DevPanel does not accept this value. Change it and try again.';
+          }
+      }
+    },
     repoAlreadyAdded: (p) => `This folder is already added as the ${p.repoName} Repo.`,
     repoNameTaken: (p) => `A Repo named "${p.name}" already exists. Choose another name.`,
     folderNotFound: (p) =>

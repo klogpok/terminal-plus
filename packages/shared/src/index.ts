@@ -97,7 +97,23 @@ export interface ServiceConfig {
   cwd?: string;
 }
 
-/** A Service proposed by auto-detection for a Repo without any config. */
+/**
+ * A Service the user adds to a Local Config from the UI. The Server generates its `id` from `name`;
+ * `dependsOn` names other Services of the Repo by id.
+ */
+export interface NewService {
+  name: string;
+  command: string;
+  port?: number;
+  url?: string;
+  readyPattern?: string;
+  dependsOn?: string[];
+}
+
+/** Fields of the "Add Service" form, as named by `serviceInvalid` errors. */
+export type NewServiceField = keyof NewService;
+
+/** A Service proposed by auto-detection for a Repo without a Repo Config. */
 export interface SuggestedService extends ServiceConfig {
   name: string;
   /** Whether the UI ticks it by default. */
@@ -134,7 +150,10 @@ export interface RepoView {
   install?: InstallState;
   /** Absent means 'none' (kept optional so older builders stay valid). */
   configSource?: ConfigSource;
-  /** Auto-detected Services; only when `configSource` is 'none'. */
+  /**
+   * Auto-detected Services; only without a Repo Config. With `configSource` 'none' they are offered
+   * for the first save; with 'local' as commands for "Add Service".
+   */
   suggestions?: SuggestedService[];
   /** A Repo Config exists, so the Local Config of this Repo is unused and can be deleted. */
   unusedLocalConfig?: boolean;
@@ -372,6 +391,16 @@ export interface Commands {
   installDependencies: { payload: { repoId: string }; result: InstallResult };
   /** Saves the chosen Services as the Repo's Local Config (in the app data directory, never in the Repo). */
   saveLocalConfig: { payload: { repoId: string; services: ServiceConfig[] }; result: null };
+  /**
+   * Adds one Service to the Repo's Local Config (creating it when the Repo has no config yet); the
+   * Service is listed `stopped`. Fails with `serviceInvalid` (nothing saved) or `repoConfigInUse`.
+   */
+  addLocalService: { payload: { repoId: string; service: NewService }; result: null };
+  /**
+   * Removes a Service from the Repo's Local Config, stopping it first when it runs and dropping it
+   * from the `dependsOn` of the others. Removing the last one deletes the Local Config.
+   */
+  removeLocalService: { payload: ServiceRef; result: null };
   /** Deletes the Repo's Local Config (offered once a Repo Config exists). */
   deleteLocalConfig: { payload: { repoId: string }; result: null };
   /**

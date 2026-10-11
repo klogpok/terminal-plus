@@ -6,7 +6,7 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Blocked by:** 02 (EN/RU switch, UI Language stored by the Server)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] An English `HOST_STRINGS` set exists beside the Russian one; both have the same type, and removing a key from either fails to compile.
 - [ ] Launcher console lines are in English with no stored language and in Russian with `ru` stored.
@@ -26,7 +26,7 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Блокируется:** 02 (переключатель EN/RU, Язык интерфейса хранит Сервер)
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [ ] Рядом с русским `HOST_STRINGS` есть английский набор; у обоих один тип, и удаление ключа из любого не компилируется.
 - [ ] Строки консоли лаунчера на английском без сохранённого языка и на русском при сохранённом `ru`.

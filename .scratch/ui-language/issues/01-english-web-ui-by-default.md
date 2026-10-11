@@ -6,7 +6,7 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] An English UI string set exists beside the Russian one; both have the same type, and removing a key from either fails to compile.
 - [ ] English texts are plain language for a non-programmer: each message says what happened and what to press; technical details stay under "Details".
@@ -27,7 +27,7 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Блокируется:** ничего (можно начинать сразу)
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [ ] Рядом с русским набором строк UI есть английский; у обоих один тип, и удаление ключа из любого не компилируется.
 - [ ] Английские тексты написаны простым языком для непрограммиста: каждое сообщение говорит, что случилось и что нажать; технические детали остаются под «Details».

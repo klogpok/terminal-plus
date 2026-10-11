@@ -6,7 +6,7 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Blocked by:** 01 (English web UI by default)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] A fresh app data folder reports `uiLanguage: 'en'` in the snapshot; a missing or garbled stored file also means `en`.
 - [ ] `setUiLanguage('ru')` emits `uiLanguageChanged` to every client, and a new core on the same app data folder reports `ru`.
@@ -29,7 +29,7 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Блокируется:** 01 (веб-UI на английском по умолчанию)
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [ ] Новая папка данных даёт `uiLanguage: 'en'` в снимке; отсутствующий или испорченный файл тоже означает `en`.
 - [ ] `setUiLanguage('ru')` рассылает `uiLanguageChanged` всем клиентам, и новый core на той же папке данных сообщает `ru`.

@@ -168,3 +168,33 @@ describe('errors', () => {
     expect(repo.querySelector('details')!.textContent).toContain('services.0.command: Required');
   });
 });
+
+describe('left panel splitter', () => {
+  afterEach(() => localStorage.clear());
+
+  function splitter(): HTMLElement {
+    return page.querySelector<HTMLElement>('[role="separator"]')!;
+  }
+
+  function leftWidth(): string {
+    return page.querySelector<HTMLElement>('aside.left')!.style.width;
+  }
+
+  it('resizes the Repo list with the arrow keys and remembers the width', async () => {
+    splitter().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    await stable();
+
+    expect(leftWidth()).toBe('360px');
+    expect(localStorage.getItem('devpanel.leftWidth')).toBe('360');
+  });
+
+  it('keeps the width within its limits and resets it on double-click', async () => {
+    for (let i = 0; i < 50; i++) splitter().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    await stable();
+    expect(leftWidth()).toBe('200px');
+
+    splitter().dispatchEvent(new MouseEvent('dblclick'));
+    await stable();
+    expect(leftWidth()).toBe('344px');
+  });
+});

@@ -44,9 +44,25 @@
   }
 }
 <div class="layout">
-  <aside class="left">
+  <aside class="left" [style.width.px]="leftWidth()">
     <dp-repo-list />
   </aside>
+  <div
+    class="splitter"
+    role="separator"
+    tabindex="0"
+    aria-orientation="vertical"
+    [attr.aria-label]="strings.resizeLeft"
+    [attr.aria-valuenow]="leftWidth()"
+    [attr.aria-valuemin]="minLeftWidth"
+    [attr.aria-valuemax]="maxLeftWidth"
+    (pointerdown)="startResize($event)"
+    (pointermove)="resize($event)"
+    (pointerup)="endResize($event)"
+    (pointercancel)="endResize($event)"
+    (dblclick)="setLeftWidth(defaultLeftWidth)"
+    (keydown)="resizeByKey($event)"
+  ></div>
   <main class="right">
     @if (backend.orphans().length) {
       <div class="orphans" role="alert">

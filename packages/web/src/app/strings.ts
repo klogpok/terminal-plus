@@ -67,6 +67,8 @@ const DEPENDENCY_OUTCOME: Record<ServiceStatus, string> = {
 
 export const STRINGS = {
   appTitle: 'DevPanel',
+  /** Accessible name of the drag handle between the Repo list and the terminals. */
+  resizeLeft: 'Ширина списка репо',
 
   connection: {
     connecting: 'Подключаемся к DevPanel…',

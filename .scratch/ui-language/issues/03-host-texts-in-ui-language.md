@@ -8,13 +8,13 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Status:** resolved
 
-- [ ] An English `HOST_STRINGS` set exists beside the Russian one; both have the same type, and removing a key from either fails to compile.
-- [ ] Launcher console lines are in English with no stored language and in Russian with `ru` stored.
-- [ ] A restart after switching to `ru` writes a Russian separator; earlier separators are unchanged.
-- [ ] The desktop tray tooltip and menu are in the stored UI Language at start and are rebuilt in the new language after `uiLanguageChanged`.
-- [ ] Desktop start-failure dialogs use the stored UI Language.
-- [ ] The `HOST_STRINGS` header comment and `docs/architecture.md` no longer call these strings Russian.
-- [ ] `pnpm check` passes.
+- [x] An English `HOST_STRINGS` set exists beside the Russian one; both have the same type, and removing a key from either fails to compile.
+- [x] Launcher console lines are in English with no stored language and in Russian with `ru` stored.
+- [x] A restart after switching to `ru` writes a Russian separator; earlier separators are unchanged.
+- [x] The desktop tray tooltip and menu are in the stored UI Language at start and are rebuilt in the new language after `uiLanguageChanged`.
+- [x] Desktop start-failure dialogs use the stored UI Language.
+- [x] The `HOST_STRINGS` header comment and `docs/architecture.md` no longer call these strings Russian.
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -28,10 +28,10 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Статус:** resolved
 
-- [ ] Рядом с русским `HOST_STRINGS` есть английский набор; у обоих один тип, и удаление ключа из любого не компилируется.
-- [ ] Строки консоли лаунчера на английском без сохранённого языка и на русском при сохранённом `ru`.
-- [ ] Перезапуск после переключения на `ru` пишет русский разделитель; ранее написанные разделители не меняются.
-- [ ] Подсказка и меню трея на сохранённом Языке интерфейса при старте и перестраиваются на новом языке после `uiLanguageChanged`.
-- [ ] Диалоги ошибок запуска десктопа используют сохранённый Язык интерфейса.
-- [ ] Комментарий в начале `HOST_STRINGS` и `docs/architecture.md` больше не называют эти строки русскими.
-- [ ] `pnpm check` проходит.
+- [x] Рядом с русским `HOST_STRINGS` есть английский набор; у обоих один тип, и удаление ключа из любого не компилируется.
+- [x] Строки консоли лаунчера на английском без сохранённого языка и на русском при сохранённом `ru`.
+- [x] Перезапуск после переключения на `ru` пишет русский разделитель; ранее написанные разделители не меняются.
+- [x] Подсказка и меню трея на сохранённом Языке интерфейса при старте и перестраиваются на новом языке после `uiLanguageChanged`.
+- [x] Диалоги ошибок запуска десктопа используют сохранённый Язык интерфейса.
+- [x] Комментарий в начале `HOST_STRINGS` и `docs/architecture.md` больше не называют эти строки русскими.
+- [x] `pnpm check` проходит.

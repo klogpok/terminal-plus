@@ -8,16 +8,16 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Status:** resolved
 
-- [ ] A fresh app data folder reports `uiLanguage: 'en'` in the snapshot; a missing or garbled stored file also means `en`.
-- [ ] `setUiLanguage('ru')` emits `uiLanguageChanged` to every client, and a new core on the same app data folder reports `ru`.
-- [ ] Setting the current value again does nothing and emits no event; pressing the active button sends nothing.
-- [ ] The Server validates the payload (`'en' | 'ru'`) and forwards `uiLanguageChanged`.
-- [ ] The header switch shows both languages named in their own language, marks the active one, and sends `setUiLanguage` for the other.
-- [ ] On `uiLanguageChanged` a tab stores the value in its cache and reloads; on a snapshot whose `uiLanguage` differs from the loaded set it does the same once; on a matching snapshot it does not reload.
-- [ ] A rejected `setUiLanguage` shows an error message in the current language.
-- [ ] A plain reader of the stored UI Language (no `DevPanelCore` needed) is exported for ticket 03.
-- [ ] `.scratch/devpanel/spec.md` says "plain language (English by default, Russian)" instead of "plain Russian", and "An English UI" is gone from its Out of Scope (both in the English text and the Russian translation).
-- [ ] `pnpm check` passes.
+- [x] A fresh app data folder reports `uiLanguage: 'en'` in the snapshot; a missing or garbled stored file also means `en`.
+- [x] `setUiLanguage('ru')` emits `uiLanguageChanged` to every client, and a new core on the same app data folder reports `ru`.
+- [x] Setting the current value again does nothing and emits no event; pressing the active button sends nothing.
+- [x] The Server validates the payload (`'en' | 'ru'`) and forwards `uiLanguageChanged`.
+- [x] The header switch shows both languages named in their own language, marks the active one, and sends `setUiLanguage` for the other.
+- [x] On `uiLanguageChanged` a tab stores the value in its cache and reloads; on a snapshot whose `uiLanguage` differs from the loaded set it does the same once; on a matching snapshot it does not reload.
+- [x] A rejected `setUiLanguage` shows an error message in the current language.
+- [x] A plain reader of the stored UI Language (no `DevPanelCore` needed) is exported for ticket 03.
+- [x] `.scratch/devpanel/spec.md` says "plain language (English by default, Russian)" instead of "plain Russian", and "An English UI" is gone from its Out of Scope (both in the English text and the Russian translation).
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -31,13 +31,13 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Статус:** resolved
 
-- [ ] Новая папка данных даёт `uiLanguage: 'en'` в снимке; отсутствующий или испорченный файл тоже означает `en`.
-- [ ] `setUiLanguage('ru')` рассылает `uiLanguageChanged` всем клиентам, и новый core на той же папке данных сообщает `ru`.
-- [ ] Повторная установка текущего значения ничего не делает и не испускает событие; нажатие на активную кнопку ничего не отправляет.
-- [ ] Сервер проверяет payload (`'en' | 'ru'`) и пересылает `uiLanguageChanged`.
-- [ ] Переключатель в шапке показывает оба языка, названных на самих себе, помечает активный и отправляет `setUiLanguage` для другого.
-- [ ] На `uiLanguageChanged` вкладка записывает значение в кеш и перезагружается; на снимок, чей `uiLanguage` отличается от загруженного набора, — то же один раз; на совпадающий снимок — не перезагружается.
-- [ ] Отклонённый `setUiLanguage` показывает сообщение об ошибке на текущем языке.
-- [ ] Экспортируется простая функция чтения сохранённого Языка интерфейса (без `DevPanelCore`) для тикета 03.
-- [ ] `.scratch/devpanel/spec.md` говорит «plain language (English by default, Russian)» вместо «plain Russian», и «An English UI» убрано из его «Вне рамок» (и в английском тексте, и в русском переводе).
-- [ ] `pnpm check` проходит.
+- [x] Новая папка данных даёт `uiLanguage: 'en'` в снимке; отсутствующий или испорченный файл тоже означает `en`.
+- [x] `setUiLanguage('ru')` рассылает `uiLanguageChanged` всем клиентам, и новый core на той же папке данных сообщает `ru`.
+- [x] Повторная установка текущего значения ничего не делает и не испускает событие; нажатие на активную кнопку ничего не отправляет.
+- [x] Сервер проверяет payload (`'en' | 'ru'`) и пересылает `uiLanguageChanged`.
+- [x] Переключатель в шапке показывает оба языка, названных на самих себе, помечает активный и отправляет `setUiLanguage` для другого.
+- [x] На `uiLanguageChanged` вкладка записывает значение в кеш и перезагружается; на снимок, чей `uiLanguage` отличается от загруженного набора, — то же один раз; на совпадающий снимок — не перезагружается.
+- [x] Отклонённый `setUiLanguage` показывает сообщение об ошибке на текущем языке.
+- [x] Экспортируется простая функция чтения сохранённого Языка интерфейса (без `DevPanelCore`) для тикета 03.
+- [x] `.scratch/devpanel/spec.md` говорит «plain language (English by default, Russian)» вместо «plain Russian», и «An English UI» убрано из его «Вне рамок» (и в английском тексте, и в русском переводе).
+- [x] `pnpm check` проходит.

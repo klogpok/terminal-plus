@@ -8,14 +8,14 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Status:** resolved
 
-- [ ] An English UI string set exists beside the Russian one; both have the same type, and removing a key from either fails to compile.
-- [ ] English texts are plain language for a non-programmer: each message says what happened and what to press; technical details stay under "Details".
-- [ ] Without a cached UI Language (or with storage unavailable) the UI renders in English; with `ru` cached it renders in Russian.
-- [ ] `<html lang>` and the document title match the loaded set.
-- [ ] No user-facing Russian text remains outside the Russian string set in `web` (templates, components, `index.html`).
-- [ ] Existing `web` specs assert on English text and English `aria-label` hooks; one spec proves the Russian set is used when `ru` is cached.
-- [ ] The strings file's header comment no longer says "Russian now; English later".
-- [ ] `pnpm check` passes.
+- [x] An English UI string set exists beside the Russian one; both have the same type, and removing a key from either fails to compile.
+- [x] English texts are plain language for a non-programmer: each message says what happened and what to press; technical details stay under "Details".
+- [x] Without a cached UI Language (or with storage unavailable) the UI renders in English; with `ru` cached it renders in Russian.
+- [x] `<html lang>` and the document title match the loaded set.
+- [x] No user-facing Russian text remains outside the Russian string set in `web` (templates, components, `index.html`).
+- [x] Existing `web` specs assert on English text and English `aria-label` hooks; one spec proves the Russian set is used when `ru` is cached.
+- [x] The strings file's header comment no longer says "Russian now; English later".
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -29,11 +29,11 @@ Spec: `.scratch/ui-language/spec.md`
 
 **Статус:** resolved
 
-- [ ] Рядом с русским набором строк UI есть английский; у обоих один тип, и удаление ключа из любого не компилируется.
-- [ ] Английские тексты написаны простым языком для непрограммиста: каждое сообщение говорит, что случилось и что нажать; технические детали остаются под «Details».
-- [ ] Без закешированного Языка интерфейса (или при недоступном хранилище) UI на английском; с закешированным `ru` — на русском.
-- [ ] `<html lang>` и заголовок документа соответствуют загруженному набору.
-- [ ] В `web` не осталось пользовательского русского текста вне русского набора строк (шаблоны, компоненты, `index.html`).
-- [ ] Существующие спеки `web` проверяют английский текст и английские `aria-label`-хуки; одна спека доказывает, что при закешированном `ru` используется русский набор.
-- [ ] Комментарий в начале файла строк больше не говорит «Russian now; English later».
-- [ ] `pnpm check` проходит.
+- [x] Рядом с русским набором строк UI есть английский; у обоих один тип, и удаление ключа из любого не компилируется.
+- [x] Английские тексты написаны простым языком для непрограммиста: каждое сообщение говорит, что случилось и что нажать; технические детали остаются под «Details».
+- [x] Без закешированного Языка интерфейса (или при недоступном хранилище) UI на английском; с закешированным `ru` — на русском.
+- [x] `<html lang>` и заголовок документа соответствуют загруженному набору.
+- [x] В `web` не осталось пользовательского русского текста вне русского набора строк (шаблоны, компоненты, `index.html`).
+- [x] Существующие спеки `web` проверяют английский текст и английские `aria-label`-хуки; одна спека доказывает, что при закешированном `ru` используется русский набор.
+- [x] Комментарий в начале файла строк больше не говорит «Russian now; English later».
+- [x] `pnpm check` проходит.

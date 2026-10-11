@@ -173,10 +173,10 @@ function sameRecord(a: PidRecord, b: PidRecord): boolean {
 }
 
 /** Dimmed restart separator line written into a Service's output before each new run. */
-function restartSeparator(previousOutput: string, now = new Date()): string {
+function restartSeparator(previousOutput: string, language: UiLanguage, now = new Date()): string {
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const newline = previousOutput.endsWith('\n') ? '' : '\r\n';
-  return `${newline}\u001b[0m\u001b[2m${HOST_STRINGS.restartSeparator(time)}\u001b[0m\r\n`;
+  return `${newline}\u001b[0m\u001b[2m${HOST_STRINGS[language].restartSeparator(time)}\u001b[0m\r\n`;
 }
 
 /**
@@ -674,7 +674,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const serviceId = service.definition.id;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
-    if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text()));
+    if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text(), this.uiLanguage));
     service.lastExit = undefined;
     this.setStatus(repo, service, 'starting');
     let proc: ServiceProcess;

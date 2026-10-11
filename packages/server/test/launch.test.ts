@@ -4,11 +4,12 @@
  * never touches 7777 and never opens a real browser.
  */
 import { createServer as createHttpServer, type Server } from 'node:http';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { UI_LANGUAGE_FILE, readUiLanguage } from '@devpanel/core';
 import {
   ACCESS_KEY_FILE,
   launch,
@@ -68,6 +69,7 @@ function launcherFor(port: number) {
   const deps: LaunchDeps = {
     port,
     readAccessKey: () => readStoredAccessKey(appDataDir),
+    readUiLanguage: () => readUiLanguage(appDataDir),
     startServer: async () => {
       started++;
       const devPanel = await startDevPanel({
@@ -87,6 +89,11 @@ function launcherFor(port: number) {
 }
 
 const CYRILLIC = /[а-яё]/i;
+
+/** Stores a UI Language the way the Server does. */
+function storeUiLanguage(language: string): void {
+  writeFileSync(path.join(appDataDir, UI_LANGUAGE_FILE), JSON.stringify({ language }));
+}
 
 describe('launch', () => {
   it('starts the Server on a free port and opens the browser with the Access Key in the fragment', async () => {
@@ -114,10 +121,10 @@ describe('launch', () => {
     expect(second.started()).toBe(0);
     const key = await readStoredAccessKey(appDataDir);
     expect(second.opened).toEqual([`http://127.0.0.1:${port}/#key=${key}`]);
-    expect(second.printed.join('\n')).toMatch(CYRILLIC);
+    expect(second.printed).toEqual(['DevPanel is already running. Opening another browser tab.']);
   });
 
-  it('explains in Russian when another program holds the port, and starts nothing', async () => {
+  it('explains when another program holds the port, and starts nothing', async () => {
     const port = await runForeignServer();
     const launcher = launcherFor(port);
 
@@ -126,11 +133,10 @@ describe('launch', () => {
     expect(launcher.started()).toBe(0);
     expect(launcher.opened).toEqual([]);
     const message = launcher.printed.join('\n');
-    expect(message).toMatch(CYRILLIC);
-    expect(message).toContain(String(port));
+    expect(message).toContain(`Could not start DevPanel: port ${port} is used by another program`);
   });
 
-  it('explains in Russian when the running DevPanel does not accept the stored Access Key', async () => {
+  it('explains when the running DevPanel does not accept the stored Access Key', async () => {
     const port = await freePort();
     await launch(launcherFor(port).deps);
     const launcher = launcherFor(port);
@@ -140,7 +146,7 @@ describe('launch', () => {
 
     expect(launcher.started()).toBe(0);
     expect(launcher.opened).toEqual([]);
-    expect(launcher.printed.join('\n')).toMatch(CYRILLIC);
+    expect(launcher.printed.join('\n')).toContain('DevPanel is already running, but with a different data folder');
   });
 
   it('opens a tab when another launcher won the race for the port between the probe and the start', async () => {
@@ -156,6 +162,40 @@ describe('launch', () => {
     expect(await launch(launcher.deps)).toBe('openedExisting');
     const key = await readStoredAccessKey(appDataDir);
     expect(launcher.opened).toEqual([`http://127.0.0.1:${port}/#key=${key}`]);
+  });
+});
+
+describe('launcher console lines follow the stored UI Language', () => {
+  it('are in English when no UI Language is stored', async () => {
+    const launcher = launcherFor(await freePort());
+
+    await launch(launcher.deps);
+
+    expect(launcher.printed[0]).toBe('DevPanel is starting...');
+    expect(launcher.printed.join('\n')).not.toMatch(CYRILLIC);
+  });
+
+  it('are in Russian when ru is stored: starting, started, already running', async () => {
+    storeUiLanguage('ru');
+    const port = await freePort();
+    const first = launcherFor(port);
+    await launch(first.deps);
+    const second = launcherFor(port);
+    await launch(second.deps);
+
+    expect(first.printed[0]).toBe('DevPanel запускается...');
+    expect(first.printed[1]).toMatch(/^DevPanel работает: /);
+    expect(second.printed).toEqual(['DevPanel уже работает. Открываю ещё одну вкладку браузера.']);
+  });
+
+  it('are in Russian when ru is stored: port taken', async () => {
+    storeUiLanguage('ru');
+    const port = await runForeignServer();
+    const launcher = launcherFor(port);
+
+    await launch(launcher.deps);
+
+    expect(launcher.printed.join('\n')).toContain(`Не удалось запустить DevPanel: порт ${port} занят`);
   });
 });
 

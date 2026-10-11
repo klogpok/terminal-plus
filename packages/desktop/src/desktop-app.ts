@@ -6,14 +6,18 @@
  * 127.0.0.1 WebSocket transport as the web version (ADR-0002); the window just loads the Server's
  * URL with the Access Key in the fragment, so the `web` build runs unchanged.
  */
-import { HOST_STRINGS } from '@devpanel/shared';
+import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
 import { isAddressInUse, portBlocker, portBlockerMessage, type PortProbe } from '@devpanel/server';
 
-/** An error dialog: a plain-Russian `message`, technical `details` folded away under "Details". */
+/**
+ * An error dialog: a plain-language `message`, technical `details` folded away under "Details".
+ * `language` is the UI Language of the texts; the dialog's buttons are in it too.
+ */
 export interface DesktopError {
   title: string;
   message: string;
   details?: string;
+  language: UiLanguage;
 }
 
 /** The DevPanel Server running inside this process. */
@@ -24,6 +28,10 @@ export interface RunningServer {
   close(): Promise<void>;
   /** "Stop all in all Repos": every Service of every Repo; Sessions keep running. */
   stopAllRepos(): Promise<void>;
+  /** The current UI Language. */
+  uiLanguage(): UiLanguage;
+  /** Calls `listener` after each UI Language change (`uiLanguageChanged`). */
+  onUiLanguageChanged(listener: (language: UiLanguage) => void): void;
 }
 
 export interface QuitEvent {
@@ -47,6 +55,7 @@ export interface TrayMenuItem {
 
 export interface DesktopTray {
   setMenu(items: TrayMenuItem[]): void;
+  setToolTip(text: string): void;
   /** Left click on the tray icon. */
   onClick(listener: () => void): void;
 }
@@ -79,11 +88,12 @@ export interface DesktopOptions {
   startServer(onExit: () => void): Promise<RunningServer>;
   /** Asks whatever holds the port whether it is DevPanel (with the stored Access Key, see `probePort`). */
   probePort(port: number): Promise<PortProbe>;
+  /** The UI Language stored in the app data folder; start-failure dialogs are in it. */
+  readUiLanguage(): Promise<UiLanguage>;
 }
 
 export type DesktopResult = 'running' | 'secondInstance' | 'startFailed';
 
-const strings = HOST_STRINGS.desktop;
 const describe = (error: unknown) => (error instanceof Error ? (error.stack ?? error.message) : String(error));
 
 /** Starts the desktop app: single-instance lock, Server, window, tray, and Exit on quit. */
@@ -107,7 +117,12 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
       host.quit();
     });
   } catch (error) {
-    await host.showError({ title: strings.startFailedTitle, ...(await explainStartFailure(options, error)) });
+    const language = await options.readUiLanguage();
+    await host.showError({
+      title: HOST_STRINGS[language].desktop.startFailedTitle,
+      ...(await explainStartFailure(options, error, language)),
+      language,
+    });
     host.exit(1);
     return 'startFailed';
   }
@@ -136,14 +151,21 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
   });
 
   const tray = host.createTray();
-  const renderMenu = () =>
+  /** Builds the tooltip and menu in the current UI Language. */
+  const renderMenu = () => {
+    const language = server.uiLanguage();
+    const strings = HOST_STRINGS[language].desktop;
+    tray.setToolTip(strings.tooltip);
     tray.setMenu([
       { label: strings.show, click: () => window.show() },
       {
         label: strings.stopAllRepos,
         click: () => {
           server.stopAllRepos().catch((error: unknown) => {
-            void host.showError({ title: strings.stopAllFailedTitle, message: strings.stopAllFailed, details: describe(error) });
+            // In the UI Language current when it failed, not when the menu was built.
+            const now = server.uiLanguage();
+            const { stopAllFailedTitle, stopAllFailed } = HOST_STRINGS[now].desktop;
+            void host.showError({ title: stopAllFailedTitle, message: stopAllFailed, details: describe(error), language: now });
           });
         },
       },
@@ -160,18 +182,22 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
       { label: '', type: 'separator' },
       { label: strings.quit, click: () => host.quit() },
     ]);
+  };
   renderMenu();
+  server.onUiLanguageChanged(renderMenu);
   tray.onClick(() => window.show());
   return 'running';
 }
 
-/** Explains in plain Russian why the Server did not start; technical details only when unexpected. */
+/** Explains in plain language why the Server did not start; technical details only when unexpected. */
 async function explainStartFailure(
   options: DesktopOptions,
   error: unknown,
+  language: UiLanguage,
 ): Promise<Pick<DesktopError, 'message' | 'details'>> {
+  const strings = HOST_STRINGS[language].desktop;
   if (!isAddressInUse(error)) return { message: strings.unexpected, details: describe(error) };
   const probe = await options.probePort(options.port).catch((): PortProbe => ({ kind: 'foreign' }));
   const blocker = portBlocker(probe);
-  return { message: blocker ? portBlockerMessage(blocker, options.port) : strings.alreadyRunning };
+  return { message: blocker ? portBlockerMessage(blocker, options.port, language) : strings.alreadyRunning };
 }

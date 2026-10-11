@@ -10,7 +10,7 @@
  * browser (for checks without a browser).
  */
 import { existsSync } from 'node:fs';
-import { windowsShell } from '@devpanel/core';
+import { readUiLanguage, windowsShell } from '@devpanel/core';
 import { HOST_STRINGS } from '@devpanel/shared';
 import { readStoredAccessKey } from './access-key.js';
 import { cliSettings, runServer } from './cli.js';
@@ -18,27 +18,30 @@ import { launch } from './launch.js';
 
 const settings = cliSettings();
 const print = (line: string) => console.log(line);
+const language = await readUiLanguage(settings.appDataDir);
+const strings = HOST_STRINGS[language].launcher;
 
 if (!existsSync(settings.webRoot)) {
-  print(HOST_STRINGS.launcher.notBuilt);
+  print(strings.notBuilt);
   process.exit(1);
 }
 
 const result = await launch({
   port: settings.port,
   readAccessKey: () => readStoredAccessKey(settings.appDataDir),
+  readUiLanguage: async () => language,
   startServer: () => runServer(settings),
   openBrowser: async (url) => {
-    if (process.env.DEVPANEL_BROWSER === 'none') print(HOST_STRINGS.launcher.url(url));
+    if (process.env.DEVPANEL_BROWSER === 'none') print(strings.url(url));
     else {
       await windowsShell.openUrl(url).catch(() => {
-        print(HOST_STRINGS.launcher.browserFailed(url));
+        print(strings.browserFailed(url));
       });
     }
   },
   print,
 }).catch((error: unknown) => {
-  print(HOST_STRINGS.launcher.failed);
+  print(strings.failed);
   print(error instanceof Error ? (error.stack ?? error.message) : String(error));
   process.exit(1);
 });

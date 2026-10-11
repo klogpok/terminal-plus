@@ -56,12 +56,32 @@ describe('Service output buffer', () => {
     await first;
 
     // Live tabs see the separator too.
-    const second = h.waitForOutput(core, repo.id, 'api', /── перезапуск \d\d:\d\d ──[\s\S]*HELLO/);
+    const second = h.waitForOutput(core, repo.id, 'api', /── restart \d\d:\d\d ──[\s\S]*HELLO/);
     await core.restartService(repo.id, 'api');
     await second;
 
     const output = stripAnsi(core.getServiceOutput(repo.id, 'api'));
-    expect(output).toMatch(/HELLO[\s\S]*── перезапуск \d\d:\d\d ──[\s\S]*HELLO/);
+    expect(output).toMatch(/HELLO[\s\S]*── restart \d\d:\d\d ──[\s\S]*HELLO/);
+  });
+
+  it('writes the restart separator in the UI Language current at that restart; earlier ones stay', async () => {
+    h.addRepo({ name: 'billing', config: { services: [{ id: 'api', command: fixtureCommand('ready-after.mjs', 0, 'HELLO') }] } });
+    const core = await h.createCore();
+    const repo = core.listRepos()[0]!;
+    const first = h.waitForOutput(core, repo.id, 'api', /HELLO/);
+    await core.startService(repo.id, 'api');
+    await first;
+    const english = h.waitForOutput(core, repo.id, 'api', /── restart \d\d:\d\d ──[\s\S]*HELLO/);
+    await core.restartService(repo.id, 'api');
+    await english;
+
+    await core.setUiLanguage('ru');
+    const russian = h.waitForOutput(core, repo.id, 'api', /── перезапуск \d\d:\d\d ──[\s\S]*HELLO/);
+    await core.restartService(repo.id, 'api');
+    await russian;
+
+    const output = stripAnsi(core.getServiceOutput(repo.id, 'api'));
+    expect(output).toMatch(/HELLO[\s\S]*── restart \d\d:\d\d ──[\s\S]*HELLO[\s\S]*── перезапуск \d\d:\d\d ──[\s\S]*HELLO/);
   });
 });
 

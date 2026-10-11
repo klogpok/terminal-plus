@@ -9,6 +9,7 @@
  */
 import path from 'node:path';
 import { BrowserWindow, Menu, Tray, app, dialog, nativeImage, shell, type NativeImage } from 'electron';
+import { readUiLanguage } from '@devpanel/core';
 import { probePort, readStoredAccessKey, startDevPanel } from '@devpanel/server';
 import { DEFAULT_PORT, HOST_STRINGS } from '@devpanel/shared';
 import { runDesktop, type DesktopError, type DesktopHost, type DesktopTray, type DesktopWindow } from './desktop-app.js';
@@ -71,19 +72,20 @@ function createWindow(url: string): DesktopWindow {
 
 function createTray(): DesktopTray {
   const tray = new Tray(icon());
-  tray.setToolTip(HOST_STRINGS.desktop.tooltip);
   return {
     setMenu: (items) => tray.setContextMenu(Menu.buildFromTemplate(items)),
+    setToolTip: (text) => tray.setToolTip(text),
     onClick: (listener) => tray.on('click', listener),
   };
 }
 
 /**
- * A plain-Russian error box. Technical details stay folded away: a "Подробности" button opens them
- * in a second box (Windows message boxes have no expandable section).
+ * A plain-language error box, buttons in the error's UI Language. Technical details stay folded
+ * away: a "Details" button opens them in a second box (Windows message boxes have no expandable
+ * section).
  */
-async function showError({ title, message, details }: DesktopError): Promise<void> {
-  const { ok, details: detailsButton, detailsTitle } = HOST_STRINGS.desktop;
+async function showError({ title, message, details, language }: DesktopError): Promise<void> {
+  const { ok, details: detailsButton, detailsTitle } = HOST_STRINGS[language].desktop;
   const buttons = details ? [ok, detailsButton] : [ok];
   const { response } = await dialog.showMessageBox({ type: 'error', title, message, buttons, defaultId: 0, noLink: true });
   if (details && response === 1) {
@@ -113,12 +115,15 @@ void app.whenReady().then(() =>
     port,
     startHidden: process.argv.includes(HIDDEN_ARG),
     probePort: async (p) => probePort(p, await readStoredAccessKey(appDataDir)),
+    readUiLanguage: () => readUiLanguage(appDataDir),
     startServer: async (onExit) => {
       const devPanel = await startDevPanel({ appDataDir, port, webRoot, onExit });
       return {
         openUrl: devPanel.openUrl,
         close: () => devPanel.close(),
         stopAllRepos: () => devPanel.core.stopAllRepos(),
+        uiLanguage: () => devPanel.core.snapshot().uiLanguage,
+        onUiLanguageChanged: (listener) => devPanel.core.on('uiLanguageChanged', (e) => listener(e.language)),
       };
     },
   }),

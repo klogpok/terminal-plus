@@ -73,6 +73,10 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: repoRef,
     run: async (core, p) => (await core.removeRepo(p.repoId), null),
   },
+  moveRepo: {
+    payload: z.object({ repoId: z.string().min(1), toIndex: z.number().int().min(0) }),
+    run: async (core, p) => (await core.moveRepo(p.repoId, p.toIndex), null),
+  },
   relocateRepo: {
     payload: z.object({ repoId: z.string().min(1), path: z.string().min(1).optional() }),
     run: (core, p) => core.relocateRepo(p.repoId, p.path),

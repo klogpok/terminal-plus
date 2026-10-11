@@ -239,6 +239,27 @@ describe('DevPanel Server', () => {
     expect(event.payload).toMatchObject({ repo: { name: 'Docs', path: folder } });
   });
 
+  it('moves a Repo, tells every client the new order, and rejects a bad index', async () => {
+    const tab1 = new Client(await connect());
+    const tab2 = new Client(await connect());
+    const folder = path.join(root, 'Docs');
+    mkdirSync(folder);
+    const docs = (await tab1.send('addRepo', { path: folder })) as { result: { id: string } };
+    const docsId = docs.result.id;
+
+    for (const toIndex of [-1, 0.5, '0']) {
+      expect(await tab1.send('moveRepo', { repoId: docsId, toIndex } as never)).toMatchObject({
+        ok: false,
+        error: { code: 'badCommand' },
+      });
+    }
+    expect(await tab1.send('moveRepo', { repoId: docsId, toIndex: 0 })).toMatchObject({ ok: true, result: null });
+    const event = await tab2.waitFor(
+      (m): m is EventMessage => m.kind === 'event' && m.type === 'reposReordered',
+    );
+    expect((event.payload as { repoIds: string[] }).repoIds[0]).toBe(docsId);
+  });
+
   it('opens folders and Service URLs through the Server', async () => {
     const client = new Client(await connect());
     const snapshot = (await client.send('getSnapshot', {})) as { result: { repos: { id: string; path: string }[] } };

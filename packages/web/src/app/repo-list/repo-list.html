@@ -1,7 +1,13 @@
 <h2 class="panel-title">{{ strings.repos.title }}</h2>
 <dp-add-repo />
+<div class="repo-cards" cdkDropList (cdkDropListDropped)="drop($event)">
 @for (repo of backend.repos(); track repo.id) {
-  <section class="repo" [class.repo-missing]="repo.folderMissing" [attr.data-repo-id]="repo.id" [style.border-color]="repoColor(repo)">
+  <section class="repo" cdkDrag [class.repo-missing]="repo.folderMissing" [attr.data-repo-id]="repo.id" [style.border-color]="repoColor(repo)">
+    <div *cdkDragPreview class="repo-drag-preview" [style.border-color]="repoColor(repo)">
+      <span class="repo-drag-color" [style.background]="repoColor(repo)"></span>
+      <span class="repo-drag-name">{{ repo.name }}</span>
+    </div>
+    <div *cdkDragPlaceholder class="repo-drag-placeholder"></div>
     <div class="repo-body">
       <dp-repo-header [repo]="repo" />
       @if (repo.configError) {
@@ -109,3 +115,4 @@
 } @empty {
   <p class="muted">{{ strings.repos.empty }}</p>
 }
+</div>

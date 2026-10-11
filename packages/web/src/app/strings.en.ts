@@ -83,6 +83,9 @@ export const EN_STRINGS = {
     openClaudeLabel: (repoName: string) => `Open Claude Code in ${repoName}`,
     openTerminal: 'Terminal',
     openTerminalLabel: (repoName: string) => `Open a terminal in ${repoName}`,
+    /** The ⋮⋮ handle that drags a Repo card to another place in the list. */
+    dragHandle: 'Drag to reorder',
+    dragHandleLabel: (repoName: string) => `Move Repo ${repoName}`,
   },
 
   sessions: {

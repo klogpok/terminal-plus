@@ -4,8 +4,9 @@
  * Language: English (the default) and Russian. Both have the type `HostStrings`, so a key missing
  * from either fails to compile. Read them through `HOST_STRINGS[language]`.
  *
- * The web UI's strings sit beside these in `packages/web/src/app/strings.ts`; those two places are
- * the only ones user-facing text lives in.
+ * The web UI's strings are the UI string sets: English in `packages/web/src/app/strings.en.ts` and
+ * Russian in `packages/web/src/app/strings.ts`. These host sets and those UI sets are the only places
+ * user-facing text lives in.
  */
 import type { UiLanguage } from './index.js';
 
@@ -41,7 +42,7 @@ const EN_HOST_STRINGS = {
   desktop: {
     tooltip: 'DevPanel',
     show: 'Show DevPanel',
-    stopAllRepos: 'Stop all in all Repos',
+    stopAllRepos: 'Stop everything in all Repos',
     autostart: 'Start with Windows',
     quit: 'Exit DevPanel',
     startFailedTitle: 'DevPanel did not start',

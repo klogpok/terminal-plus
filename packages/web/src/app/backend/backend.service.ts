@@ -17,7 +17,7 @@ import type {
   SessionView,
   UiLanguage,
 } from '@devpanel/shared';
-import { describeError, loadedUiLanguage, type UiErrorInfo } from '../strings';
+import { describeError, loadedUiLanguage, type UiErrorInfo } from '../ui-strings';
 import { RELOAD_PAGE, cacheUiLanguage } from '../ui-language';
 import { BACKEND_TRANSPORT } from './backend-transport';
 
@@ -60,6 +60,8 @@ interface Pending {
 export class BackendService {
   private readonly transport = inject(BACKEND_TRANSPORT);
   private readonly reloadPage = inject(RELOAD_PAGE);
+  /** The Server's UI Language this tab could not switch to (already reported), if any. */
+  private unfollowedUiLanguage: UiLanguage | undefined;
 
   private readonly connectionState = signal<ConnectionState>('connecting');
   private readonly connectionDetailsState = signal('');
@@ -126,7 +128,7 @@ export class BackendService {
     this.run('stopAll', { repoId });
   }
 
-  /** "Stop all in all Repos": every Service in the Workspace, never Sessions. */
+  /** "Stop everything in all Repos": every Service in the Workspace, never Sessions. */
   stopAllRepos(): void {
     this.run('stopAllRepos', {});
   }
@@ -397,9 +399,21 @@ export class BackendService {
   /**
    * The Server's UI Language is the source of truth: when it differs from the loaded string set,
    * cache it and reload the page in it. Services and Sessions keep running; the page restores them.
+   * When it cannot be cached the reload would open in the old language again (and again), so the
+   * tab stays and says why, once per language.
    */
   private followUiLanguage(language: UiLanguage): void {
-    if (language !== loadedUiLanguage() && cacheUiLanguage(language)) this.reloadPage();
+    if (language === loadedUiLanguage()) return;
+    if (cacheUiLanguage(language)) {
+      this.reloadPage();
+    } else if (this.unfollowedUiLanguage !== language) {
+      this.unfollowedUiLanguage = language;
+      this.showError({
+        code: 'uiLanguageNotFollowed',
+        params: {},
+        details: `The UI Language is now "${language}", but the browser storage (localStorage) is unavailable.`,
+      });
+    }
   }
 
   /** Adds or replaces a Session (idempotent: command results and events may both arrive). */

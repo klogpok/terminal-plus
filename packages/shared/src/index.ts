@@ -187,7 +187,15 @@ export interface SessionView {
  * UI Language: which language DevPanel shows its text in. One value per DevPanel app data folder;
  * English when nothing is stored.
  */
-export type UiLanguage = 'en' | 'ru';
+export type UiLanguage = (typeof UI_LANGUAGES)[number];
+
+/** Every UI Language, in the order the header switch offers them; English (the default) first. */
+export const UI_LANGUAGES = ['en', 'ru'] as const;
+
+/** Whether `value` names a UI Language (for stored or cached values, which may be anything). */
+export function isUiLanguage(value: unknown): value is UiLanguage {
+  return (UI_LANGUAGES as readonly unknown[]).includes(value);
+}
 
 /** Full state, enough for a (re)connecting client to rebuild its UI. Grows with later tickets. */
 export interface Snapshot {
@@ -339,7 +347,7 @@ export interface Commands {
   startAll: { payload: { repoId: string }; result: null };
   /** "Stop all": stops every Service of the Repo (Services only, never Sessions). */
   stopAll: { payload: { repoId: string }; result: null };
-  /** "Stop all in all Repos": stops every Service in the Workspace (never Sessions). */
+  /** "Stop everything in all Repos": stops every Service in the Workspace (never Sessions). */
   stopAllRepos: { payload: Record<string, never>; result: null };
   /** Without `path` the Server shows a folder picker; `null` result = the user cancelled it. */
   addRepo: { payload: { path?: string; name?: string }; result: RepoView | null };

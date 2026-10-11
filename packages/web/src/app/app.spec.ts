@@ -164,7 +164,7 @@ describe('errors', () => {
     await stable();
 
     const repo = page.querySelector<HTMLElement>('[data-repo-id="x1"]')!;
-    expect(repo.querySelector('.error-message')!.textContent).toContain('The settings file of the Broken Repo has a mistake');
+    expect(repo.querySelector('.error-message')!.textContent).toContain('The Repo Config of the Broken Repo has a mistake');
     expect(repo.querySelector('details')!.textContent).toContain('services.0.command: Required');
   });
 });

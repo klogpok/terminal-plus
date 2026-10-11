@@ -4,12 +4,12 @@
  * never touches 7777 and never opens a real browser.
  */
 import { createServer as createHttpServer, type Server } from 'node:http';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { UI_LANGUAGE_FILE, readUiLanguage } from '@devpanel/core';
+import type { UiLanguage } from '@devpanel/shared';
 import {
   ACCESS_KEY_FILE,
   launch,
@@ -62,14 +62,14 @@ async function freePort(): Promise<number> {
 }
 
 /** Launcher dependencies over the test's app data dir; records opened URLs and printed lines. */
-function launcherFor(port: number) {
+function launcherFor(port: number, language: UiLanguage = 'en') {
   const opened: string[] = [];
   const printed: string[] = [];
   let started = 0;
   const deps: LaunchDeps = {
     port,
     readAccessKey: () => readStoredAccessKey(appDataDir),
-    readUiLanguage: () => readUiLanguage(appDataDir),
+    language,
     startServer: async () => {
       started++;
       const devPanel = await startDevPanel({
@@ -89,11 +89,6 @@ function launcherFor(port: number) {
 }
 
 const CYRILLIC = /[а-яё]/i;
-
-/** Stores a UI Language the way the Server does. */
-function storeUiLanguage(language: string): void {
-  writeFileSync(path.join(appDataDir, UI_LANGUAGE_FILE), JSON.stringify({ language }));
-}
 
 describe('launch', () => {
   it('starts the Server on a free port and opens the browser with the Access Key in the fragment', async () => {
@@ -165,8 +160,8 @@ describe('launch', () => {
   });
 });
 
-describe('launcher console lines follow the stored UI Language', () => {
-  it('are in English when no UI Language is stored', async () => {
+describe('launcher console lines are in the given UI Language', () => {
+  it('are in English for en (the default)', async () => {
     const launcher = launcherFor(await freePort());
 
     await launch(launcher.deps);
@@ -175,12 +170,11 @@ describe('launcher console lines follow the stored UI Language', () => {
     expect(launcher.printed.join('\n')).not.toMatch(CYRILLIC);
   });
 
-  it('are in Russian when ru is stored: starting, started, already running', async () => {
-    storeUiLanguage('ru');
+  it('are in Russian for ru: starting, started, already running', async () => {
     const port = await freePort();
-    const first = launcherFor(port);
+    const first = launcherFor(port, 'ru');
     await launch(first.deps);
-    const second = launcherFor(port);
+    const second = launcherFor(port, 'ru');
     await launch(second.deps);
 
     expect(first.printed[0]).toBe('DevPanel запускается...');
@@ -188,10 +182,9 @@ describe('launcher console lines follow the stored UI Language', () => {
     expect(second.printed).toEqual(['DevPanel уже работает. Открываю ещё одну вкладку браузера.']);
   });
 
-  it('are in Russian when ru is stored: port taken', async () => {
-    storeUiLanguage('ru');
+  it('are in Russian for ru: port taken', async () => {
     const port = await runForeignServer();
-    const launcher = launcherFor(port);
+    const launcher = launcherFor(port, 'ru');
 
     await launch(launcher.deps);
 

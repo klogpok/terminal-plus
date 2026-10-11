@@ -1,6 +1,6 @@
 import { InjectionToken } from '@angular/core';
-import type { UiLanguage } from '@devpanel/shared';
-import { STRINGS, useUiStrings } from './strings';
+import { isUiLanguage, type UiLanguage } from '@devpanel/shared';
+import { STRINGS, selectUiStrings } from './ui-strings';
 
 /**
  * Per-viewer cache of the last UI Language, so the page opens in it without a flash of the other
@@ -10,7 +10,8 @@ const UI_LANGUAGE_KEY = 'devpanel.uiLanguage';
 
 function cachedUiLanguage(): UiLanguage {
   try {
-    return localStorage.getItem(UI_LANGUAGE_KEY) === 'ru' ? 'ru' : 'en';
+    const language = localStorage.getItem(UI_LANGUAGE_KEY);
+    return isUiLanguage(language) ? language : 'en';
   } catch {
     return 'en';
   }
@@ -41,7 +42,7 @@ export const RELOAD_PAGE = new InjectionToken<() => void>('RELOAD_PAGE', {
  */
 export function loadUiLanguage(): UiLanguage {
   const language = cachedUiLanguage();
-  useUiStrings(language);
+  selectUiStrings(language);
   document.documentElement.lang = language;
   document.title = STRINGS.appTitle;
   return language;

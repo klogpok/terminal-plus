@@ -127,6 +127,33 @@ describe('UI Language from the Server', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it('says why the tab stays in its language when the new one cannot be cached', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+    const page = await openDevPanel();
+
+    transport.emit('uiLanguageChanged', { language: 'ru' });
+    await fixture.whenStable();
+
+    expect(page.querySelector('.errors')!.textContent).toContain('this tab cannot switch to it');
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('a mismatched snapshot that cannot be cached shows the message once, also after a reconnect', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+    const page = await openDevPanel({ repos: [], uiLanguage: 'ru' });
+
+    await transport.connectWith({ repos: [], uiLanguage: 'ru' });
+    await fixture.whenStable();
+
+    expect(page.querySelectorAll('.errors dp-error-message')).toHaveLength(1);
+    expect(page.querySelector('.errors')!.textContent).toContain('this tab cannot switch to it');
+    expect(reload).not.toHaveBeenCalled();
+  });
+
   it('uiLanguageChanged caches the new language and reloads', async () => {
     await openDevPanel();
 

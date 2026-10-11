@@ -43,8 +43,8 @@ export interface LaunchDeps {
   port: number;
   /** The Access Key stored in the app data directory by the running Server. */
   readAccessKey(): Promise<string | undefined>;
-  /** The UI Language stored in the app data directory; the console lines are in it. */
-  readUiLanguage(): Promise<UiLanguage>;
+  /** The UI Language the console lines are in (the stored one; `launch-main.ts` reads it). */
+  language: UiLanguage;
   /** Starts the Server in this process (it then lives as long as the launcher's console). */
   startServer(): Promise<{ openUrl: string }>;
   openBrowser(url: string): Promise<void>;
@@ -83,7 +83,7 @@ export function portBlockerMessage(blocker: PortBlocker, port: number, language:
 
 /** Starts DevPanel, or opens another tab of the running one, or explains why neither is possible. */
 export async function launch(deps: LaunchDeps): Promise<LaunchResult> {
-  const language = await deps.readUiLanguage();
+  const { language } = deps;
   const strings = HOST_STRINGS[language].launcher;
   const probe = await probePort(deps.port, await deps.readAccessKey());
   if (probe.kind === 'free') {

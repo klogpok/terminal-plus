@@ -58,7 +58,7 @@ describe('auto-detected Services', () => {
 
     boxes[0]!.click();
     boxes[1]!.click();
-    buttonIn(repoCard('s1'), 'Save settings').click();
+    buttonIn(repoCard('s1'), 'Save as Local Config').click();
     await stable();
 
     expect(transport.lastCommand('saveLocalConfig').payload).toEqual({
@@ -72,7 +72,7 @@ describe('auto-detected Services', () => {
       repos: [{ ...site, suggestions: site.suggestions!.map((s) => ({ ...s, preselected: false })) }],
     });
     await stable();
-    expect(buttonIn(repoCard('s1'), 'Save settings').disabled).toBe(true);
+    expect(buttonIn(repoCard('s1'), 'Save as Local Config').disabled).toBe(true);
   });
 
   it('says so when nothing could be detected', async () => {
@@ -113,9 +113,9 @@ describe('config changes', () => {
     await stable();
 
     const row = (id: string) => repoCard('b1').querySelector<HTMLElement>(`[data-service-id="${id}"]`)!;
-    expect(row('api').textContent).toContain('Settings changed — restart it');
-    expect(row('job').textContent).toContain('Removed from the settings');
-    expect(row('web').textContent).not.toContain('Settings changed');
+    expect(row('api').textContent).toContain('Its config changed — restart it');
+    expect(row('job').textContent).toContain('Removed from the config');
+    expect(row('web').textContent).not.toContain('config changed');
   });
 
   it('offers to delete an unused Local Config once a Repo Config exists', async () => {
@@ -130,7 +130,7 @@ describe('config changes', () => {
     expect(transport.lastCommand('deleteLocalConfig').payload).toEqual({ repoId: 'b1' });
   });
 
-  it('explains an invalid config in plain language, noting that the previous settings still work', async () => {
+  it('explains an invalid config in plain language, noting that its previous version still works', async () => {
     await transport.connectWith({
       repos: [
         aRepo({
@@ -144,8 +144,8 @@ describe('config changes', () => {
     await stable();
 
     const alert = repoCard('b1').querySelector<HTMLElement>('[role=alert]')!;
-    expect(alert.textContent).toContain('The settings file of the Billing Repo has a mistake');
-    expect(alert.textContent).toContain('the previous settings stay in use');
+    expect(alert.textContent).toContain('The Repo Config of the Billing Repo has a mistake');
+    expect(alert.textContent).toContain('its previous version stays in use');
     expect(alert.querySelector('pre')!.textContent).toContain('Duplicate Service id "api"');
   });
 });

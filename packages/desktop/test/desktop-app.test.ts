@@ -250,12 +250,12 @@ describe('window', () => {
 });
 
 describe('tray', () => {
-  it('offers show, "Stop all in all Repos", start with Windows, and quit, in English by default', async () => {
+  it('offers show, "Stop everything in all Repos", start with Windows, and quit, in English by default', async () => {
     const { host, options } = setup();
     await runDesktop(options);
     expect(host.tray!.menu.filter((i) => i.type !== 'separator').map((i) => i.label)).toEqual([
       'Show DevPanel',
-      'Stop all in all Repos',
+      'Stop everything in all Repos',
       'Start with Windows',
       'Exit DevPanel',
     ]);
@@ -296,7 +296,7 @@ describe('tray', () => {
     expect(host.window!.visible).toBe(true);
   });
 
-  it('a failed "Stop all in all Repos" after switching to ru explains in Russian', async () => {
+  it('a failed "Stop everything in all Repos" after switching to ru explains in Russian', async () => {
     const server = new FakeServer();
     server.stopAllFailure = new Error('taskkill failed');
     const { host, options } = setup({ server });
@@ -307,7 +307,7 @@ describe('tray', () => {
     expect(host.errors).toMatchObject([{ title: RU.stopAllFailedTitle, message: RU.stopAllFailed, language: 'ru' }]);
   });
 
-  it('"Stop all in all Repos" stops the Services and keeps DevPanel running', async () => {
+  it('"Stop everything in all Repos" stops the Services and keeps DevPanel running', async () => {
     const { host, options, server } = setup();
     await runDesktop(options);
     host.tray!.item(EN.stopAllRepos).click!();
@@ -317,7 +317,7 @@ describe('tray', () => {
     expect(host.exitCode).toBeUndefined();
   });
 
-  it('a failed "Stop all in all Repos" explains in plain language with the technical details apart', async () => {
+  it('a failed "Stop everything in all Repos" explains in plain language with the technical details apart', async () => {
     const server = new FakeServer();
     server.stopAllFailure = new Error('taskkill failed for PID 4242');
     const { host, options } = setup({ server });

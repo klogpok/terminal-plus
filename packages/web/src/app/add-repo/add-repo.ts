@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { BackendService } from '../backend/backend.service';
-import { STRINGS, type UiErrorInfo } from '../strings';
+import { STRINGS, type UiErrorInfo } from '../ui-strings';
 
 /** A name clash after picking a folder: the user chooses another name for the same folder. */
 interface NameClash {

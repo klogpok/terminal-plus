@@ -1,42 +1,18 @@
 /**
- * Every user-facing UI string lives in a UI string set: English in `strings.en.ts` (the default) and
- * Russian here. Both have the type `UiStrings`, so a key missing from either fails to compile.
- * Components read `STRINGS` only, never a set directly; never put user-facing text in templates or
- * code. The set is chosen once at page load, before Angular starts (see `ui-language.ts`).
- * Text shown outside the web UI (launcher console, desktop tray and dialogs, the restart separator
- * in Service output) sits beside this file in `HOST_STRINGS` (packages/shared/src/strings.ts).
- *
- * Error messages are keyed by `ErrorCode` (packages/shared/src/errors.ts) plus client-side codes;
- * a new code fails to compile until its message is added to both sets.
+ * The Russian UI string set. Its shape is `UiStrings` (defined by the English set in
+ * `strings.en.ts`), so a key missing from either fails to compile. Components never read a set
+ * directly; they read `STRINGS` from `ui-strings.ts`.
  */
 import type {
-  ErrorParams,
   Orphan,
   PortConflict,
   PortOwner,
   PortOwnerKind,
   ServiceStatus,
   SessionKind,
-  UiLanguage,
 } from '@devpanel/shared';
-import { EN_STRINGS } from './strings.en';
-
-/** Errors raised in the browser itself (not by the Server). */
-export interface ClientErrorParams {
-  /** The connection to the Server dropped while a command was in flight, or was never open. */
-  connectionLost: Record<string, never>;
-}
-
-export type UiErrorCode = keyof ErrorParams | keyof ClientErrorParams;
-export type AllErrorParams = ErrorParams & ClientErrorParams;
-
-/** The shape of a UI string set; the English set defines it. */
-export type UiStrings = typeof EN_STRINGS;
-
-/** An error from the Server (`ErrorInfo`) or from the client. */
-export type UiErrorInfo = {
-  [C in UiErrorCode]: { code: C; params: AllErrorParams[C]; details: string };
-}[UiErrorCode];
+import type { UiStrings } from './strings.en';
+import type { AllErrorParams, UiErrorCode } from './ui-errors';
 
 /**
  * Who holds a port, in the instrumental case: "сервисом API из репо Billing" / "процессом node.exe
@@ -72,7 +48,7 @@ const DEPENDENCY_OUTCOME: Record<ServiceStatus, string> = {
   running: 'не запустился',
 };
 
-const RU_STRINGS: UiStrings = {
+export const RU_STRINGS: UiStrings = {
   appTitle: 'DevPanel',
   /** Accessible name of the drag handle between the Repo list and the terminals. */
   resizeLeft: 'Ширина списка репо',
@@ -293,28 +269,8 @@ const RU_STRINGS: UiStrings = {
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',
+    uiLanguageNotFollowed: () =>
+      'Язык DevPanel изменился, но эта вкладка не может на него переключиться: браузер не даёт сайтам сохранять данные. ' +
+      'Разрешите сохранение данных сайтов в настройках браузера и обновите страницу.',
   } satisfies { [C in UiErrorCode]: (params: AllErrorParams[C]) => string },
 };
-
-const STRING_SETS: Record<UiLanguage, UiStrings> = { en: EN_STRINGS, ru: RU_STRINGS };
-
-/** The loaded UI string set. English until `useUiStrings` picks another at page load. */
-export let STRINGS: UiStrings = EN_STRINGS;
-let loadedLanguage: UiLanguage = 'en';
-
-/** Loads the string set of a UI Language; called once at page load, before Angular starts. */
-export function useUiStrings(language: UiLanguage): void {
-  STRINGS = STRING_SETS[language];
-  loadedLanguage = language;
-}
-
-/** The UI Language of the loaded string set. */
-export function loadedUiLanguage(): UiLanguage {
-  return loadedLanguage;
-}
-
-/** The plain-language message for an error, in the loaded set. */
-export function describeError(error: UiErrorInfo): string {
-  const message = STRINGS.errors[error.code] as (params: unknown) => string;
-  return message(error.params);
-}

@@ -88,7 +88,7 @@ describe('Orphans', () => {
     expect(block.textContent).toContain('The API Service in the Billing Repo is left over from the previous run');
     expect(block.textContent).toContain('A Claude Code Session in the Billing Repo is left over from the previous run');
 
-    button(block, 'End').click();
+    button(block, 'End these processes').click();
     expect(transport.lastCommand('killOrphans').payload).toEqual({});
 
     transport.emit('orphansFound', { orphans: [] });

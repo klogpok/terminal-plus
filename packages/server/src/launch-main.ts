@@ -29,7 +29,7 @@ if (!existsSync(settings.webRoot)) {
 const result = await launch({
   port: settings.port,
   readAccessKey: () => readStoredAccessKey(settings.appDataDir),
-  readUiLanguage: async () => language,
+  language,
   startServer: () => runServer(settings),
   openBrowser: async (url) => {
     if (process.env.DEVPANEL_BROWSER === 'none') print(strings.url(url));

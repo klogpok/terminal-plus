@@ -4,7 +4,7 @@
  */
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { UiLanguage } from '@devpanel/shared';
+import { isUiLanguage, type UiLanguage } from '@devpanel/shared';
 import { readJsonFile } from './json-file.js';
 
 /** File name of the UI Language file in the app data directory. */
@@ -14,7 +14,8 @@ export const UI_LANGUAGE_FILE = 'ui-language.json';
 export async function readUiLanguage(appDataDir: string): Promise<UiLanguage> {
   try {
     const json = await readJsonFile(path.join(appDataDir, UI_LANGUAGE_FILE));
-    return (json as { language?: unknown } | null)?.language === 'ru' ? 'ru' : 'en';
+    const language = (json as { language?: unknown } | null)?.language;
+    return isUiLanguage(language) ? language : 'en';
   } catch {
     return 'en';
   }

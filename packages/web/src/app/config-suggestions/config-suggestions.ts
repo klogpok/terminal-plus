@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal } from '@angular/core';
 import type { RepoView, SuggestedService } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 
 /**
  * For a Repo without any config: the auto-detected Services with checkboxes and "Save config",

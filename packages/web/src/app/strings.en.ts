@@ -1,10 +1,11 @@
 /**
- * The English UI string set: the default UI Language. Its shape is `UiStrings`, which the Russian set
- * in `strings.ts` must match, so a key missing from either fails to compile. Plain language for a
- * non-programmer, with the glossary's English terms (Repo, Service, Session, Workspace, Orphan).
+ * The English UI string set: the default UI Language. It defines `UiStrings`, which the Russian set
+ * in `strings.ts` must match, so a key missing from either fails to compile. Components never read a
+ * set directly; they read `STRINGS` from `ui-strings.ts`. Plain language for a non-programmer,
+ * with the glossary's English terms (Repo, Service, Session, Workspace, Orphan, Repo Config).
  */
 import type { Orphan, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
-import type { AllErrorParams, UiErrorCode } from './strings';
+import type { AllErrorParams, UiErrorCode } from './ui-errors';
 
 /**
  * Who holds a port: "the API Service in the Billing Repo" / "the process node.exe (PID 1234)".
@@ -97,20 +98,20 @@ export const EN_STRINGS = {
   },
 
   config: {
-    suggestionsIntro: 'This Repo has no settings file. Tick what to run:',
+    suggestionsIntro: 'This Repo has no Repo Config (the .devpanel.yml file the developers write). Tick what to run:',
     /** Checkbox label of a suggested Service. */
     suggestion: (name: string, command: string) => `${name} — ${command}`,
-    save: 'Save settings',
+    save: 'Save as Local Config',
     nothingDetected:
-      'Found nothing to run: this Repo has no suitable scripts. Ask a developer to add a .devpanel.yml file.',
+      'Found nothing to run: this Repo has no suitable scripts. Ask a developer to add a Repo Config (.devpanel.yml).',
     unusedLocalConfig:
-      'The developers added a settings file to this Repo, and DevPanel now uses it. Your Local Config is no longer used.',
+      'The developers added a Repo Config to this Repo, and DevPanel now uses it. Your Local Config is no longer used.',
     deleteLocalConfig: 'Delete Local Config',
-    serviceConfigChanged: 'Settings changed — restart it',
-    serviceRemoved: 'Removed from the settings — will disappear once stopped',
+    serviceConfigChanged: 'Its config changed — restart it',
+    serviceRemoved: 'Removed from the config — will disappear once stopped',
     /** Shown instead of `errors.configInvalid` when the Repo keeps its last valid Services. */
     invalidKeepsPrevious: (repoName: string) =>
-      `The settings file of the ${repoName} Repo has a mistake, so the previous settings stay in use for now. Show the details to a developer.`,
+      `The Repo Config of the ${repoName} Repo has a mistake, so its previous version stays in use for now. Show the details to a developer.`,
   },
 
   /** Label shown next to each status dot (also its tooltip). */
@@ -138,7 +139,7 @@ export const EN_STRINGS = {
     stopAll: 'Stop all',
     /** Accessible name of a Repo header button, e.g. "Start all in Repo Billing". */
     repoAction: (action: string, repoName: string) => `${action} in Repo ${repoName}`,
-    stopAllRepos: 'Stop all in all Repos',
+    stopAllRepos: 'Stop everything in all Repos',
   },
 
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
@@ -162,7 +163,7 @@ export const EN_STRINGS = {
   orphans: {
     title: 'Some processes from the previous DevPanel run are still running:',
     hint: 'It is usually best to end them: they may hold ports and stop Services from starting.',
-    kill: 'End',
+    kill: 'End these processes',
     /** One Orphan in plain words: "The API Service in the Billing Repo is left over from the previous run". */
     describe: ({ owner, repoName }: Orphan) => {
       if (owner.kind === 'service') {
@@ -249,10 +250,11 @@ export const EN_STRINGS = {
     notPnpmRepo: (p) =>
       `The ${p.repoName} Repo does not use pnpm, so DevPanel does not install its dependencies. Ask a developer.`,
     configInvalid: (p) =>
-      `The settings file of the ${p.repoName} Repo has a mistake, so its Services are not shown. Show the details to a developer.`,
+      `The Repo Config of the ${p.repoName} Repo has a mistake, so its Services are not shown. Show the details to a developer.`,
     repoAlreadyAdded: (p) => `This folder is already added as the ${p.repoName} Repo.`,
     repoNameTaken: (p) => `A Repo named "${p.name}" already exists. Choose another name.`,
-    folderNotFound: (p) => `Folder ${p.path} not found.`,
+    folderNotFound: (p) =>
+      `Folder ${p.path} not found. Check that it exists and its drive is connected, then try again.`,
     repoFolderMissing: (p) =>
       `The folder of the ${p.repoName} Repo was not found. Choose its new location or remove the Repo.`,
     repoBusy: (p) =>
@@ -263,10 +265,17 @@ export const EN_STRINGS = {
     sessionNotFound: () => 'This Session no longer exists. Reload the page.',
     sessionSpawnFailed: (p) => `Could not open a Session in the ${p.repoName} Repo.`,
     serviceHasNoUrl: (p) => `The ${p.serviceName} Service in the ${p.repoName} Repo has no address for the browser.`,
-    shellFailed: () => 'Could not open a Windows window. Try again.',
+    shellFailed: () => 'Could not open the window. Try again.',
     uiLanguageNotSaved: () => 'Could not save the language choice, so DevPanel stays in the current language. Try again.',
     badCommand: () => 'DevPanel did not understand the command. Reload the page.',
-    internal: () => 'Something went wrong inside DevPanel.',
+    internal: () =>
+      'Something went wrong inside DevPanel. Try again; if it happens again, open "Details" and show the text to a developer.',
     connectionLost: () => 'Lost connection to DevPanel, so the command was not carried out. Try again in a few seconds.',
+    uiLanguageNotFollowed: () =>
+      "DevPanel's language was changed, but this tab cannot switch to it: the browser does not let websites save data. " +
+      'Allow websites to save data in the browser settings, then reload the page.',
   } satisfies { [C in UiErrorCode]: (params: AllErrorParams[C]) => string },
 };
+
+/** The shape of a UI string set; the English set defines it. */
+export type UiStrings = typeof EN_STRINGS;

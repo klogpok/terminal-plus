@@ -122,7 +122,7 @@ void app.whenReady().then(() =>
         openUrl: devPanel.openUrl,
         close: () => devPanel.close(),
         stopAllRepos: () => devPanel.core.stopAllRepos(),
-        uiLanguage: () => devPanel.core.snapshot().uiLanguage,
+        uiLanguage: () => devPanel.core.uiLanguage,
         onUiLanguageChanged: (listener) => devPanel.core.on('uiLanguageChanged', (e) => listener(e.language)),
       };
     },

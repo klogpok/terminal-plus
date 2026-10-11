@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import type { ServiceRef } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 import { TERMINAL_VIEW_FACTORY, type TerminalSize } from './terminal-view';
 
 /** How long "Copied" stays visible. */

@@ -18,6 +18,7 @@ describe('UI Language', () => {
     const core = await h.createCore();
 
     expect(core.snapshot().uiLanguage).toBe('en');
+    expect(core.uiLanguage).toBe('en');
   });
 
   it('setUiLanguage stores it, announces it, and a new core on the same folder reports it', async () => {
@@ -29,6 +30,7 @@ describe('UI Language', () => {
 
     expect(events).toEqual([{ language: 'ru' }]);
     expect(core.snapshot().uiLanguage).toBe('ru');
+    expect(core.uiLanguage).toBe('ru');
     const restarted = await h.createCore();
     expect(restarted.snapshot().uiLanguage).toBe('ru');
   });

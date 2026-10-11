@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { DevPanelCore } from '@devpanel/core';
 import {
   DevPanelError,
+  UI_LANGUAGES,
   toErrorInfo,
   type CommandPayload,
   type CommandResult,
@@ -133,7 +134,7 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     },
   },
   setUiLanguage: {
-    payload: z.object({ language: z.enum(['en', 'ru']) }),
+    payload: z.object({ language: z.enum(UI_LANGUAGES) }),
     run: async (core, p) => (await core.setUiLanguage(p.language), null),
   },
   openTerminal: { payload: repoRef, run: (core, p) => core.openTerminal(p.repoId) },

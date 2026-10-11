@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import type { RepoView, ServiceStatus, SessionKind } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 import { TerminalTabs, sessionTabKey } from '../terminal/terminal-tabs.service';
 
 /** Statuses in which a Service has a live process that removing the Repo would stop. */

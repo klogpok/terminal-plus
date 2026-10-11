@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal } from '@angular/core';
 import type { ServiceView } from '@devpanel/shared';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 
 /**
  * A Service's port held by someone else: who holds it, in plain language, and the one button that

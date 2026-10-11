@@ -8,7 +8,7 @@ import { PortConflictBlock } from '../port-conflict/port-conflict';
 import { RepoHeader } from '../repo-header/repo-header';
 import { repoColor } from '../repo-color';
 import { ServiceExit } from '../service-exit/service-exit';
-import { STRINGS, describeError } from '../strings';
+import { STRINGS, describeError } from '../ui-strings';
 import { TerminalTabs } from '../terminal/terminal-tabs.service';
 
 /** Statuses in which the Service has a live process. */

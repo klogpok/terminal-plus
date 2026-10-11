@@ -63,11 +63,11 @@ describe('Start all / Stop all', () => {
     expect(button(repoHeader('r2'), 'Stop all in Repo R2').disabled).toBe(true);
   });
 
-  it('the top bar has "Stop all in all Repos"', async () => {
+  it('the top bar has "Stop everything in all Repos"', async () => {
     await transport.connectWith({ repos: [billing, docs] });
     await fixture.whenStable();
 
-    button(page.querySelector('.topbar')!, 'Stop all in all Repos').click();
+    button(page.querySelector('.topbar')!, 'Stop everything in all Repos').click();
     expect(transport.lastCommand('stopAllRepos').payload).toEqual({});
   });
 

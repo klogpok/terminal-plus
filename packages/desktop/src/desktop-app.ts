@@ -26,7 +26,7 @@ export interface RunningServer {
   openUrl: string;
   /** Exit: stops every Service and Session, then the Server. Idempotent. */
   close(): Promise<void>;
-  /** "Stop all in all Repos": every Service of every Repo; Sessions keep running. */
+  /** "Stop everything in all Repos": every Service of every Repo; Sessions keep running. */
   stopAllRepos(): Promise<void>;
   /** The current UI Language. */
   uiLanguage(): UiLanguage;

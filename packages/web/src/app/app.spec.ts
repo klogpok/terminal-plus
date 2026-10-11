@@ -55,13 +55,13 @@ const billing = aRepo({
 const docs = aRepo({ id: 'd1', name: 'Docs', services: [aService({ id: 'watch', status: 'starting' })] });
 
 describe('left panel', () => {
-  it('lists Repos with a color stripe and name, and their Services with status dots', async () => {
+  it('lists Repos with a color border and name, and their Services with status dots', async () => {
     await transport.connectWith({ repos: [billing, docs] });
     await stable();
 
     const repos = [...page.querySelectorAll<HTMLElement>('[data-repo-id]')];
     expect(repos.map((r) => r.querySelector('.repo-name')?.textContent?.trim())).toEqual(['Billing', 'Docs']);
-    expect(repos[0]!.querySelector<HTMLElement>('.repo-stripe')!.style.backgroundColor).toBe('rgb(233, 30, 99)');
+    expect(repos[0]!.style.borderColor).toBe('rgb(233, 30, 99)');
 
     expect(serviceRow('b1', 'api').textContent).toContain('API');
     expect(dot('b1', 'api').classList).toContain('status-running');

@@ -13,6 +13,7 @@ import {
   type InstallResult,
   type InstallState,
   type LogEvent,
+  type NewService,
   type Orphan,
   type OrphansFoundEvent,
   type PortConflictChangedEvent,
@@ -37,8 +38,10 @@ import {
   validateConfig,
   writeLocalConfig,
   type ConfigResult,
+  type RepoConfig,
   type ServiceDefinition,
 } from './config.js';
+import { withService, withoutService } from './local-config-edit.js';
 import { detectServices } from './detect.js';
 import { readWorkspace, writeWorkspace } from './workspace.js';
 import { readUiLanguage, writeUiLanguage } from './ui-language.js';
@@ -950,6 +953,54 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     await this.reloadNow(repo);
   }
 
+  /**
+   * Adds one Service to the Repo's Local Config (creating it when the Repo has no config yet) and
+   * applies it; the new Service is `stopped`. Nothing is written when it is invalid.
+   */
+  async addLocalService(repoId: string, service: NewService): Promise<void> {
+    const repo = this.getRepo(repoId);
+    const config = await this.editableLocalConfig(repo);
+    await writeLocalConfig(this.appDataDir, repo.path, withService(config, service, repo.name));
+    await this.reloadNow(repo);
+  }
+
+  /**
+   * Removes a Service from the Repo's Local Config: stops it first when it runs, drops it from the
+   * `dependsOn` of the others, and deletes the Local Config with its last Service.
+   */
+  async removeLocalService(repoId: string, serviceId: string): Promise<void> {
+    const repo = this.getRepo(repoId);
+    if (!(await this.editableLocalConfig(repo)).services.some((s) => s.id === serviceId)) {
+      throw new DevPanelError(
+        'serviceNotFound',
+        { repoName: repo.name, serviceId },
+        `Service "${serviceId}" is not in the Local Config of Repo "${repo.name}"`,
+      );
+    }
+    if (repo.services.has(serviceId)) await this.stopService(repoId, serviceId);
+    this.requireStillListed(repo);
+    // Read again: the file may have changed while the Service was stopping.
+    const next = withoutService(await this.editableLocalConfig(repo), serviceId);
+    if (next.services.length > 0) await writeLocalConfig(this.appDataDir, repo.path, next);
+    else await deleteLocalConfig(this.appDataDir, repo.path);
+    await this.reloadNow(repo);
+  }
+
+  /** The Repo's Local Config as stored (empty when there is none yet), if the user may edit it. */
+  private async editableLocalConfig(repo: RepoState): Promise<RepoConfig> {
+    const repoResult = await readRepoConfig(repo.path);
+    if (!repoResult.ok || repoResult.config !== undefined) {
+      throw new DevPanelError(
+        'repoConfigInUse',
+        { repoName: repo.name },
+        `Repo "${repo.name}" has ${REPO_CONFIG_FILE}; its Services are not edited from DevPanel`,
+      );
+    }
+    const local = await readLocalConfig(this.appDataDir, repo.path);
+    if (!local.ok) throw new DevPanelError('localConfigInvalid', { repoName: repo.name }, local.error);
+    return local.config ?? { services: [] };
+  }
+
   /** Deletes the Repo's Local Config (offered once a Repo Config exists) and applies the result. */
   async deleteLocalConfig(repoId: string): Promise<void> {
     const repo = this.getRepo(repoId);
@@ -1016,7 +1067,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       repo.configSource = 'none';
     }
     repo.unusedLocalConfig = repo.configSource === 'repo' && exists(localResult);
-    repo.suggestions = repo.configSource === 'none' ? await detectServices(repo.path) : undefined;
+    repo.suggestions = repo.configSource === 'repo' ? undefined : await detectServices(repo.path);
 
     if (result && !result.ok) {
       repo.configError = result.error;

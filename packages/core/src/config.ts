@@ -102,9 +102,15 @@ function findDependencyCycle(services: { id: string; dependsOn?: string[] }[]): 
 export type ServiceDefinition = z.infer<typeof serviceSchema>;
 export type RepoConfig = z.infer<typeof repoConfigSchema>;
 
+/** One validation problem: where in the config (`['services', 1, 'port']`) and what (English). */
+export interface ConfigIssue {
+  path: PropertyKey[];
+  message: string;
+}
+
 export type ConfigResult =
   | { ok: true; config: RepoConfig | undefined }
-  | { ok: false; error: string };
+  | { ok: false; error: string; issues?: ConfigIssue[] };
 
 /** Directory inside the app data directory that holds the Local Configs. */
 export const LOCAL_CONFIG_DIR = 'local-configs';
@@ -126,7 +132,10 @@ function describeIssues(error: z.ZodError): string {
 /** Validates a parsed config object (Repo Config or Local Config). */
 export function validateConfig(raw: unknown, label: string): ConfigResult {
   const result = repoConfigSchema.safeParse(raw);
-  if (!result.success) return { ok: false, error: `${label} is invalid: ${describeIssues(result.error)}` };
+  if (!result.success) {
+    const issues = result.error.issues.map(({ path, message }) => ({ path, message }));
+    return { ok: false, error: `${label} is invalid: ${describeIssues(result.error)}`, issues };
+  }
   return { ok: true, config: result.data };
 }
 

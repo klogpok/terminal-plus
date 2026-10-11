@@ -116,6 +116,25 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     }),
     run: async (core, p) => (await core.saveLocalConfig(p.repoId, p.services), null),
   },
+  addLocalService: {
+    // Only the shape: core checks the values and names the form field at fault.
+    payload: z.object({
+      repoId: z.string().min(1),
+      service: z.object({
+        name: z.string(),
+        command: z.string(),
+        port: z.number().optional(),
+        url: z.string().optional(),
+        readyPattern: z.string().optional(),
+        dependsOn: z.array(z.string()).optional(),
+      }),
+    }),
+    run: async (core, p) => (await core.addLocalService(p.repoId, p.service), null),
+  },
+  removeLocalService: {
+    payload: serviceRef,
+    run: async (core, p) => (await core.removeLocalService(p.repoId, p.serviceId), null),
+  },
   deleteLocalConfig: {
     payload: repoRef,
     run: async (core, p) => (await core.deleteLocalConfig(p.repoId), null),

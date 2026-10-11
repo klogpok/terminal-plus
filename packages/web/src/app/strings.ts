@@ -119,6 +119,30 @@ export const RU_STRINGS: UiStrings = {
       `В файле настроек репо ${repoName} ошибка, поэтому пока работают прежние настройки. Покажите подробности разработчику.`,
   },
 
+  /** "+ Add Service" and "Remove" for Repos without a Repo Config (they edit the Local Config). */
+  editConfig: {
+    add: 'Добавить сервис',
+    formTitle: 'Новый сервис (сохраняется только на этом компьютере)',
+    pickLabel: 'Найденный скрипт',
+    pickOwn: 'Своя команда',
+    nameLabel: 'Имя',
+    commandLabel: 'Команда',
+    more: 'Дополнительно',
+    portLabel: 'Порт',
+    urlLabel: 'Адрес для браузера',
+    readyPatternLabel: 'Готов, когда в выводе появится',
+    dependsOnLabel: 'Сначала запустить:',
+    submit: 'Добавить',
+    cancel: 'Отмена',
+    remove: 'Убрать',
+    /** Accessible name of the Service remove button, e.g. "Remove API". */
+    removeService: (serviceName: string) => `Убрать ${serviceName}`,
+    removeQuestion: (serviceName: string) => `Убрать сервис ${serviceName}?`,
+    removeRunning: 'Сервис работает — остановить и убрать?',
+    removeDependents: (names: string[]) => `Эти сервисы больше не будут его ждать: ${names.join(', ')}.`,
+    removeConfirm: 'Убрать',
+  },
+
   /** Label shown next to each status dot (also its tooltip). */
   status: {
     stopped: 'Остановлен',
@@ -252,6 +276,35 @@ export const RU_STRINGS: UiStrings = {
       `Репо ${p.repoName} не использует pnpm, поэтому DevPanel не устанавливает его зависимости. Обратитесь к разработчику.`,
     configInvalid: (p) =>
       `В файле настроек репо ${p.repoName} ошибка, поэтому его сервисы не показаны. Покажите подробности разработчику.`,
+    localConfigInvalid: (p) =>
+      `В локальном конфиге репо ${p.repoName} ошибка, поэтому его сервисы нельзя изменить. Покажите подробности разработчику.`,
+    repoConfigInUse: (p) =>
+      `Сервисы репо ${p.repoName} описаны в его файле настроек, который пишут разработчики. Попросите разработчика их изменить.`,
+    serviceInvalid: (p) => {
+      switch (p.problem) {
+        case 'required':
+          return p.field === 'name' ? 'Введите имя.' : 'Введите команду.';
+        case 'nameTaken':
+          return 'Сервис с таким именем уже есть. Выберите другое имя.';
+        case 'portUsed':
+          return `Порт ${p.port} уже занят сервисом ${p.serviceName}. Выберите другой порт.`;
+        case 'invalid':
+          switch (p.field) {
+            case 'port':
+              return 'Введите номер порта от 1 до 65535.';
+            case 'url':
+              return 'Введите полный адрес, например http://localhost:3000.';
+            case 'readyPattern':
+              return 'DevPanel не может использовать этот текст как шаблон. Оставьте поле пустым или спросите разработчика.';
+            case 'dependsOn':
+              return 'Одного из выбранных сервисов уже нет. Обновите страницу.';
+            case undefined:
+              return 'Сервис не добавлен. Покажите подробности разработчику.';
+            default:
+              return 'DevPanel не принимает это значение. Измените его и попробуйте снова.';
+          }
+      }
+    },
     repoAlreadyAdded: (p) => `Эта папка уже добавлена как репо ${p.repoName}.`,
     repoNameTaken: (p) => `Репо с именем «${p.name}» уже есть. Выберите другое имя.`,
     folderNotFound: (p) => `Папка ${p.path} не найдена.`,

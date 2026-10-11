@@ -6,6 +6,7 @@ import type {
   EventMessage,
   EventType,
   Events,
+  NewService,
   Orphan,
   RepoChangedEvent,
   RepoView,
@@ -174,6 +175,16 @@ export class BackendService {
 
   saveLocalConfig(repoId: string, services: ServiceConfig[]): void {
     this.run('saveLocalConfig', { repoId, services });
+  }
+
+  /** Adds a Service to the Repo's Local Config; rejects with `UiErrorInfo` for the form to show. */
+  async addLocalService(repoId: string, service: NewService): Promise<void> {
+    await this.command('addLocalService', { repoId, service });
+  }
+
+  /** Removes a Service from the Repo's Local Config (the Server stops it first when it runs). */
+  removeLocalService(repoId: string, serviceId: string): void {
+    this.run('removeLocalService', { repoId, serviceId });
   }
 
   deleteLocalConfig(repoId: string): void {

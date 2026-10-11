@@ -8,7 +8,7 @@
  * and `packages/web/src/app/strings.ts`.
  */
 
-import type { PortOwner, ServiceStatus } from './index.js';
+import type { NewServiceField, PortOwner, ServiceStatus } from './index.js';
 
 /** Error codes and the parameters their messages need. */
 export interface ErrorParams {
@@ -38,6 +38,19 @@ export interface ErrorParams {
   notPnpmRepo: { repoName: string };
   /** The Repo Config is invalid or unreadable (shown on the Repo). */
   configInvalid: { repoName: string };
+  /** `addLocalService`/`removeLocalService`: the stored Local Config cannot be read or is invalid. */
+  localConfigInvalid: { repoName: string };
+  /** `addLocalService`/`removeLocalService` in a Repo whose Services come from its Repo Config. */
+  repoConfigInUse: { repoName: string };
+  /**
+   * `addLocalService`: the new Service was not saved because of `field` (absent when no single
+   * field is to blame). `invalid` covers any other config validation error.
+   */
+  serviceInvalid:
+    | { repoName: string; field: 'name' | 'command'; problem: 'required' }
+    | { repoName: string; field: 'name'; problem: 'nameTaken'; name: string }
+    | { repoName: string; field: 'port'; problem: 'portUsed'; port: number; serviceName: string }
+    | { repoName: string; field?: NewServiceField; problem: 'invalid' };
   /** `addRepo`/`relocateRepo`: the folder is already a Repo of the Workspace. */
   repoAlreadyAdded: { path: string; repoName: string };
   /** `addRepo`: another Repo already has this name; retry `addRepo` with `path` and another name. */

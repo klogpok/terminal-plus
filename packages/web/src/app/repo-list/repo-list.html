@@ -21,7 +21,7 @@
           <button type="button" (click)="backend.deleteLocalConfig(repo.id)">{{ strings.config.deleteLocalConfig }}</button>
         </div>
       }
-      @if (repo.suggestions) {
+      @if (repo.suggestions && repo.configSource !== 'local') {
         <dp-config-suggestions [repo]="repo" />
       }
       <ul class="services">
@@ -80,9 +80,20 @@
                 [attr.aria-label]="strings.actions.serviceAction(strings.actions.restart, service.name)"
                 (click)="backend.restartService(repo.id, service.id)"
               >⟳</button>
+              @if (editsLocalConfig(repo) && !service.removedFromConfig) {
+                <button
+                  type="button"
+                  [title]="strings.editConfig.remove"
+                  [attr.aria-label]="strings.editConfig.removeService(service.name)"
+                  (click)="askRemove(repo, service)"
+                >✕</button>
+              }
             </span>
             <dp-port-conflict [service]="service" (resolve)="backend.resolvePortConflict(repo.id, service.id)" />
             <dp-service-exit [service]="service" (startAgain)="backend.startService(repo.id, service.id)" />
+            @if (confirmingRemoval() === removalKey(repo, service)) {
+              <dp-remove-service [repo]="repo" [service]="service" (closed)="confirmingRemoval.set(undefined)" />
+            }
           </li>
         } @empty {
           @if (!repo.configError) {
@@ -90,6 +101,9 @@
           }
         }
       </ul>
+      @if (editsLocalConfig(repo) && !repo.folderMissing) {
+        <dp-add-service [repo]="repo" />
+      }
     </div>
   </section>
 } @empty {

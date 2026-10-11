@@ -87,28 +87,28 @@ async function open(label: string, session: SessionView): Promise<void> {
 }
 
 describe('opening Sessions', () => {
-  it('"Терминал" opens a shell Session tab colored like the Repo, and shows it', async () => {
-    await open('Открыть терминал в Billing', shell1);
+  it('"Terminal" opens a shell Session tab colored like the Repo, and shows it', async () => {
+    await open('Open a terminal in Billing', shell1);
 
-    expect(tabTexts()).toEqual(['Терминал']);
+    expect(tabTexts()).toEqual(['Terminal']);
     expect(tabs()[0]!.getAttribute('aria-selected')).toBe('true');
     expect(tabs()[0]!.closest<HTMLElement>('.tab-wrap')!.style.borderTopColor).toBe('rgb(233, 30, 99)');
   });
 
   it('"Claude Code" opens one more Session per click', async () => {
-    await open('Открыть Claude Code в Billing', claude1);
-    await open('Открыть Claude Code в Billing', claude2);
+    await open('Open Claude Code in Billing', claude1);
+    await open('Open Claude Code in Billing', claude2);
 
     expect(tabTexts()).toEqual(['Claude Code', 'Claude Code 2']);
     expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['false', 'true']);
   });
 
   it('explains plainly when Claude Code is not installed', async () => {
-    button('Открыть Claude Code в Billing').click();
+    button('Open Claude Code in Billing').click();
     await transport.fail(transport.lastCommand('openClaude'), { code: 'claudeMissing', params: {}, details: 'where claude' });
     await stable();
 
-    expect(page.querySelector('.error-message')!.textContent).toContain('Claude Code не установлен');
+    expect(page.querySelector('.error-message')!.textContent).toContain('Claude Code is not installed');
     expect(tabs()).toEqual([]);
   });
 
@@ -116,13 +116,13 @@ describe('opening Sessions', () => {
     transport.emit('sessionChanged', { session: shell1 });
     await stable();
 
-    expect(tabTexts()).toEqual(['Терминал']);
+    expect(tabTexts()).toEqual(['Terminal']);
   });
 });
 
 describe('Session terminal', () => {
   it('replays the buffer, streams output, sends input and size', async () => {
-    await open('Открыть терминал в Billing', shell1);
+    await open('Open a terminal in Billing', shell1);
     const request = transport.lastCommand('getSessionOutput');
     expect(request.payload).toEqual({ sessionId: 's1' });
 
@@ -142,33 +142,33 @@ describe('Session terminal', () => {
   it('reappears with its buffered output after a page reload', async () => {
     await loadPage({ repos: [billing], sessions: [shell1, { ...claude1, state: 'finished', exitCode: 0 }] });
 
-    expect(tabTexts()).toEqual(['Терминал', 'Claude Code (завершена)']);
+    expect(tabTexts()).toEqual(['Terminal', 'Claude Code (ended)']);
     await transport.reply(transport.commands('getSessionOutput')[0]!, 'history\r\n');
     expect(view().screen).toBe('history\r\n');
   });
 
   it('marks a Session that ended by itself as finished and keeps its tab', async () => {
-    await open('Открыть терминал в Billing', shell1);
+    await open('Open a terminal in Billing', shell1);
 
     transport.emit('sessionChanged', { session: { ...shell1, state: 'finished', exitCode: 0 } });
     await stable();
 
-    expect(tabTexts()).toEqual(['Терминал (завершена)']);
-    expect(page.querySelector('dp-service-terminal .ended')!.textContent).toContain('Сессия завершена');
+    expect(tabTexts()).toEqual(['Terminal (ended)']);
+    expect(page.querySelector('dp-service-terminal .ended')!.textContent).toContain('The Session has ended');
   });
 });
 
 describe('closing a Session tab', () => {
   it('asks first while the Session runs, then ends it with closeSession', async () => {
-    await open('Открыть терминал в Billing', shell1);
+    await open('Open a terminal in Billing', shell1);
 
-    button('Закрыть вкладку Терминал').click();
+    button('Close the Terminal tab').click();
     await stable();
     const confirm = page.querySelector<HTMLElement>('.close-confirm')!;
-    expect(confirm.textContent).toContain('ещё работает');
+    expect(confirm.textContent).toContain('is still running');
     expect(transport.commands('closeSession')).toEqual([]);
 
-    button('Завершить', confirm).click();
+    button('End Session', confirm).click();
     const command = transport.lastCommand('closeSession');
     expect(command.payload).toEqual({ sessionId: 's1' });
     transport.emit('sessionClosed', { sessionId: 's1', repoId: 'b1' });
@@ -180,22 +180,22 @@ describe('closing a Session tab', () => {
   });
 
   it('can be cancelled', async () => {
-    await open('Открыть терминал в Billing', shell1);
+    await open('Open a terminal in Billing', shell1);
 
-    button('Закрыть вкладку Терминал').click();
+    button('Close the Terminal tab').click();
     await stable();
-    button('Отмена', page.querySelector('.close-confirm')!).click();
+    button('Cancel', page.querySelector('.close-confirm')!).click();
     await stable();
 
     expect(transport.commands('closeSession')).toEqual([]);
     expect(page.querySelector('.close-confirm')).toBeNull();
-    expect(tabTexts()).toEqual(['Терминал']);
+    expect(tabTexts()).toEqual(['Terminal']);
   });
 
   it('closes a finished Session without asking', async () => {
     await loadPage({ repos: [billing], sessions: [{ ...shell1, state: 'finished', exitCode: 1 }] });
 
-    button('Закрыть вкладку Терминал').click();
+    button('Close the Terminal tab').click();
     await stable();
 
     expect(page.querySelector('.close-confirm')).toBeNull();
@@ -207,9 +207,9 @@ describe('removing a Repo with Sessions', () => {
   it('lists its running Sessions among what will be stopped', async () => {
     await loadPage({ repos: [billing], sessions: [shell1, claude1, { ...claude2, state: 'finished', exitCode: 0 }] });
 
-    button('Удалить репо Billing').click();
+    button('Remove Repo Billing').click();
     await stable();
 
-    expect(page.querySelector('.remove-confirm')!.textContent).toContain('Будут остановлены: API, Терминал, Claude Code.');
+    expect(page.querySelector('.remove-confirm')!.textContent).toContain('These will be stopped: API, Terminal, Claude Code.');
   });
 });

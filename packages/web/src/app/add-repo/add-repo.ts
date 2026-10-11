@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { BackendService } from '../backend/backend.service';
-import { STRINGS, type UiErrorInfo } from '../strings';
+import { STRINGS, type UiErrorInfo } from '../ui-strings';
 
 /** A name clash after picking a folder: the user chooses another name for the same folder. */
 interface NameClash {
@@ -9,7 +9,7 @@ interface NameClash {
 }
 
 /**
- * "Добавить репо": the Server shows the folder picker (a browser cannot return a folder path).
+ * "Add Repo": the Server shows the folder picker (a browser cannot return a folder path).
  * When the folder name is already taken, asks for another name and retries with the same folder.
  */
 @Component({

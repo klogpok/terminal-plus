@@ -67,8 +67,8 @@ describe('a port conflict on start', () => {
     await connectWithConflict(byService);
 
     const block = conflictBlock()!;
-    expect(block.textContent).toContain('Порт 3000 занят сервисом API из репо Billing');
-    button(block, 'Остановить его и запустить наш').click();
+    expect(block.textContent).toContain('Port 3000 is taken by the API Service in the Billing Repo');
+    button(block, 'Stop it and start ours').click();
 
     expect(transport.lastCommand('resolvePortConflict').payload).toEqual({ repoId: 'shop', serviceId: 'web' });
   });
@@ -77,13 +77,13 @@ describe('a port conflict on start', () => {
     await connectWithConflict(byProcess);
 
     const block = conflictBlock()!;
-    expect(block.textContent).toContain('Порт 3000 занят процессом node.exe (PID 1234)');
-    button(block, 'Завершить и запустить наш').click();
+    expect(block.textContent).toContain('Port 3000 is taken by the process node.exe (PID 1234)');
+    button(block, 'End it and start ours').click();
     await stable();
 
     expect(transport.commands('resolvePortConflict')).toEqual([]);
-    expect(conflictBlock()!.textContent).toContain('Завершить процесс node.exe (PID 1234)?');
-    button(conflictBlock()!, 'Да, завершить').click();
+    expect(conflictBlock()!.textContent).toContain('End the process node.exe (PID 1234)?');
+    button(conflictBlock()!, 'Yes, end it').click();
 
     expect(transport.lastCommand('resolvePortConflict').payload).toEqual({ repoId: 'shop', serviceId: 'web' });
   });
@@ -91,20 +91,20 @@ describe('a port conflict on start', () => {
   it('cancelling the confirmation sends nothing', async () => {
     await connectWithConflict(byProcess);
 
-    button(conflictBlock()!, 'Завершить и запустить наш').click();
+    button(conflictBlock()!, 'End it and start ours').click();
     await stable();
-    button(conflictBlock()!, 'Отмена').click();
+    button(conflictBlock()!, 'Cancel').click();
     await stable();
 
     expect(transport.commands('resolvePortConflict')).toEqual([]);
-    expect(button(conflictBlock()!, 'Завершить и запустить наш')).toBeTruthy();
+    expect(button(conflictBlock()!, 'End it and start ours')).toBeTruthy();
   });
 
   it('appears from the event, is shown inline instead of in the error list, and disappears when cleared', async () => {
     await connectWithConflict();
     expect(conflictBlock()).toBeNull();
 
-    serviceRow('web').querySelector<HTMLButtonElement>('button[aria-label="Запустить Web"]')!.click();
+    serviceRow('web').querySelector<HTMLButtonElement>('button[aria-label="Start Web"]')!.click();
     transport.emit('portConflictChanged', { repoId: 'shop', serviceId: 'web', portConflict: byService });
     await transport.fail(transport.lastCommand('startService'), {
       code: 'portTaken',
@@ -113,7 +113,7 @@ describe('a port conflict on start', () => {
     });
     await stable();
 
-    expect(conflictBlock()!.textContent).toContain('Порт 3000 занят сервисом API из репо Billing');
+    expect(conflictBlock()!.textContent).toContain('Port 3000 is taken by the API Service in the Billing Repo');
     expect(globalErrors()).toEqual([]);
 
     transport.emit('portConflictChanged', { repoId: 'shop', serviceId: 'web' });
@@ -121,10 +121,10 @@ describe('a port conflict on start', () => {
     expect(conflictBlock()).toBeNull();
   });
 
-  it('a port that would not free up is reported in plain Russian', async () => {
+  it('a port that would not free up is reported in plain language', async () => {
     await connectWithConflict(byService);
 
-    button(conflictBlock()!, 'Остановить его и запустить наш').click();
+    button(conflictBlock()!, 'Stop it and start ours').click();
     await transport.fail(transport.lastCommand('resolvePortConflict'), {
       code: 'portNotFreed',
       params: { repoName: 'Shop', serviceName: 'Web', port: 3000 },
@@ -132,7 +132,7 @@ describe('a port conflict on start', () => {
     });
     await stable();
 
-    expect(globalErrors()).toEqual(['Порт 3000 так и не освободился, поэтому сервис Web не запущен. Попробуйте ещё раз.']);
+    expect(globalErrors()).toEqual(['Port 3000 never became free, so the Web Service did not start. Try again.']);
   });
 });
 
@@ -141,10 +141,10 @@ describe('a port still held after a Stop', () => {
     await connectWithConflict({ ...byProcess, reason: 'stop' });
 
     const block = conflictBlock()!;
-    expect(block.textContent).toContain('Сервис Web остановлен, но порт 3000 всё ещё занят процессом node.exe (PID 1234)');
-    button(block, 'Завершить').click();
+    expect(block.textContent).toContain('The Web Service is stopped, but port 3000 is still taken by the process node.exe (PID 1234)');
+    button(block, 'End it').click();
     await stable();
-    button(conflictBlock()!, 'Да, завершить').click();
+    button(conflictBlock()!, 'Yes, end it').click();
 
     expect(transport.lastCommand('resolvePortConflict').payload).toEqual({ repoId: 'shop', serviceId: 'web' });
   });

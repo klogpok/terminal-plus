@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import type { RepoView, ServiceStatus, SessionKind } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 import { TerminalTabs, sessionTabKey } from '../terminal/terminal-tabs.service';
 
 /** Statuses in which a Service has a live process that removing the Repo would stop. */
@@ -10,8 +10,8 @@ const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unheal
 const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'exited']);
 
 /**
- * Top of a Repo card: name, git branch, "Открыть папку", "Удалить" with a confirmation listing what
- * runs, and for a missing folder the "Папка не найдена" notice with "Указать новое расположение".
+ * Top of a Repo card: name, git branch, "Open folder", "Remove" with a confirmation listing what
+ * runs, and for a missing folder the "Folder not found" notice with "Choose the new location".
  */
 @Component({
   selector: 'dp-repo-header',

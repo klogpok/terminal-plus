@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackendService, type InstallTab } from '../backend/backend.service';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 import { TERMINAL_VIEW_FACTORY } from '../terminal/terminal-view';
 
 /**

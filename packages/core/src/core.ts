@@ -23,6 +23,8 @@ import {
   type SessionView,
   type Snapshot,
   type StatusChangedEvent,
+  type UiLanguage,
+  type UiLanguageChangedEvent,
   type WaitingChangedEvent,
 } from '@devpanel/shared';
 import {
@@ -39,6 +41,7 @@ import {
 } from './config.js';
 import { detectServices } from './detect.js';
 import { readWorkspace, writeWorkspace } from './workspace.js';
+import { readUiLanguage, writeUiLanguage } from './ui-language.js';
 import { killTree, spawnService, type ServiceProcess } from './process.js';
 import { listProcesses, type ProcessInfo } from './ports.js';
 import { PID_FILE, PidFile, ProcessRecorder, matches, orphansFrom, type PidRecord } from './pid-file.js';
@@ -121,6 +124,7 @@ export interface CoreEvents extends SessionEvents {
   portConflictChanged: [PortConflictChangedEvent];
   waitingChanged: [WaitingChangedEvent];
   orphansFound: [OrphansFoundEvent];
+  uiLanguageChanged: [UiLanguageChangedEvent];
 }
 
 /** Files in a Repo root whose change triggers a config reload. */
@@ -169,10 +173,10 @@ function sameRecord(a: PidRecord, b: PidRecord): boolean {
 }
 
 /** Dimmed restart separator line written into a Service's output before each new run. */
-function restartSeparator(previousOutput: string, now = new Date()): string {
+function restartSeparator(previousOutput: string, language: UiLanguage, now = new Date()): string {
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const newline = previousOutput.endsWith('\n') ? '' : '\r\n';
-  return `${newline}\u001b[0m\u001b[2m${HOST_STRINGS.restartSeparator(time)}\u001b[0m\r\n`;
+  return `${newline}\u001b[0m\u001b[2m${HOST_STRINGS[language].restartSeparator(time)}\u001b[0m\r\n`;
 }
 
 /**
@@ -195,6 +199,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private readonly recorder: ProcessRecorder;
   /** Orphans found by `load` and not killed yet, with their matching PID file records. */
   private orphans: { orphan: Orphan; records: PidRecord[] }[] = [];
+  /** The stored UI Language, read by `load`. */
+  private storedUiLanguage: UiLanguage = 'en';
 
   constructor(options: CoreOptions) {
     super();
@@ -223,6 +229,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
    */
   async load(): Promise<void> {
     await this.findOrphans();
+    this.storedUiLanguage = await readUiLanguage(this.appDataDir);
     this.closeWatchers();
     const workspace = await readWorkspace(this.appDataDir);
     const repos = new Map<string, RepoState>();
@@ -467,7 +474,29 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   /** Full state for a (re)connecting client. */
   snapshot(): Snapshot {
     const orphans = this.listOrphans();
-    return { repos: this.listRepos(), sessions: this.listSessions(), ...(orphans.length && { orphans }) };
+    return {
+      repos: this.listRepos(),
+      sessions: this.listSessions(),
+      ...(orphans.length && { orphans }),
+      uiLanguage: this.storedUiLanguage,
+    };
+  }
+
+  /** The stored UI Language (what `snapshot().uiLanguage` reports), without building a snapshot. */
+  get uiLanguage(): UiLanguage {
+    return this.storedUiLanguage;
+  }
+
+  /** Stores the UI Language and announces it; the current value again is a no-op. */
+  async setUiLanguage(language: UiLanguage): Promise<void> {
+    if (language === this.storedUiLanguage) return;
+    try {
+      await writeUiLanguage(this.appDataDir, language);
+    } catch (err) {
+      throw new DevPanelError('uiLanguageNotSaved', {}, `Could not write the UI Language file: ${(err as Error).message}`);
+    }
+    this.storedUiLanguage = language;
+    this.emit('uiLanguageChanged', { language });
   }
 
   // --- Orphans ----------------------------------------------------------------------------------
@@ -565,7 +594,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     await Promise.all([...repo.services.keys()].map((serviceId) => this.stopService(repo.id, serviceId)));
   }
 
-  /** "Stop all in all Repos": stops every Service in the Workspace (never Sessions). */
+  /** "Stop everything in all Repos": stops every Service in the Workspace (never Sessions). */
   async stopAllRepos(): Promise<void> {
     await Promise.all([...this.repos.keys()].map((repoId) => this.stopAll(repoId)));
   }
@@ -650,7 +679,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const serviceId = service.definition.id;
     const { definition } = service;
     const cwd = path.resolve(repo.path, definition.cwd ?? '.');
-    if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text()));
+    if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text(), this.storedUiLanguage));
     service.lastExit = undefined;
     this.setStatus(repo, service, 'starting');
     let proc: ServiceProcess;

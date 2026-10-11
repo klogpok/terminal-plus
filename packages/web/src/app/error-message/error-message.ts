@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 
 /**
- * The single error pattern: a plain-Russian message, technical details folded under "Подробнее",
+ * The single error pattern: a plain-language message, technical details folded under "Details",
  * and an optional close button (shown when someone listens to `dismiss`).
  */
 @Component({

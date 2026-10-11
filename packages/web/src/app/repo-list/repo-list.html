@@ -1,8 +1,7 @@
 <h2 class="panel-title">{{ strings.repos.title }}</h2>
 <dp-add-repo />
 @for (repo of backend.repos(); track repo.id) {
-  <section class="repo" [class.repo-missing]="repo.folderMissing" [attr.data-repo-id]="repo.id">
-    <div class="repo-stripe" [style.background-color]="repoColor(repo)"></div>
+  <section class="repo" [class.repo-missing]="repo.folderMissing" [attr.data-repo-id]="repo.id" [style.border-color]="repoColor(repo)">
     <div class="repo-body">
       <dp-repo-header [repo]="repo" />
       @if (repo.configError) {

@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal } from '@angular/core';
 import type { ServiceView } from '@devpanel/shared';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 
 /**
- * A Service's port held by someone else: who holds it, in plain Russian, and the one button that
+ * A Service's port held by someone else: who holds it, in plain language, and the one button that
  * frees it ("Stop it and start ours" for our Service; "Kill it and start ours" for a foreign
  * process, which first asks for confirmation). After a Stop, the button only frees the port.
  * Renders nothing when the Service has no conflict.

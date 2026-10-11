@@ -3,7 +3,7 @@ import type { ServiceRef, SessionView } from '@devpanel/shared';
 import { BackendService, type InstallTab } from '../backend/backend.service';
 import { InstallOutput } from '../install-output/install-output';
 import { repoColor } from '../repo-color';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 import { ServiceTerminal, type TerminalRef } from './service-terminal';
 import { TerminalTabs, installTabKey, sessionTabKey, tabKey } from './terminal-tabs.service';
 

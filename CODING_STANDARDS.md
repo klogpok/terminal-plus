@@ -4,7 +4,7 @@ Judgement calls for review. Mechanical rules (core's forbidden imports, Russian 
 
 ## User-facing errors
 
-The user is not a programmer. Every error they see says in plain Russian what happened and what to press. Technical detail (codes, paths, stack traces, English messages) sits behind the "Подробнее" fold-out in the web UI (`dp-error-message`) or the "Подробности" button in desktop dialogs. Flag an error whose main text carries jargon, an exit code without explanation, or an English string, and an error that leaves the user without a next step.
+The user is not a programmer. Every error they see says in plain language (English by default, Russian) what happened and what to press. Technical detail (codes, paths, stack traces, English messages) sits behind the "Details" fold-out ("Подробнее" in Russian) in the web UI (`dp-error-message`) or the "Details" button in desktop dialogs ("Подробности" in Russian). Flag an error whose main text carries jargon, an exit code without explanation, or text hard-coded outside the strings modules, and an error that leaves the user without a next step.
 
 ## One reason to change
 

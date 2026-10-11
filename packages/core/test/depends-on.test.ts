@@ -194,7 +194,7 @@ describe('Start all / Stop all', () => {
     expect(statusOf(core, 'site', 1)).toBe('running');
   });
 
-  it('Stop all in all Repos stops every Service in the Workspace', async () => {
+  it('Stop everything in all Repos stops every Service in the Workspace', async () => {
     h.addRepo({ name: 'billing', config: { services: [readyAfter('api', 0)] } });
     h.addRepo({ name: 'docs', config: { services: [readyAfter('site', 0)] } });
     const core = await h.createCore();

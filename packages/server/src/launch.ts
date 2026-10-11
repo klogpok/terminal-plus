@@ -1,9 +1,10 @@
 /**
  * The launcher's logic (`start-devpanel.bat` runs `dist/launch-main.js`): find out whether DevPanel
  * already runs on the port, then either start the Server, only open another browser tab (a normal
- * peer client, ADR-0001), or explain in plain Russian that another program holds the port.
+ * peer client, ADR-0001), or explain in plain language that another program holds the port. Console
+ * lines are in the stored UI Language.
  */
-import { HOST_STRINGS } from '@devpanel/shared';
+import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
 import { HOST, browserUrl } from './start.js';
 import { ACCESS_KEY_HEADER, DEVPANEL_APP_ID, HELLO_PATH } from './server.js';
 
@@ -42,6 +43,8 @@ export interface LaunchDeps {
   port: number;
   /** The Access Key stored in the app data directory by the running Server. */
   readAccessKey(): Promise<string | undefined>;
+  /** The UI Language the console lines are in (the stored one; `launch-main.ts` reads it). */
+  language: UiLanguage;
   /** Starts the Server in this process (it then lives as long as the launcher's console). */
   startServer(): Promise<{ openUrl: string }>;
   openBrowser(url: string): Promise<void>;
@@ -72,39 +75,42 @@ export function portBlocker(probe: PortProbe): PortBlocker | undefined {
   return probe.keyValid ? undefined : 'keyMismatch';
 }
 
-/** The plain-Russian explanation of a `PortBlocker`. */
-export function portBlockerMessage(blocker: PortBlocker, port: number): string {
-  return blocker === 'portTaken' ? HOST_STRINGS.portTaken(port) : HOST_STRINGS.keyMismatch;
+/** The plain-language explanation of a `PortBlocker`, in the given UI Language. */
+export function portBlockerMessage(blocker: PortBlocker, port: number, language: UiLanguage): string {
+  const strings = HOST_STRINGS[language];
+  return blocker === 'portTaken' ? strings.portTaken(port) : strings.keyMismatch;
 }
 
 /** Starts DevPanel, or opens another tab of the running one, or explains why neither is possible. */
 export async function launch(deps: LaunchDeps): Promise<LaunchResult> {
+  const { language } = deps;
+  const strings = HOST_STRINGS[language].launcher;
   const probe = await probePort(deps.port, await deps.readAccessKey());
   if (probe.kind === 'free') {
-    deps.print(HOST_STRINGS.launcher.starting);
+    deps.print(strings.starting);
     try {
       const { openUrl } = await deps.startServer();
       await deps.openBrowser(openUrl);
-      deps.print(HOST_STRINGS.launcher.started(openUrl.split('#')[0]!));
+      deps.print(strings.started(openUrl.split('#')[0]!));
       return 'started';
     } catch (error) {
       // Another launcher (a double double-click) or program took the port after our probe.
       if (!isAddressInUse(error)) throw error;
-      return openExisting(deps, await probePort(deps.port, await deps.readAccessKey()));
+      return openExisting(deps, language, await probePort(deps.port, await deps.readAccessKey()));
     }
   }
-  return openExisting(deps, probe);
+  return openExisting(deps, language, probe);
 }
 
-async function openExisting(deps: LaunchDeps, probe: PortProbe): Promise<LaunchResult> {
+async function openExisting(deps: LaunchDeps, language: UiLanguage, probe: PortProbe): Promise<LaunchResult> {
   const key = await deps.readAccessKey();
   const blocker = portBlocker(probe);
   if (blocker || key === undefined) {
     const reason = blocker ?? 'keyMismatch';
-    deps.print(portBlockerMessage(reason, deps.port));
+    deps.print(portBlockerMessage(reason, deps.port, language));
     return reason;
   }
-  deps.print(HOST_STRINGS.launcher.alreadyRunning);
+  deps.print(HOST_STRINGS[language].launcher.alreadyRunning);
   await deps.openBrowser(browserUrl(deps.port, key));
   return 'openedExisting';
 }

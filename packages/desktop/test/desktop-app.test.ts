@@ -4,7 +4,7 @@
  * by `electron.e2e.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
-import { HOST_STRINGS } from '@devpanel/shared';
+import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
 import {
   runDesktop,
   type DesktopError,
@@ -53,6 +53,10 @@ class FakeWindow implements DesktopWindow {
 
 class FakeTray implements DesktopTray {
   menu: TrayMenuItem[] = [];
+  tooltip?: string;
+  setToolTip(text: string): void {
+    this.tooltip = text;
+  }
   private clickListener?: () => void;
   setMenu(items: TrayMenuItem[]): void {
     this.menu = items;
@@ -157,7 +161,23 @@ class FakeServer implements RunningServer {
     this.stopAllCalls++;
     if (this.stopAllFailure) throw this.stopAllFailure;
   }
+  language: UiLanguage = 'en';
+  private languageListeners: ((language: UiLanguage) => void)[] = [];
+  uiLanguage(): UiLanguage {
+    return this.language;
+  }
+  onUiLanguageChanged(listener: (language: UiLanguage) => void): void {
+    this.languageListeners.push(listener);
+  }
+  /** The UI Language is switched in the window (`uiLanguageChanged`). */
+  switchUiLanguage(language: UiLanguage): void {
+    this.language = language;
+    for (const listener of this.languageListeners) listener(language);
+  }
 }
+
+const EN = HOST_STRINGS.en.desktop;
+const RU = HOST_STRINGS.ru.desktop;
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -174,6 +194,7 @@ function setup(overrides: Partial<DesktopOptions> & { server?: FakeServer } = {}
       return server;
     },
     probePort: async () => ({ kind: 'free' }),
+    readUiLanguage: async () => 'en',
     ...overrides,
   };
   return { host, server, options, exitFromUi: () => requestExit?.() };
@@ -223,14 +244,28 @@ describe('window', () => {
     expect(host.window!.visible).toBe(false);
     expect(server.closeCalls).toBe(0);
     expect(host.exitCode).toBeUndefined();
-    host.tray!.item(HOST_STRINGS.desktop.show).click!();
+    host.tray!.item(EN.show).click!();
     expect(host.window!.visible).toBe(true);
   });
 });
 
 describe('tray', () => {
-  it('offers show, "Stop all in all Repos", start with Windows, and quit', async () => {
+  it('offers show, "Stop everything in all Repos", start with Windows, and quit, in English by default', async () => {
     const { host, options } = setup();
+    await runDesktop(options);
+    expect(host.tray!.menu.filter((i) => i.type !== 'separator').map((i) => i.label)).toEqual([
+      'Show DevPanel',
+      'Stop everything in all Repos',
+      'Start with Windows',
+      'Exit DevPanel',
+    ]);
+    expect(host.tray!.tooltip).toBe('DevPanel');
+  });
+
+  it('is in Russian when the Server starts with the UI Language ru', async () => {
+    const server = new FakeServer();
+    server.language = 'ru';
+    const { host, options } = setup({ server });
     await runDesktop(options);
     expect(host.tray!.menu.filter((i) => i.type !== 'separator').map((i) => i.label)).toEqual([
       'Показать DevPanel',
@@ -238,30 +273,63 @@ describe('tray', () => {
       'Запускать вместе с Windows',
       'Выйти из DevPanel',
     ]);
+    expect(host.tray!.tooltip).toBe(RU.tooltip);
   });
 
-  it('"Stop all in all Repos" stops the Services and keeps DevPanel running', async () => {
+  it('is rebuilt in the new UI Language right after it changes in the window, keeping its state', async () => {
     const { host, options, server } = setup();
     await runDesktop(options);
-    host.tray!.item(HOST_STRINGS.desktop.stopAllRepos).click!();
+    host.tray!.item(EN.autostart).click!();
+
+    server.switchUiLanguage('ru');
+
+    expect(host.tray!.menu.filter((i) => i.type !== 'separator').map((i) => i.label)).toEqual([
+      'Показать DevPanel',
+      'Остановить всё во всех репо',
+      'Запускать вместе с Windows',
+      'Выйти из DevPanel',
+    ]);
+    expect(host.tray!.item(RU.autostart).checked).toBe(true);
+    expect(host.tray!.tooltip).toBe(RU.tooltip);
+    host.window!.hide();
+    host.tray!.item(RU.show).click!();
+    expect(host.window!.visible).toBe(true);
+  });
+
+  it('a failed "Stop everything in all Repos" after switching to ru explains in Russian', async () => {
+    const server = new FakeServer();
+    server.stopAllFailure = new Error('taskkill failed');
+    const { host, options } = setup({ server });
+    await runDesktop(options);
+    server.switchUiLanguage('ru');
+    host.tray!.item(RU.stopAllRepos).click!();
+    await flush();
+    expect(host.errors).toMatchObject([{ title: RU.stopAllFailedTitle, message: RU.stopAllFailed, language: 'ru' }]);
+  });
+
+  it('"Stop everything in all Repos" stops the Services and keeps DevPanel running', async () => {
+    const { host, options, server } = setup();
+    await runDesktop(options);
+    host.tray!.item(EN.stopAllRepos).click!();
     await flush();
     expect(server.stopAllCalls).toBe(1);
     expect(server.closeCalls).toBe(0);
     expect(host.exitCode).toBeUndefined();
   });
 
-  it('a failed "Stop all in all Repos" explains in plain Russian with the technical details apart', async () => {
+  it('a failed "Stop everything in all Repos" explains in plain language with the technical details apart', async () => {
     const server = new FakeServer();
     server.stopAllFailure = new Error('taskkill failed for PID 4242');
     const { host, options } = setup({ server });
     await runDesktop(options);
-    host.tray!.item(HOST_STRINGS.desktop.stopAllRepos).click!();
+    host.tray!.item(EN.stopAllRepos).click!();
     await flush();
     expect(host.errors).toEqual([
       {
-        title: HOST_STRINGS.desktop.stopAllFailedTitle,
-        message: HOST_STRINGS.desktop.stopAllFailed,
+        title: 'Could not stop everything',
+        message: EN.stopAllFailed,
         details: expect.stringContaining('taskkill failed for PID 4242'),
+        language: 'en',
       },
     ]);
   });
@@ -269,13 +337,13 @@ describe('tray', () => {
   it('start with Windows is off by default and toggles from the tray', async () => {
     const { host, options } = setup();
     await runDesktop(options);
-    expect(host.tray!.item(HOST_STRINGS.desktop.autostart)).toMatchObject({ type: 'checkbox', checked: false });
-    host.tray!.item(HOST_STRINGS.desktop.autostart).click!();
+    expect(host.tray!.item(EN.autostart)).toMatchObject({ type: 'checkbox', checked: false });
+    host.tray!.item(EN.autostart).click!();
     expect(host.autostartEnabled).toBe(true);
-    expect(host.tray!.item(HOST_STRINGS.desktop.autostart).checked).toBe(true);
-    host.tray!.item(HOST_STRINGS.desktop.autostart).click!();
+    expect(host.tray!.item(EN.autostart).checked).toBe(true);
+    host.tray!.item(EN.autostart).click!();
     expect(host.autostartEnabled).toBe(false);
-    expect(host.tray!.item(HOST_STRINGS.desktop.autostart).checked).toBe(false);
+    expect(host.tray!.item(EN.autostart).checked).toBe(false);
   });
 });
 
@@ -284,7 +352,7 @@ describe('quit', () => {
     const server = new FakeServer(false);
     const { host, options } = setup({ server });
     await runDesktop(options);
-    host.tray!.item(HOST_STRINGS.desktop.quit).click!();
+    host.tray!.item(EN.quit).click!();
     expect(server.closeCalls).toBe(1);
     await flush();
     expect(host.exitCode).toBeUndefined();
@@ -327,8 +395,8 @@ describe('start failures', () => {
       probePort: async () => ({ kind: 'devpanel', keyValid: true }),
     });
     expect(await runDesktop(options)).toBe('startFailed');
-    expect(host.errors).toEqual([{ title: 'DevPanel не запустился', message: HOST_STRINGS.desktop.alreadyRunning }]);
-    expect(host.errors[0]!.message).toContain('DevPanel уже запущен');
+    expect(host.errors).toEqual([{ title: 'DevPanel did not start', message: EN.alreadyRunning, language: 'en' }]);
+    expect(host.errors[0]!.message).toContain('DevPanel is already running in another window');
     expect(host.exitCode).toBe(1);
     expect(host.window).toBeUndefined();
   });
@@ -341,7 +409,7 @@ describe('start failures', () => {
       probePort: async () => ({ kind: 'foreign' }),
     });
     await runDesktop(options);
-    expect(host.errors[0]!.message).toContain('порт 7777 занят другой программой');
+    expect(host.errors[0]!.message).toContain('port 7777 is used by another program');
     expect(host.exitCode).toBe(1);
   });
 
@@ -353,7 +421,9 @@ describe('start failures', () => {
       probePort: async () => ({ kind: 'devpanel', keyValid: false }),
     });
     await runDesktop(options);
-    expect(host.errors).toEqual([{ title: 'DevPanel не запустился', message: HOST_STRINGS.keyMismatch }]);
+    expect(host.errors).toEqual([
+      { title: 'DevPanel did not start', message: HOST_STRINGS.en.keyMismatch, language: 'en' },
+    ]);
     expect(host.exitCode).toBe(1);
   });
 
@@ -366,11 +436,26 @@ describe('start failures', () => {
     await runDesktop(options);
     expect(host.errors).toEqual([
       {
-        title: 'DevPanel не запустился',
-        message: HOST_STRINGS.desktop.unexpected,
+        title: 'DevPanel did not start',
+        message: EN.unexpected,
         details: expect.stringContaining('workspace.json is broken'),
+        language: 'en',
       },
     ]);
     expect(host.exitCode).toBe(1);
+  });
+
+  it('is shown in the stored UI Language', async () => {
+    const { host, options } = setup({
+      startServer: async () => {
+        throw inUse();
+      },
+      probePort: async () => ({ kind: 'foreign' }),
+      readUiLanguage: async () => 'ru',
+    });
+    await runDesktop(options);
+    expect(host.errors).toEqual([
+      { title: 'DevPanel не запустился', message: HOST_STRINGS.ru.portTaken(7777), language: 'ru' },
+    ]);
   });
 });

@@ -242,7 +242,7 @@ describe('Sessions and the rest of DevPanel', () => {
     await expect(core.relocateRepo(repo.id, elsewhere)).rejects.toMatchObject({ code: 'repoBusy' });
   });
 
-  it('"Stop all" and "Stop all in all Repos" leave Sessions running; shutdown (Exit) ends them', async () => {
+  it('"Stop all" and "Stop everything in all Repos" leave Sessions running; shutdown (Exit) ends them', async () => {
     h.addRepo({ name: 'billing', config: { services: [{ id: 'api', command: fixtureCommand('spawn-grandchild.mjs') }] } });
     h.addRepo({ name: 'docs', config: { services: [{ id: 'web', command: fixtureCommand('spawn-grandchild.mjs') }] } });
     const core = await h.createCore();

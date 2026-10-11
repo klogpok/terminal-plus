@@ -1,33 +1,24 @@
 /**
- * Every user-facing UI string lives here (Russian now; English later goes in a sibling file with the
- * same shape). Components read `STRINGS` only; never put user-facing text in templates or code.
- * Text shown outside the web UI (launcher console, desktop tray and dialogs, the restart separator
- * in Service output) sits beside this file in `HOST_STRINGS` (packages/shared/src/strings.ts).
- *
- * Error messages are keyed by `ErrorCode` (packages/shared/src/errors.ts) plus client-side codes;
- * a new code fails to compile until its message is added here.
+ * The Russian UI string set. Its shape is `UiStrings` (defined by the English set in
+ * `strings.en.ts`), so a key missing from either fails to compile. Components never read a set
+ * directly; they read `STRINGS` from `ui-strings.ts`.
  */
-import type { ErrorParams, Orphan, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
-
-/** Errors raised in the browser itself (not by the Server). */
-export interface ClientErrorParams {
-  /** The connection to the Server dropped while a command was in flight, or was never open. */
-  connectionLost: Record<string, never>;
-}
-
-export type UiErrorCode = keyof ErrorParams | keyof ClientErrorParams;
-type AllErrorParams = ErrorParams & ClientErrorParams;
-
-/** An error from the Server (`ErrorInfo`) or from the client. */
-export type UiErrorInfo = {
-  [C in UiErrorCode]: { code: C; params: AllErrorParams[C]; details: string };
-}[UiErrorCode];
+import type {
+  Orphan,
+  PortConflict,
+  PortOwner,
+  PortOwnerKind,
+  ServiceStatus,
+  SessionKind,
+} from '@devpanel/shared';
+import type { UiStrings } from './strings.en';
+import type { AllErrorParams, UiErrorCode } from './ui-errors';
 
 /**
  * Who holds a port, in the instrumental case: "сервисом API из репо Billing" / "процессом node.exe
  * (PID 1234)". A new `PortOwner` kind fails to compile until it gets a case here.
  */
-export function describePortOwner(owner: PortOwner): string {
+function describePortOwner(owner: PortOwner): string {
   switch (owner.kind) {
     case 'service':
       return `сервисом ${owner.serviceName} из репо ${owner.repoName}`;
@@ -46,14 +37,6 @@ function sessionKindName(kind: SessionKind): string {
   return kind === 'claude' ? 'Claude Code' : 'терминала';
 }
 
-/** One Orphan in plain words: "Сервис API из репо Billing остался с прошлого запуска". */
-export function describeOrphan({ owner, repoName }: Orphan): string {
-  if (owner.kind === 'service') return `Сервис ${owner.serviceName} из репо ${repoName} остался с прошлого запуска`;
-  return owner.sessionKind === 'claude'
-    ? `Сессия Claude Code из репо ${repoName} осталась с прошлого запуска`
-    : `Терминал из репо ${repoName} остался с прошлого запуска`;
-}
-
 /** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */
 const DEPENDENCY_OUTCOME: Record<ServiceStatus, string> = {
   crashed: 'упал',
@@ -65,8 +48,10 @@ const DEPENDENCY_OUTCOME: Record<ServiceStatus, string> = {
   running: 'не запустился',
 };
 
-export const STRINGS = {
+export const RU_STRINGS: UiStrings = {
   appTitle: 'DevPanel',
+  /** Accessible name of the drag handle between the Repo list and the terminals. */
+  resizeLeft: 'Ширина списка репо',
 
   connection: {
     connecting: 'Подключаемся к DevPanel…',
@@ -172,11 +157,24 @@ export const STRINGS = {
     done: 'DevPanel выключен. Эту вкладку можно закрыть. Чтобы начать снова, запустите DevPanel ярлыком на рабочем столе.',
   },
 
+  /** The UI Language switch in the header; each language is named in its own language. */
+  uiLanguage: {
+    label: 'Язык',
+    names: { en: 'English', ru: 'Русский' },
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'После прошлого запуска DevPanel остались работающие процессы:',
     hint: 'Обычно их стоит завершить: они могут занимать порты и мешать запуску.',
     kill: 'Убить',
+    /** One Orphan in plain words: "Сервис API из репо Billing остался с прошлого запуска". */
+    describe: ({ owner, repoName }: Orphan) => {
+      if (owner.kind === 'service') return `Сервис ${owner.serviceName} из репо ${repoName} остался с прошлого запуска`;
+      return owner.sessionKind === 'claude'
+        ? `Сессия Claude Code из репо ${repoName} осталась с прошлого запуска`
+        : `Терминал из репо ${repoName} остался с прошлого запуска`;
+    },
   },
 
   error: {
@@ -267,14 +265,12 @@ export const STRINGS = {
     sessionSpawnFailed: (p) => `Не удалось открыть сессию в репо ${p.repoName}.`,
     serviceHasNoUrl: (p) => `У сервиса ${p.serviceName} из репо ${p.repoName} не указан адрес для браузера.`,
     shellFailed: () => 'Не удалось открыть окно Windows. Попробуйте ещё раз.',
+    uiLanguageNotSaved: () => 'Не удалось сохранить выбор языка, поэтому DevPanel остаётся на текущем языке. Попробуйте ещё раз.',
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',
+    uiLanguageNotFollowed: () =>
+      'Язык DevPanel изменился, но эта вкладка не может на него переключиться: браузер не даёт сайтам сохранять данные. ' +
+      'Разрешите сохранение данных сайтов в настройках браузера и обновите страницу.',
   } satisfies { [C in UiErrorCode]: (params: AllErrorParams[C]) => string },
 };
-
-/** The plain-Russian message for an error. */
-export function describeError(error: UiErrorInfo): string {
-  const message = STRINGS.errors[error.code] as (params: unknown) => string;
-  return message(error.params);
-}

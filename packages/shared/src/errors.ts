@@ -1,10 +1,11 @@
 /**
  * Error contract. `core` throws `DevPanelError` with a stable `code` and `params`; the Server sends
- * it as `ErrorInfo`; the UI turns `code` + `params` into a plain-Russian message (strings file) and
+ * it as `ErrorInfo`; the UI turns `code` + `params` into a plain-language message (UI string sets) and
  * shows `details` (technical, English) under "Details".
  *
  * Adding an error: add a code with its params to `ErrorParams`, throw `new DevPanelError(code, params,
- * details)` in `core`, and add the message to `errors` in `packages/web/src/app/strings.ts`.
+ * details)` in `core`, and add the message to `errors` in both UI string sets, `packages/web/src/app/strings.en.ts`
+ * and `packages/web/src/app/strings.ts`.
  */
 
 import type { PortOwner, ServiceStatus } from './index.js';
@@ -57,6 +58,8 @@ export interface ErrorParams {
   sessionSpawnFailed: { repoName: string };
   /** The folder picker, Explorer or the browser could not be opened. */
   shellFailed: Record<string, never>;
+  /** `setUiLanguage`: the UI Language file in the app data folder could not be written. */
+  uiLanguageNotSaved: Record<string, never>;
   /** A malformed or unknown command reached the Server. */
   badCommand: Record<string, never>;
   /** Anything unexpected. */

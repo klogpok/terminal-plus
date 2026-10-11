@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import type { ServiceView } from '@devpanel/shared';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 
 /**
  * How a Service ended by itself: `crashed` (exit code, styled as an error) or `exited` ("Finished by

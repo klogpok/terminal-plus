@@ -183,6 +183,20 @@ export interface SessionView {
   exitCode?: number;
 }
 
+/**
+ * UI Language: which language DevPanel shows its text in. One value per DevPanel app data folder;
+ * English when nothing is stored.
+ */
+export type UiLanguage = (typeof UI_LANGUAGES)[number];
+
+/** Every UI Language, in the order the header switch offers them; English (the default) first. */
+export const UI_LANGUAGES = ['en', 'ru'] as const;
+
+/** Whether `value` names a UI Language (for stored or cached values, which may be anything). */
+export function isUiLanguage(value: unknown): value is UiLanguage {
+  return (UI_LANGUAGES as readonly unknown[]).includes(value);
+}
+
 /** Full state, enough for a (re)connecting client to rebuild its UI. Grows with later tickets. */
 export interface Snapshot {
   repos: RepoView[];
@@ -190,11 +204,18 @@ export interface Snapshot {
   sessions: SessionView[];
   /** Orphans found on Server start and not killed yet (absent = none). */
   orphans?: Orphan[];
+  /** The stored UI Language; a tab that loaded another string set switches to it. */
+  uiLanguage: UiLanguage;
 }
 
 /** The current list of Orphans: found on Server start, then after each kill (empty = none left). */
 export interface OrphansFoundEvent {
   orphans: Orphan[];
+}
+
+/** The UI Language was changed (`setUiLanguage`); every tab reloads in it. */
+export interface UiLanguageChangedEvent {
+  language: UiLanguage;
 }
 
 /** Addresses one Service. */
@@ -302,6 +323,7 @@ export interface Events {
   sessionClosed: SessionClosedEvent;
   /** Live Session output. A tab first fetches `getSessionOutput` (same ordering rule as `log`). */
   sessionOutput: SessionOutputEvent;
+  uiLanguageChanged: UiLanguageChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -325,7 +347,7 @@ export interface Commands {
   startAll: { payload: { repoId: string }; result: null };
   /** "Stop all": stops every Service of the Repo (Services only, never Sessions). */
   stopAll: { payload: { repoId: string }; result: null };
-  /** "Stop all in all Repos": stops every Service in the Workspace (never Sessions). */
+  /** "Stop everything in all Repos": stops every Service in the Workspace (never Sessions). */
   stopAllRepos: { payload: Record<string, never>; result: null };
   /** Without `path` the Server shows a folder picker; `null` result = the user cancelled it. */
   addRepo: { payload: { path?: string; name?: string }; result: RepoView | null };
@@ -371,6 +393,11 @@ export interface Commands {
   writeToSession: { payload: { sessionId: string; data: string }; result: null };
   /** Terminal size of a Session tab; the most recent resize from any client wins. */
   resizeSession: { payload: { sessionId: string; cols: number; rows: number }; result: null };
+  /**
+   * Stores the UI Language in the app data folder and emits `uiLanguageChanged`; setting the current
+   * value again does nothing. Fails with `uiLanguageNotSaved` when the file cannot be written.
+   */
+  setUiLanguage: { payload: { language: UiLanguage }; result: null };
 }
 
 export type CommandType = keyof Commands;

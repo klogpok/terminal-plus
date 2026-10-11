@@ -15,8 +15,10 @@ import type {
   ServiceView,
   SessionKind,
   SessionView,
+  UiLanguage,
 } from '@devpanel/shared';
-import { describeError, type UiErrorInfo } from '../strings';
+import { describeError, loadedUiLanguage, type UiErrorInfo } from '../ui-strings';
+import { RELOAD_PAGE, cacheUiLanguage } from '../ui-language';
 import { BACKEND_TRANSPORT } from './backend-transport';
 
 export type ConnectionState = 'connecting' | 'open' | 'closed';
@@ -24,7 +26,7 @@ export type ConnectionState = 'connecting' | 'open' | 'closed';
 /** "Exit DevPanel" from this tab: not requested, stopping everything, or done (Server gone). */
 export type ExitState = 'none' | 'exiting' | 'exited';
 
-/** An error shown to the user: plain-Russian message + technical details under "Details". */
+/** An error shown to the user: plain-language message + technical details under "Details". */
 export interface UiError {
   id: number;
   message: string;
@@ -57,6 +59,9 @@ interface Pending {
 @Injectable({ providedIn: 'root' })
 export class BackendService {
   private readonly transport = inject(BACKEND_TRANSPORT);
+  private readonly reloadPage = inject(RELOAD_PAGE);
+  /** The Server's UI Language this tab could not switch to (already reported), if any. */
+  private unfollowedUiLanguage: UiLanguage | undefined;
 
   private readonly connectionState = signal<ConnectionState>('connecting');
   private readonly connectionDetailsState = signal('');
@@ -123,7 +128,7 @@ export class BackendService {
     this.run('stopAll', { repoId });
   }
 
-  /** "Stop all in all Repos": every Service in the Workspace, never Sessions. */
+  /** "Stop everything in all Repos": every Service in the Workspace, never Sessions. */
   stopAllRepos(): void {
     this.run('stopAllRepos', {});
   }
@@ -138,6 +143,11 @@ export class BackendService {
         this.showError(error);
       },
     );
+  }
+
+  /** Asks the Server to store the UI Language; every tab reloads on `uiLanguageChanged`. */
+  setUiLanguage(language: UiLanguage): void {
+    this.run('setUiLanguage', { language });
   }
 
   /** Kills every Orphan (each with its whole process tree). */
@@ -280,6 +290,7 @@ export class BackendService {
         this.reposState.set(snapshot.repos);
         this.sessionsState.set(snapshot.sessions);
         this.orphansState.set(snapshot.orphans ?? []);
+        this.followUiLanguage(snapshot.uiLanguage);
       },
       (error: UiErrorInfo) => this.showError(error),
     );
@@ -379,6 +390,29 @@ export class BackendService {
       case 'sessionClosed':
         this.forgetSession(event.payload.sessionId);
         break;
+      case 'uiLanguageChanged':
+        this.followUiLanguage(event.payload.language);
+        break;
+    }
+  }
+
+  /**
+   * The Server's UI Language is the source of truth: when it differs from the loaded string set,
+   * cache it and reload the page in it. Services and Sessions keep running; the page restores them.
+   * When it cannot be cached the reload would open in the old language again (and again), so the
+   * tab stays and says why, once per language.
+   */
+  private followUiLanguage(language: UiLanguage): void {
+    if (language === loadedUiLanguage()) return;
+    if (cacheUiLanguage(language)) {
+      this.reloadPage();
+    } else if (this.unfollowedUiLanguage !== language) {
+      this.unfollowedUiLanguage = language;
+      this.showError({
+        code: 'uiLanguageNotFollowed',
+        params: {},
+        details: `The UI Language is now "${language}", but the browser storage (localStorage) is unavailable.`,
+      });
     }
   }
 

@@ -9,6 +9,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { UiLanguage } from '@devpanel/shared';
 import {
   ACCESS_KEY_FILE,
   launch,
@@ -61,13 +62,14 @@ async function freePort(): Promise<number> {
 }
 
 /** Launcher dependencies over the test's app data dir; records opened URLs and printed lines. */
-function launcherFor(port: number) {
+function launcherFor(port: number, language: UiLanguage = 'en') {
   const opened: string[] = [];
   const printed: string[] = [];
   let started = 0;
   const deps: LaunchDeps = {
     port,
     readAccessKey: () => readStoredAccessKey(appDataDir),
+    language,
     startServer: async () => {
       started++;
       const devPanel = await startDevPanel({
@@ -114,10 +116,10 @@ describe('launch', () => {
     expect(second.started()).toBe(0);
     const key = await readStoredAccessKey(appDataDir);
     expect(second.opened).toEqual([`http://127.0.0.1:${port}/#key=${key}`]);
-    expect(second.printed.join('\n')).toMatch(CYRILLIC);
+    expect(second.printed).toEqual(['DevPanel is already running. Opening another browser tab.']);
   });
 
-  it('explains in Russian when another program holds the port, and starts nothing', async () => {
+  it('explains when another program holds the port, and starts nothing', async () => {
     const port = await runForeignServer();
     const launcher = launcherFor(port);
 
@@ -126,11 +128,10 @@ describe('launch', () => {
     expect(launcher.started()).toBe(0);
     expect(launcher.opened).toEqual([]);
     const message = launcher.printed.join('\n');
-    expect(message).toMatch(CYRILLIC);
-    expect(message).toContain(String(port));
+    expect(message).toContain(`Could not start DevPanel: port ${port} is used by another program`);
   });
 
-  it('explains in Russian when the running DevPanel does not accept the stored Access Key', async () => {
+  it('explains when the running DevPanel does not accept the stored Access Key', async () => {
     const port = await freePort();
     await launch(launcherFor(port).deps);
     const launcher = launcherFor(port);
@@ -140,7 +141,7 @@ describe('launch', () => {
 
     expect(launcher.started()).toBe(0);
     expect(launcher.opened).toEqual([]);
-    expect(launcher.printed.join('\n')).toMatch(CYRILLIC);
+    expect(launcher.printed.join('\n')).toContain('DevPanel is already running, but with a different data folder');
   });
 
   it('opens a tab when another launcher won the race for the port between the probe and the start', async () => {
@@ -156,6 +157,38 @@ describe('launch', () => {
     expect(await launch(launcher.deps)).toBe('openedExisting');
     const key = await readStoredAccessKey(appDataDir);
     expect(launcher.opened).toEqual([`http://127.0.0.1:${port}/#key=${key}`]);
+  });
+});
+
+describe('launcher console lines are in the given UI Language', () => {
+  it('are in English for en (the default)', async () => {
+    const launcher = launcherFor(await freePort());
+
+    await launch(launcher.deps);
+
+    expect(launcher.printed[0]).toBe('DevPanel is starting...');
+    expect(launcher.printed.join('\n')).not.toMatch(CYRILLIC);
+  });
+
+  it('are in Russian for ru: starting, started, already running', async () => {
+    const port = await freePort();
+    const first = launcherFor(port, 'ru');
+    await launch(first.deps);
+    const second = launcherFor(port, 'ru');
+    await launch(second.deps);
+
+    expect(first.printed[0]).toBe('DevPanel запускается...');
+    expect(first.printed[1]).toMatch(/^DevPanel работает: /);
+    expect(second.printed).toEqual(['DevPanel уже работает. Открываю ещё одну вкладку браузера.']);
+  });
+
+  it('are in Russian for ru: port taken', async () => {
+    const port = await runForeignServer();
+    const launcher = launcherFor(port, 'ru');
+
+    await launch(launcher.deps);
+
+    expect(launcher.printed.join('\n')).toContain(`Не удалось запустить DevPanel: порт ${port} занят`);
   });
 });
 

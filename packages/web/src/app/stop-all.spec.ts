@@ -40,42 +40,42 @@ const billing = aRepo({
 const docs = aRepo({ id: 'd1', name: 'Docs', services: [aService({ id: 'site', status: 'running' })] });
 
 describe('Start all / Stop all', () => {
-  it('the Repo header has "Запустить всё" and "Остановить всё" for that Repo', async () => {
+  it('the Repo header has "Start all" and "Stop all" for that Repo', async () => {
     await transport.connectWith({ repos: [billing, docs] });
     await fixture.whenStable();
 
-    button(repoHeader('b1'), 'Запустить всё в репо Billing').click();
+    button(repoHeader('b1'), 'Start all in Repo Billing').click();
     expect(transport.lastCommand('startAll').payload).toEqual({ repoId: 'b1' });
 
-    button(repoHeader('b1'), 'Остановить всё в репо Billing').click();
+    button(repoHeader('b1'), 'Stop all in Repo Billing').click();
     expect(transport.lastCommand('stopAll').payload).toEqual({ repoId: 'b1' });
   });
 
-  it('"Запустить всё" is disabled when every Service already runs; "Остановить всё" when none runs', async () => {
+  it('"Start all" is disabled when every Service already runs; "Stop all" when none runs', async () => {
     const allRunning = aRepo({ id: 'r1', name: 'R1', services: [aService({ id: 'a', status: 'running' })] });
     const allStopped = aRepo({ id: 'r2', name: 'R2', services: [aService({ id: 'b', status: 'crashed' })] });
     await transport.connectWith({ repos: [allRunning, allStopped] });
     await fixture.whenStable();
 
-    expect(button(repoHeader('r1'), 'Запустить всё в репо R1').disabled).toBe(true);
-    expect(button(repoHeader('r1'), 'Остановить всё в репо R1').disabled).toBe(false);
-    expect(button(repoHeader('r2'), 'Запустить всё в репо R2').disabled).toBe(false);
-    expect(button(repoHeader('r2'), 'Остановить всё в репо R2').disabled).toBe(true);
+    expect(button(repoHeader('r1'), 'Start all in Repo R1').disabled).toBe(true);
+    expect(button(repoHeader('r1'), 'Stop all in Repo R1').disabled).toBe(false);
+    expect(button(repoHeader('r2'), 'Start all in Repo R2').disabled).toBe(false);
+    expect(button(repoHeader('r2'), 'Stop all in Repo R2').disabled).toBe(true);
   });
 
-  it('the top bar has "Остановить всё во всех репо"', async () => {
+  it('the top bar has "Stop everything in all Repos"', async () => {
     await transport.connectWith({ repos: [billing, docs] });
     await fixture.whenStable();
 
-    button(page.querySelector('.topbar')!, 'Остановить всё во всех репо').click();
+    button(page.querySelector('.topbar')!, 'Stop everything in all Repos').click();
     expect(transport.lastCommand('stopAllRepos').payload).toEqual({});
   });
 
-  it('a failed dependency is explained in plain Russian, naming the dependency', async () => {
+  it('a failed dependency is explained in plain language, naming the dependency', async () => {
     await transport.connectWith({ repos: [billing] });
     await fixture.whenStable();
 
-    button(page, 'Запустить API').click();
+    button(page, 'Start API').click();
     await transport.fail(transport.lastCommand('startService'), {
       code: 'dependencyFailed',
       params: { repoName: 'Billing', serviceName: 'API', dependencyName: 'DB', dependencyStatus: 'crashed' },
@@ -84,7 +84,7 @@ describe('Start all / Stop all', () => {
     await fixture.whenStable();
 
     expect(page.querySelector('.errors')!.textContent).toContain(
-      'Сервис API из репо Billing не запущен: сначала должен заработать сервис DB, а он упал.',
+      'The API Service in the Billing Repo did not start: the DB Service has to run first, but it crashed.',
     );
   });
 });

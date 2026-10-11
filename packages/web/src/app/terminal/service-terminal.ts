@@ -13,10 +13,10 @@ import {
 } from '@angular/core';
 import type { ServiceRef } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
-import { STRINGS } from '../strings';
+import { STRINGS } from '../ui-strings';
 import { TERMINAL_VIEW_FACTORY, type TerminalSize } from './terminal-view';
 
-/** How long "Скопировано" stays visible. */
+/** How long "Copied" stays visible. */
 const COPIED_NOTICE_MS = 1500;
 
 /** What a terminal shows: a Service's pty or a Session's pty. */

@@ -36,9 +36,9 @@ function exitBlock(serviceId: string): HTMLElement | null {
 
 function startAgain(serviceId: string): HTMLButtonElement {
   const found = [...serviceRow(serviceId).querySelectorAll('button')].find((b) =>
-    b.textContent?.includes('Запустить снова'),
+    b.textContent?.includes('Start again'),
   );
-  if (!found) throw new Error(`No "Запустить снова" for ${serviceId}`);
+  if (!found) throw new Error(`No "Start again" for ${serviceId}`);
   return found;
 }
 
@@ -47,13 +47,13 @@ const lines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
 describe('status dots', () => {
   it('cover all seven Statuses, each with its own color class and label', async () => {
     const all: [ServiceStatus, string][] = [
-      ['stopped', 'Остановлен'],
-      ['starting', 'Запускается'],
-      ['running', 'Работает'],
-      ['unhealthy', 'Работает, но не отвечает'],
-      ['stopping', 'Останавливается'],
-      ['crashed', 'Упал'],
-      ['exited', 'Завершился сам'],
+      ['stopped', 'Stopped'],
+      ['starting', 'Starting'],
+      ['running', 'Running'],
+      ['unhealthy', 'Running, but not responding'],
+      ['stopping', 'Stopping'],
+      ['crashed', 'Crashed'],
+      ['exited', 'Stopped by itself'],
     ];
     await transport.connectWith({
       repos: [aRepo({ id: 'b1', services: all.map(([status]) => aService({ id: status, status })) })],
@@ -72,8 +72,8 @@ describe('status dots', () => {
     await stable();
 
     const buttons = [...serviceRow('api').querySelectorAll('button')];
-    expect(buttons.find((b) => b.getAttribute('aria-label') === 'Остановить API')!.disabled).toBe(false);
-    expect(buttons.find((b) => b.getAttribute('aria-label') === 'Запустить API')!.disabled).toBe(true);
+    expect(buttons.find((b) => b.getAttribute('aria-label') === 'Stop API')!.disabled).toBe(false);
+    expect(buttons.find((b) => b.getAttribute('aria-label') === 'Start API')!.disabled).toBe(true);
   });
 });
 
@@ -84,21 +84,21 @@ describe('a Service waiting for its dependencies', () => {
     transport.emit('waitingChanged', { repoId: 'b1', serviceId: 'api', waitingFor: ['DB', 'Cache'] });
     await stable();
 
-    expect(serviceRow('api').textContent).toContain('ждёт запуска: DB, Cache');
-    const stop = [...serviceRow('api').querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Остановить API')!;
+    expect(serviceRow('api').textContent).toContain('waiting for: DB, Cache');
+    const stop = [...serviceRow('api').querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Stop API')!;
     expect(stop.disabled).toBe(false);
     stop.click();
     expect(transport.lastCommand('stopService').payload).toEqual({ repoId: 'b1', serviceId: 'api' });
 
     transport.emit('waitingChanged', { repoId: 'b1', serviceId: 'api' });
     await stable();
-    expect(serviceRow('api').textContent).not.toContain('ждёт запуска');
+    expect(serviceRow('api').textContent).not.toContain('waiting for');
     expect(stop.disabled).toBe(true);
   });
 });
 
 describe('a Service that ended by itself', () => {
-  it('crashed: shows the exit code and the last lines as an error, with "Запустить снова"', async () => {
+  it('crashed: shows the exit code and the last lines as an error, with "Start again"', async () => {
     await transport.connectWith({
       repos: [aRepo({ id: 'b1', services: [aService({ id: 'job', status: 'crashed', lastExit: { exitCode: 3, lastLines: lines } })] })],
     });
@@ -106,14 +106,14 @@ describe('a Service that ended by itself', () => {
 
     const block = exitBlock('job')!;
     expect(block.classList).toContain('exit-crashed');
-    expect(block.textContent).toContain('Упал с кодом 3');
+    expect(block.textContent).toContain('Crashed with code 3');
     expect(block.querySelector('pre')!.textContent).toBe(lines.join('\n'));
 
     startAgain('job').click();
     expect(transport.lastCommand('startService').payload).toEqual({ repoId: 'b1', serviceId: 'job' });
   });
 
-  it('exited: shows "Завершился сам" with the last lines, not styled as an error', async () => {
+  it('exited: shows "Stopped by itself" with the last lines, not styled as an error', async () => {
     await transport.connectWith({
       repos: [aRepo({ id: 'b1', services: [aService({ id: 'once', status: 'exited', lastExit: { exitCode: 0, lastLines: ['done'] } })] })],
     });
@@ -122,7 +122,7 @@ describe('a Service that ended by itself', () => {
     const block = exitBlock('once')!;
     expect(block.classList).not.toContain('exit-crashed');
     expect(block.getAttribute('role')).not.toBe('alert');
-    expect(block.textContent).toContain('Завершился сам');
+    expect(block.textContent).toContain('Stopped by itself');
     expect(block.querySelector('pre')!.textContent).toBe('done');
     startAgain('once').click();
     expect(transport.lastCommand('startService').payload).toEqual({ repoId: 'b1', serviceId: 'once' });
@@ -136,7 +136,7 @@ describe('a Service that ended by itself', () => {
     transport.emit('statusChanged', { repoId: 'b1', serviceId: 'api', status: 'crashed' });
     transport.emit('exit', { repoId: 'b1', serviceId: 'api', exitCode: 1, stoppedByUser: false, lastLines: ['boom'] });
     await stable();
-    expect(exitBlock('api')!.textContent).toContain('Упал с кодом 1');
+    expect(exitBlock('api')!.textContent).toContain('Crashed with code 1');
     expect(exitBlock('api')!.textContent).toContain('boom');
 
     transport.emit('statusChanged', { repoId: 'b1', serviceId: 'api', status: 'starting' });

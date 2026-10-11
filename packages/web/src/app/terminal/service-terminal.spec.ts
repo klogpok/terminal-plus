@@ -48,7 +48,7 @@ async function stable(): Promise<void> {
 }
 
 async function openTab(name: string): Promise<void> {
-  const opener = page.querySelector<HTMLButtonElement>(`button[aria-label="Открыть терминал ${name}"]`);
+  const opener = page.querySelector<HTMLButtonElement>(`button[aria-label="Open the ${name} terminal"]`);
   if (!opener) throw new Error(`No terminal opener for ${name} in:\n${page.innerHTML}`);
   opener.click();
   await stable();
@@ -143,7 +143,7 @@ describe('Service terminal tab', () => {
     await openTab('Web');
     expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['false', 'true']);
 
-    page.querySelector<HTMLButtonElement>('button[aria-label="Закрыть вкладку Web"]')!.click();
+    page.querySelector<HTMLButtonElement>('button[aria-label="Close the Web tab"]')!.click();
     await stable();
 
     expect(tabs().map((t) => t.textContent?.trim())).toEqual(['API']);
@@ -166,25 +166,25 @@ describe('terminal toolbar', () => {
     return found;
   }
 
-  it('"Очистить" empties the terminal', async () => {
-    tool('Очистить').click();
+  it('"Clear" empties the terminal', async () => {
+    tool('Clear').click();
 
     expect(view().screen).toBe('');
   });
 
-  it('"Копировать всё" copies all terminal text', async () => {
+  it('"Copy all" copies all terminal text', async () => {
     const copied: string[] = [];
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: async (text: string) => void copied.push(text) },
     });
 
-    tool('Копировать всё').click();
+    tool('Copy all').click();
     await settle();
     await stable();
 
     expect(copied).toEqual(['error: port in use\r\n']);
-    expect(page.querySelector('dp-service-terminal [role="status"]')!.textContent).toContain('Скопировано');
+    expect(page.querySelector('dp-service-terminal [role="status"]')!.textContent).toContain('Copied');
   });
 
   it('search finds the next match on Enter and the previous one on Shift+Enter', async () => {
@@ -192,7 +192,7 @@ describe('terminal toolbar', () => {
     input.value = 'error';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }));
-    tool('Найти дальше').click();
+    tool('Find next').click();
 
     expect(view().searches).toEqual(['next:error', 'previous:error', 'next:error']);
   });

@@ -69,7 +69,7 @@
         <div>{{ strings.orphans.title }}</div>
         <ul>
           @for (orphan of backend.orphans(); track orphan.id) {
-            <li>{{ describeOrphan(orphan) }}</li>
+            <li>{{ strings.orphans.describe(orphan) }}</li>
           }
         </ul>
         <div class="muted">{{ strings.orphans.hint }}</div>

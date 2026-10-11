@@ -58,7 +58,7 @@ describe('auto-detected Services', () => {
 
     boxes[0]!.click();
     boxes[1]!.click();
-    buttonIn(repoCard('s1'), 'Сохранить конфиг').click();
+    buttonIn(repoCard('s1'), 'Save settings').click();
     await stable();
 
     expect(transport.lastCommand('saveLocalConfig').payload).toEqual({
@@ -72,13 +72,13 @@ describe('auto-detected Services', () => {
       repos: [{ ...site, suggestions: site.suggestions!.map((s) => ({ ...s, preselected: false })) }],
     });
     await stable();
-    expect(buttonIn(repoCard('s1'), 'Сохранить конфиг').disabled).toBe(true);
+    expect(buttonIn(repoCard('s1'), 'Save settings').disabled).toBe(true);
   });
 
   it('says so when nothing could be detected', async () => {
     await transport.connectWith({ repos: [{ ...site, suggestions: [] }] });
     await stable();
-    expect(repoCard('s1').textContent).toContain('Не нашли, что запускать');
+    expect(repoCard('s1').textContent).toContain('Found nothing to run');
   });
 
   it('replaces the Repo when its config changes', async () => {
@@ -113,9 +113,9 @@ describe('config changes', () => {
     await stable();
 
     const row = (id: string) => repoCard('b1').querySelector<HTMLElement>(`[data-service-id="${id}"]`)!;
-    expect(row('api').textContent).toContain('Конфиг изменился — перезапустите');
-    expect(row('job').textContent).toContain('Удалён из конфига');
-    expect(row('web').textContent).not.toContain('Конфиг изменился');
+    expect(row('api').textContent).toContain('Settings changed — restart it');
+    expect(row('job').textContent).toContain('Removed from the settings');
+    expect(row('web').textContent).not.toContain('Settings changed');
   });
 
   it('offers to delete an unused Local Config once a Repo Config exists', async () => {
@@ -124,13 +124,13 @@ describe('config changes', () => {
     });
     await stable();
 
-    expect(repoCard('b1').textContent).toContain('Ваш локальный конфиг больше не используется');
-    buttonIn(repoCard('b1'), 'Удалить локальный конфиг').click();
+    expect(repoCard('b1').textContent).toContain('Your Local Config is no longer used');
+    buttonIn(repoCard('b1'), 'Delete Local Config').click();
     await stable();
     expect(transport.lastCommand('deleteLocalConfig').payload).toEqual({ repoId: 'b1' });
   });
 
-  it('explains an invalid config in plain Russian, noting that the previous settings still work', async () => {
+  it('explains an invalid config in plain language, noting that the previous settings still work', async () => {
     await transport.connectWith({
       repos: [
         aRepo({
@@ -144,8 +144,8 @@ describe('config changes', () => {
     await stable();
 
     const alert = repoCard('b1').querySelector<HTMLElement>('[role=alert]')!;
-    expect(alert.textContent).toContain('В файле настроек репо Billing ошибка');
-    expect(alert.textContent).toContain('работают прежние настройки');
+    expect(alert.textContent).toContain('The settings file of the Billing Repo has a mistake');
+    expect(alert.textContent).toContain('the previous settings stay in use');
     expect(alert.querySelector('pre')!.textContent).toContain('Duplicate Service id "api"');
   });
 });

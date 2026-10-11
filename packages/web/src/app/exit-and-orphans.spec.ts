@@ -50,45 +50,45 @@ describe('Exit DevPanel', () => {
   });
 
   it('asks for confirmation; cancelling sends nothing', async () => {
-    button(page, 'Выйти из DevPanel').click();
+    button(page, 'Exit DevPanel').click();
     await fixture.whenStable();
     const dialog = page.querySelector<HTMLElement>('.exit-confirm')!;
-    expect(dialog.textContent).toContain('Все сервисы и сессии будут остановлены');
+    expect(dialog.textContent).toContain('All Services and Sessions will be stopped');
 
-    button(dialog, 'Отмена').click();
+    button(dialog, 'Cancel').click();
     await fixture.whenStable();
     expect(transport.commands('shutdown')).toEqual([]);
     expect(page.querySelector('.exit-confirm')).toBeNull();
   });
 
   it('confirmed: sends shutdown and, once done, says DevPanel is off', async () => {
-    button(page, 'Выйти из DevPanel').click();
+    button(page, 'Exit DevPanel').click();
     await fixture.whenStable();
-    button(page.querySelector('.exit-confirm')!, 'Да, выйти').click();
+    button(page.querySelector('.exit-confirm')!, 'Yes, exit').click();
     await fixture.whenStable();
 
     const shutdown = transport.lastCommand('shutdown');
-    expect(page.textContent).toContain('Останавливаем все сервисы и сессии');
+    expect(page.textContent).toContain('Stopping all Services and Sessions');
     await transport.reply(shutdown, null);
     transport.close('server closed');
     await fixture.whenStable();
 
-    expect(page.querySelector('.exited')?.textContent).toContain('DevPanel выключен');
+    expect(page.querySelector('.exited')?.textContent).toContain('DevPanel is off');
     // No "no connection, retrying" banner once the user exited on purpose.
-    expect(page.textContent).not.toContain('Нет связи с DevPanel');
+    expect(page.textContent).not.toContain('Lost connection to DevPanel');
   });
 });
 
 describe('Orphans', () => {
-  it('lists Orphans from the snapshot in plain Russian; "Убить" kills them all', async () => {
+  it('lists Orphans from the snapshot in plain language; "End" kills them all', async () => {
     await transport.connectWith({ repos: [], sessions: [], orphans: [apiOrphan, claudeOrphan] });
     await fixture.whenStable();
 
     const block = page.querySelector<HTMLElement>('.orphans')!;
-    expect(block.textContent).toContain('Сервис API из репо Billing остался с прошлого запуска');
-    expect(block.textContent).toContain('Сессия Claude Code из репо Billing осталась с прошлого запуска');
+    expect(block.textContent).toContain('The API Service in the Billing Repo is left over from the previous run');
+    expect(block.textContent).toContain('A Claude Code Session in the Billing Repo is left over from the previous run');
 
-    button(block, 'Убить').click();
+    button(block, 'End').click();
     expect(transport.lastCommand('killOrphans').payload).toEqual({});
 
     transport.emit('orphansFound', { orphans: [] });
@@ -100,7 +100,7 @@ describe('Orphans', () => {
     await transport.connectWith({ repos: [], sessions: [] });
     transport.emit('orphansFound', { orphans: [{ ...claudeOrphan, owner: { kind: 'session', sessionKind: 'shell' } }] });
     await fixture.whenStable();
-    expect(page.querySelector('.orphans')!.textContent).toContain('Терминал из репо Billing остался с прошлого запуска');
+    expect(page.querySelector('.orphans')!.textContent).toContain('A terminal in the Billing Repo is left over from the previous run');
   });
 
   it('an Orphan holding a port: named in the conflict, freed with one click (no confirmation)', async () => {
@@ -113,8 +113,8 @@ describe('Orphans', () => {
     await fixture.whenStable();
 
     const block = page.querySelector<HTMLElement>('[data-service-id="api"] .port-conflict')!;
-    expect(block.textContent).toContain('Порт 3000 занят сервисом API из репо Billing, который остался с прошлого запуска');
-    button(block, 'Завершить его и запустить наш').click();
+    expect(block.textContent).toContain('Port 3000 is taken by the API Service in the Billing Repo, left over from the previous run');
+    button(block, 'End it and start ours').click();
     expect(transport.lastCommand('resolvePortConflict').payload).toEqual({ repoId: 'b1', serviceId: 'api' });
   });
 });

@@ -60,7 +60,7 @@ describe('BackendService', () => {
     ]);
   });
 
-  it('turns a failed command into a plain-Russian error with technical details', async () => {
+  it('turns a failed command into a plain-language error with technical details', async () => {
     await transport.connectWith({ repos: [billing] });
 
     backend.startService('b1', 'api');
@@ -71,7 +71,7 @@ describe('BackendService', () => {
     });
 
     expect(backend.errors()).toEqual([
-      expect.objectContaining({ message: 'Не удалось запустить сервис API из репо Billing.', details: 'spawn cmd.exe ENOENT' }),
+      expect.objectContaining({ message: 'Could not start the API Service in the Billing Repo.', details: 'spawn cmd.exe ENOENT' }),
     ]);
     backend.dismissError(backend.errors()[0]!.id);
     expect(backend.errors()).toEqual([]);

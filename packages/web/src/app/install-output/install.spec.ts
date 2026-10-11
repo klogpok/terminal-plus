@@ -64,7 +64,7 @@ describe('Install dependencies', () => {
     await transport.connectWith({ repos: [fresh, npmRepo] });
     await stable();
 
-    expect(installButton('b1')!.textContent).toContain('Установить зависимости');
+    expect(installButton('b1')!.textContent).toContain('Install dependencies');
     expect(installButton('n1')).toBeNull();
   });
 
@@ -79,11 +79,11 @@ describe('Install dependencies', () => {
     await stable();
 
     const tab = installTab('b1')!;
-    expect(selectedTab().textContent).toContain('Установка зависимостей: Billing');
+    expect(selectedTab().textContent).toContain('Installing dependencies: Billing');
     expect(selectedTab().closest<HTMLElement>('.tab-wrap')!.style.borderTopColor).not.toBe('');
     // Raw pty output goes into an xterm, colors included.
     expect(installView().screen).toBe('\u001b[32mProgress: resolved 12\u001b[39m\r\n');
-    expect(tab.querySelector('.install-status')!.textContent).toContain('Идёт установка');
+    expect(tab.querySelector('.install-status')!.textContent).toContain('Installing, this may take');
     expect(installButton('b1')!.disabled).toBe(true);
   });
 
@@ -99,7 +99,7 @@ describe('Install dependencies', () => {
     await stable();
 
     expect(installButton('b1')).toBeNull();
-    expect(installTab('b1')!.querySelector('.install-status')!.textContent).toContain('Зависимости установлены');
+    expect(installTab('b1')!.querySelector('.install-status')!.textContent).toContain('Dependencies are installed');
   });
 
   it('reports a failure and keeps the button', async () => {
@@ -114,7 +114,7 @@ describe('Install dependencies', () => {
     await stable();
 
     expect(installButton('b1')!.disabled).toBe(false);
-    expect(installTab('b1')!.querySelector('.install-status')!.textContent).toContain('Не удалось установить зависимости');
+    expect(installTab('b1')!.querySelector('.install-status')!.textContent).toContain('Could not install dependencies');
   });
 
   it('shows an install started from another browser tab too', async () => {
@@ -126,7 +126,7 @@ describe('Install dependencies', () => {
     await stable();
 
     expect(installView().screen).toContain('Packages: +42');
-    expect(installButton('b1')!.textContent).toContain('Устанавливаем');
+    expect(installButton('b1')!.textContent).toContain('Installing…');
   });
 
   it('closes the output tab', async () => {
@@ -136,7 +136,7 @@ describe('Install dependencies', () => {
     transport.emit('installChanged', { repoId: 'b1' });
     await stable();
 
-    page.querySelector<HTMLButtonElement>('button[aria-label="Закрыть вкладку Установка зависимостей: Billing"]')!.click();
+    page.querySelector<HTMLButtonElement>('button[aria-label="Close the Installing dependencies: Billing tab"]')!.click();
     await stable();
 
     expect(installTab('b1')).toBeNull();
@@ -146,7 +146,7 @@ describe('Install dependencies', () => {
     await transport.connectWith({ repos: [fresh] });
     await stable();
 
-    page.querySelector<HTMLButtonElement>('[data-service-id="api"] button[aria-label="Запустить API"]')!.click();
+    page.querySelector<HTMLButtonElement>('[data-service-id="api"] button[aria-label="Start API"]')!.click();
     await transport.fail(transport.lastCommand('startService'), {
       code: 'pnpmMissing',
       params: { repoName: 'Billing' },

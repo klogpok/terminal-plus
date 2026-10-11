@@ -4,7 +4,7 @@ import { BackendService } from './backend/backend.service';
 import { ErrorMessage } from './error-message/error-message';
 import { RepoList } from './repo-list/repo-list';
 import { TerminalTabStrip } from './terminal/terminal-tab-strip';
-import { STRINGS, describeOrphan } from './strings';
+import { STRINGS } from './strings';
 
 const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy']);
 const LEFT_WIDTH_KEY = 'devpanel.leftWidth';
@@ -25,7 +25,6 @@ const LEFT_WIDTH_STEP = 16;
 export class App {
   protected readonly backend = inject(BackendService);
   protected readonly strings = STRINGS;
-  protected readonly describeOrphan = describeOrphan;
   /** The "Exit DevPanel" confirmation is open. */
   protected readonly confirmingExit = signal(false);
   /** "Stop all in all Repos" is enabled while any Service has a live process. */

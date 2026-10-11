@@ -7,7 +7,7 @@ What the code does not say by itself. Domain vocabulary: `GLOSSARY.md`. Decision
 - `shared`: the wire contract. `Commands` (payload + result), `Events`, views (`RepoView`, `ServiceView`, `SessionView`, `Snapshot`), error codes (`errors.ts`), and `HOST_STRINGS` (`strings.ts`: Russian text shown outside the web UI: launcher console, tray, desktop dialogs, the restart separator).
 - `core`: all behaviour, host-agnostic (lint forbids Fastify/Electron imports). `DevPanelCore` (`core.ts`) is the public interface and the main test seam. Blocks with their own reason to change live in their own modules: `sessions.ts` (Sessions, their events in `SessionEvents`), `port-conflicts.ts` (detect, classify, resolve), `terminal.ts` (pty + output buffer + size, shared by Services and Sessions), `state.ts` (`ServiceState`, `RepoState`), `pid-file.ts` (Orphans), `readiness.ts`, `ports.ts` (netstat, process listing), `process.ts` (spawn, tree kill), `config.ts`/`detect.ts` (Repo Config, Local Config, suggestions).
 - `server`: thin Fastify + WebSocket host over `core`. `commands.ts` (one zod-validated handler per command), `server.ts` (Origin + Access Key check, event forwarding, static web UI), `start.ts`, `launch.ts` (the `.bat` launcher: start, or open another tab, or explain a taken port).
-- `web`: Angular 22, zoneless, signals, standalone components. Everything talks to the Server through `BackendService` over the `BackendTransport` interface (second test seam). All UI text and error wording: `src/app/strings.ts`.
+- `web`: Angular 22, zoneless, signals, standalone components. Everything talks to the Server through `BackendService` over the `BackendTransport` interface (second test seam). All UI text and error wording: the UI string sets, English in `src/app/strings.en.ts` (default) and Russian in `src/app/strings.ts`, same type `UiStrings`; components read `STRINGS`, chosen once at page load from the cached UI Language (`src/app/ui-language.ts`).
 - `desktop`: Electron. `desktop-app.ts` holds the behaviour behind a `DesktopHost` adapter (no Electron import, unit-tested); `main.ts` is the Electron adapter. It runs the same Server on 127.0.0.1:7777 and loads the same web UI (ADR-0002).
 
 Type-only imports between workspace packages resolve to `src` (the `exports` map points `types` at `src/index.ts`); vitest configs and the web `tsconfig.json` `paths` alias them to `src` too. Only running `dist` (`pnpm start`, the `.bat`, Electron) needs `pnpm build`.
@@ -20,7 +20,7 @@ Type-only imports between workspace packages resolve to `src` (the `exports` map
 4. `web` `BackendService`: a convenience method over `this.run(...)` (fire and forget, errors shown automatically) or `this.command(...)` (Promise, rejects with `UiErrorInfo`).
 5. Tests: `core` through the harness; `web` through `FakeTransport` (`lastCommand`, `await reply(...)` / `await fail(...)`). A server round-trip test is optional.
 
-New error code: add it to `ErrorParams` in `shared/src/errors.ts`, then to `STRINGS.errors` in `web/src/app/strings.ts` (compile error until you do). Client-only errors go in `ClientErrorParams` there.
+New error code: add it to `ErrorParams` in `shared/src/errors.ts`, then to `errors` in both UI string sets, `web/src/app/strings.en.ts` and `web/src/app/strings.ts` (compile error until you do). Client-only errors go in `ClientErrorParams` there.
 
 ## Adding an event end to end
 
@@ -43,7 +43,7 @@ Output replay ordering: `getServiceOutput` / `getSessionOutput` handlers are syn
 - `core` tests run real processes on Windows (no OS adapter): `packages/core/test/harness.ts` (`Harness`, `TEST_TIMINGS`, `waitForStatus`, `fixtureCommand`, `FakeShell`) and `packages/core/test/fixtures/` (small Node scripts: listeners, grandchildren, Ctrl+C ignorers, `run-batch.cmd`, `leave-listener.mjs` for anything that must survive a Stop). Test files run one at a time in forked workers.
 - Custom timings must spread `...TEST_TIMINGS`, or the 3 s production liveness applies.
 - Every core built in a test gets a fake `DesktopShell` (otherwise `addRepo({})` pops a real folder dialog) and `isClaudeAvailable: false` (the harness does both).
-- `web` tests: `FakeTransport` + `FakeTerminalView.factory` (needed by any spec that renders a terminal). Zoneless: `await fixture.whenStable()` after actions and `await` every `FakeTransport` reply. Specs find elements by `data-*` attributes, status classes and Russian `aria-label`s; keep those hooks.
+- `web` tests: `FakeTransport` + `FakeTerminalView.factory` (needed by any spec that renders a terminal). Zoneless: `await fixture.whenStable()` after actions and `await` every `FakeTransport` reply. Specs find elements by `data-*` attributes, status classes and English `aria-label`s (the default set); keep those hooks.
 - `desktop` e2e launches real Electron; `DEVPANEL_DESKTOP_EXE=<release\win-unpacked\DevPanel.exe>` points it at the packaged app.
 
 ## Gotchas

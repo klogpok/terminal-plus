@@ -58,7 +58,7 @@ describe('adding a Repo', () => {
     await transport.connectWith({ repos: [billing] });
     await stable();
 
-    buttonIn(page, 'Добавить репо').click();
+    buttonIn(page, 'Add Repo').click();
     const command = transport.lastCommand('addRepo');
     expect(command.payload).toEqual({});
     const added = aRepo({ id: 'n1', name: 'New', color: '#22c55e' });
@@ -73,7 +73,7 @@ describe('adding a Repo', () => {
     await transport.connectWith({ repos: [] });
     await stable();
 
-    buttonIn(page, 'Добавить репо').click();
+    buttonIn(page, 'Add Repo').click();
     await transport.reply(transport.lastCommand('addRepo'), null);
     await stable();
 
@@ -85,7 +85,7 @@ describe('adding a Repo', () => {
     await transport.connectWith({ repos: [billing] });
     await stable();
 
-    buttonIn(page, 'Добавить репо').click();
+    buttonIn(page, 'Add Repo').click();
     await transport.fail(transport.lastCommand('addRepo'), {
       code: 'repoNameTaken',
       params: { name: 'Billing', path: 'D:\\work\\Billing' },
@@ -94,11 +94,11 @@ describe('adding a Repo', () => {
     await stable();
 
     const form = page.querySelector<HTMLFormElement>('form.repo-name-form')!;
-    expect(form.textContent).toContain('Репо с именем «Billing» уже есть');
+    expect(form.textContent).toContain('A Repo named "Billing" already exists');
     const input = form.querySelector('input')!;
     input.value = 'Billing 2';
     input.dispatchEvent(new Event('input'));
-    buttonIn(form, 'Добавить').click();
+    buttonIn(form, 'Add').click();
     await stable();
 
     const retry = transport.lastCommand('addRepo');
@@ -112,7 +112,7 @@ describe('adding a Repo', () => {
     await transport.connectWith({ repos: [billing] });
     await stable();
 
-    buttonIn(page, 'Добавить репо').click();
+    buttonIn(page, 'Add Repo').click();
     await transport.fail(transport.lastCommand('addRepo'), {
       code: 'repoAlreadyAdded',
       params: { path: 'D:\\work\\billing', repoName: 'Billing' },
@@ -120,7 +120,7 @@ describe('adding a Repo', () => {
     });
     await stable();
 
-    expect(page.querySelector('.error-message')!.textContent).toContain('Эта папка уже добавлена как репо Billing.');
+    expect(page.querySelector('.error-message')!.textContent).toContain('This folder is already added as the Billing Repo.');
   });
 });
 
@@ -129,14 +129,14 @@ describe('removing a Repo', () => {
     await transport.connectWith({ repos: [billing, docs] });
     await stable();
 
-    buttonIn(repoCard('b1'), 'Удалить репо Billing').click();
+    buttonIn(repoCard('b1'), 'Remove Repo Billing').click();
     await stable();
     const confirm = repoCard('b1').querySelector<HTMLElement>('.remove-confirm')!;
-    expect(confirm.textContent).toContain('Будут остановлены: API, Web.');
-    expect(confirm.textContent).toContain('Папка с кодом останется на диске.');
+    expect(confirm.textContent).toContain('These will be stopped: API, Web.');
+    expect(confirm.textContent).toContain('The code folder stays on the disk.');
     expect(transport.commands('removeRepo')).toEqual([]);
 
-    buttonIn(confirm, 'Удалить').click();
+    buttonIn(confirm, 'Remove').click();
     const command = transport.lastCommand('removeRepo');
     expect(command.payload).toEqual({ repoId: 'b1' });
     transport.emit('repoChanged', { repoId: 'b1', repo: null });
@@ -150,10 +150,10 @@ describe('removing a Repo', () => {
     await transport.connectWith({ repos: [docs] });
     await stable();
 
-    buttonIn(repoCard('d1'), 'Удалить репо Docs').click();
+    buttonIn(repoCard('d1'), 'Remove Repo Docs').click();
     await stable();
-    expect(repoCard('d1').querySelector('.remove-confirm')!.textContent).toContain('Ничего не запущено.');
-    buttonIn(repoCard('d1'), 'Отмена').click();
+    expect(repoCard('d1').querySelector('.remove-confirm')!.textContent).toContain('Nothing is running.');
+    buttonIn(repoCard('d1'), 'Cancel').click();
     await stable();
 
     expect(repoCard('d1').querySelector('.remove-confirm')).toBeNull();
@@ -170,14 +170,14 @@ describe('a Repo whose folder is missing', () => {
     services: [aService({ id: 'api', name: 'API' })],
   });
 
-  it('is greyed out with "Папка не найдена" and cannot start Services', async () => {
+  it('is greyed out with "Folder not found" and cannot start Services', async () => {
     await transport.connectWith({ repos: [missing] });
     await stable();
 
     const card = repoCard('m1');
     expect(card.classList).toContain('repo-missing');
-    expect(card.textContent).toContain('Папка не найдена');
-    expect(buttonIn(card, 'Запустить API').disabled).toBe(true);
+    expect(card.textContent).toContain('Folder not found');
+    expect(buttonIn(card, 'Start API').disabled).toBe(true);
   });
 
   it('turns grey when the Server reports the folder gone', async () => {
@@ -190,11 +190,11 @@ describe('a Repo whose folder is missing', () => {
     expect(repoCard('d1').classList).toContain('repo-missing');
   });
 
-  it('"Указать новое расположение" relocates it in place, keeping name and color', async () => {
+  it('"Choose the new location" relocates it in place, keeping name and color', async () => {
     await transport.connectWith({ repos: [missing, docs] });
     await stable();
 
-    buttonIn(repoCard('m1'), 'Указать новое расположение').click();
+    buttonIn(repoCard('m1'), 'Choose the new location').click();
     const command = transport.lastCommand('relocateRepo');
     expect(command.payload).toEqual({ repoId: 'm1' });
     const relocated = { ...missing, id: 'm2', path: 'E:\\Moved', folderMissing: undefined };
@@ -204,16 +204,16 @@ describe('a Repo whose folder is missing', () => {
 
     expect(repoNames()).toEqual(['Moved', 'Docs']);
     expect(repoCard('m2').classList).not.toContain('repo-missing');
-    expect(buttonIn(repoCard('m2'), 'Запустить API').disabled).toBe(false);
+    expect(buttonIn(repoCard('m2'), 'Start API').disabled).toBe(false);
   });
 
-  it('offers "Удалить" too', async () => {
+  it('offers "Remove" too', async () => {
     await transport.connectWith({ repos: [missing] });
     await stable();
 
-    buttonIn(repoCard('m1'), 'Удалить репо Moved').click();
+    buttonIn(repoCard('m1'), 'Remove Repo Moved').click();
     await stable();
-    buttonIn(repoCard('m1'), 'Удалить').click();
+    buttonIn(repoCard('m1'), 'Remove').click();
 
     expect(transport.lastCommand('removeRepo').payload).toEqual({ repoId: 'm1' });
   });
@@ -240,13 +240,13 @@ describe('opening folders and URLs', () => {
     await transport.connectWith({ repos: [billing] });
     await stable();
 
-    buttonIn(repoCard('b1'), 'Открыть папку').click();
-    buttonIn(repoCard('b1'), 'Открыть в браузере API').click();
+    buttonIn(repoCard('b1'), 'Open folder').click();
+    buttonIn(repoCard('b1'), 'Open API in the browser').click();
 
     expect(transport.lastCommand('openFolder').payload).toEqual({ repoId: 'b1' });
     expect(transport.lastCommand('openUrl').payload).toEqual({ repoId: 'b1', serviceId: 'api' });
     expect(open).not.toHaveBeenCalled();
-    expect(repoCard('b1').querySelector('[aria-label="Открыть в браузере Web"]')).toBeNull();
+    expect(repoCard('b1').querySelector('[aria-label="Open Web in the browser"]')).toBeNull();
     open.mockRestore();
   });
 });

@@ -9,7 +9,7 @@ interface NameClash {
 }
 
 /**
- * "Добавить репо": the Server shows the folder picker (a browser cannot return a folder path).
+ * "Add Repo": the Server shows the folder picker (a browser cannot return a folder path).
  * When the folder name is already taken, asks for another name and retries with the same folder.
  */
 @Component({

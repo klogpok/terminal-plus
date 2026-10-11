@@ -65,8 +65,8 @@ describe('left panel', () => {
 
     expect(serviceRow('b1', 'api').textContent).toContain('API');
     expect(dot('b1', 'api').classList).toContain('status-running');
-    expect(dot('b1', 'api').title).toBe('Работает');
-    expect(dot('b1', 'web').title).toBe('Остановлен');
+    expect(dot('b1', 'api').title).toBe('Running');
+    expect(dot('b1', 'web').title).toBe('Stopped');
     expect(dot('d1', 'watch').classList).toContain('status-starting');
   });
 
@@ -75,9 +75,9 @@ describe('left panel', () => {
     await stable();
 
     expect(dot('b1', 'job').classList).toContain('status-crashed');
-    expect(dot('b1', 'job').title).toBe('Упал');
+    expect(dot('b1', 'job').title).toBe('Crashed');
     expect(dot('b1', 'once').classList).toContain('status-exited');
-    expect(dot('b1', 'once').title).toBe('Завершился сам');
+    expect(dot('b1', 'once').title).toBe('Stopped by itself');
     expect(dot('b1', 'web').classList).toContain('status-stopped');
   });
 
@@ -85,9 +85,9 @@ describe('left panel', () => {
     await transport.connectWith({ repos: [billing] });
     await stable();
 
-    button('b1', 'web', 'Запустить').click();
-    button('b1', 'api', 'Остановить').click();
-    button('b1', 'api', 'Перезапустить').click();
+    button('b1', 'web', 'Start').click();
+    button('b1', 'api', 'Stop').click();
+    button('b1', 'api', 'Restart').click();
 
     expect(transport.sent.slice(1).map((m) => [m.type, m.payload])).toEqual([
       ['startService', { repoId: 'b1', serviceId: 'web' }],
@@ -100,11 +100,11 @@ describe('left panel', () => {
     await transport.connectWith({ repos: [billing] });
     await stable();
 
-    expect(button('b1', 'api', 'Запустить').disabled).toBe(true);
-    expect(button('b1', 'api', 'Остановить').disabled).toBe(false);
-    expect(button('b1', 'web', 'Запустить').disabled).toBe(false);
-    expect(button('b1', 'web', 'Остановить').disabled).toBe(true);
-    expect(button('b1', 'job', 'Запустить').disabled).toBe(false);
+    expect(button('b1', 'api', 'Start').disabled).toBe(true);
+    expect(button('b1', 'api', 'Stop').disabled).toBe(false);
+    expect(button('b1', 'web', 'Start').disabled).toBe(false);
+    expect(button('b1', 'web', 'Stop').disabled).toBe(true);
+    expect(button('b1', 'job', 'Start').disabled).toBe(false);
   });
 
   it('updates a status dot when the Server reports a new Status', async () => {
@@ -122,23 +122,23 @@ describe('left panel', () => {
     await stable();
     transport.close('socket closed (1006)');
     await stable();
-    expect(page.textContent).toContain('Нет связи с DevPanel');
+    expect(page.textContent).toContain('Lost connection to DevPanel');
 
     await transport.connectWith({ repos: [docs] });
     await stable();
 
-    expect(page.textContent).not.toContain('Нет связи с DevPanel');
+    expect(page.textContent).not.toContain('Lost connection to DevPanel');
     expect(page.querySelector('[data-repo-id="b1"]')).toBeNull();
     expect(dot('d1', 'watch').classList).toContain('status-starting');
   });
 });
 
 describe('errors', () => {
-  it('show a plain-Russian message with technical details under "Подробнее"', async () => {
+  it('show a plain-language message with technical details under "Details"', async () => {
     await transport.connectWith({ repos: [billing] });
     await stable();
 
-    button('b1', 'web', 'Запустить').click();
+    button('b1', 'web', 'Start').click();
     await transport.fail(transport.lastCommand('startService'), {
       code: 'spawnFailed',
       params: { repoName: 'Billing', serviceName: 'Web' },
@@ -147,13 +147,13 @@ describe('errors', () => {
     await stable();
 
     const error = page.querySelector<HTMLElement>('.error')!;
-    expect(error.querySelector('.error-message')!.textContent).toContain('Не удалось запустить сервис Web из репо Billing.');
+    expect(error.querySelector('.error-message')!.textContent).toContain('Could not start the Web Service in the Billing Repo.');
     const details = error.querySelector('details')!;
     expect(details.open).toBe(false);
-    expect(details.querySelector('summary')!.textContent).toContain('Подробнее');
+    expect(details.querySelector('summary')!.textContent).toContain('Details');
     expect(details.textContent).toContain('spawn cmd.exe ENOENT');
 
-    error.querySelector<HTMLButtonElement>('button[aria-label="Закрыть"]')!.click();
+    error.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!.click();
     await stable();
     expect(page.querySelector('.error')).toBeNull();
   });
@@ -164,7 +164,7 @@ describe('errors', () => {
     await stable();
 
     const repo = page.querySelector<HTMLElement>('[data-repo-id="x1"]')!;
-    expect(repo.querySelector('.error-message')!.textContent).toContain('В файле настроек репо Broken ошибка');
+    expect(repo.querySelector('.error-message')!.textContent).toContain('The settings file of the Broken Repo has a mistake');
     expect(repo.querySelector('details')!.textContent).toContain('services.0.command: Required');
   });
 });

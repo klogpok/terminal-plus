@@ -24,7 +24,7 @@ export type ConnectionState = 'connecting' | 'open' | 'closed';
 /** "Exit DevPanel" from this tab: not requested, stopping everything, or done (Server gone). */
 export type ExitState = 'none' | 'exiting' | 'exited';
 
-/** An error shown to the user: plain-Russian message + technical details under "Details". */
+/** An error shown to the user: plain-language message + technical details under "Details". */
 export interface UiError {
   id: number;
   message: string;

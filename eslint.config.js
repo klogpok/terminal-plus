@@ -8,7 +8,7 @@ const CYRILLIC_MESSAGE =
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/release/**', '**/.angular/**'],
+    ignores: ['**/node_modules/**', '**/dist/**', '**/target/**', '**/release/**', '**/.angular/**'],
   },
   {
     files: ['**/*.ts'],

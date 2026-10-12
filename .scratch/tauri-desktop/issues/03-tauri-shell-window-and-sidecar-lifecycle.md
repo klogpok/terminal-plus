@@ -8,16 +8,16 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Status:** ready-for-agent
 
-- [ ] `pnpm desktop` builds what it needs and opens the DevPanel window via Tauri; the web UI is unchanged and Services and Sessions work.
-- [ ] The sidecar runs in a Job Object with kill-on-close: killing the shell from Task Manager kills the sidecar and every Service and Session (checked by hand; automated in ticket 06).
+- [x] `pnpm desktop` builds what it needs and opens the DevPanel window via Tauri; the web UI is unchanged and Services and Sessions work.
+- [x] The sidecar runs in a Job Object with kill-on-close: killing the shell from Task Manager kills the sidecar and every Service and Session (checked by hand; automated in ticket 06).
 - [ ] Closing the window hides it and stops nothing; a left click on the tray icon shows and focuses it again.
-- [ ] "Exit DevPanel" ends the shell after everything is stopped.
-- [ ] A sidecar exit without `exit` shows the crash dialog in the last UI Language reported (English before any), then the shell quits.
+- [x] "Exit DevPanel" ends the shell after everything is stopped.
+- [x] A sidecar exit without `exit` shows the crash dialog in the last UI Language reported (English before any), then the shell quits.
 - [ ] Links to other origins open in the default browser, never in the window.
-- [ ] The WebView2 profile is under the app data folder's `desktop` subfolder and follows `DEVPANEL_APP_DATA`.
-- [ ] Rust mirrors the protocol types (serde), and a Rust unit test deserializes every line of the protocol fixture.
-- [ ] A root `desktop:check` script runs `cargo check` and `cargo clippy` cleanly; `pnpm check` still needs no Rust.
-- [ ] `pnpm check` passes.
+- [x] The WebView2 profile is under the app data folder's `desktop` subfolder and follows `DEVPANEL_APP_DATA`.
+- [x] Rust mirrors the protocol types (serde), and a Rust unit test deserializes every line of the protocol fixture.
+- [x] A root `desktop:check` script runs `cargo check` and `cargo clippy` cleanly; `pnpm check` still needs no Rust.
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -31,13 +31,13 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Статус:** ready-for-agent
 
-- [ ] `pnpm desktop` собирает нужное и открывает окно DevPanel через Tauri; веб-UI не изменился, Сервисы и Сессии работают.
-- [ ] Sidecar работает в Job Object с завершением при закрытии: убийство оболочки через диспетчер задач убивает sidecar и все Сервисы и Сессии (проверено вручную; автоматизация — в тикете 06).
+- [x] `pnpm desktop` собирает нужное и открывает окно DevPanel через Tauri; веб-UI не изменился, Сервисы и Сессии работают.
+- [x] Sidecar работает в Job Object с завершением при закрытии: убийство оболочки через диспетчер задач убивает sidecar и все Сервисы и Сессии (проверено вручную; автоматизация — в тикете 06).
 - [ ] Закрытие окна прячет его и ничего не останавливает; щелчок левой кнопкой по значку в трее снова показывает окно и переводит на него фокус.
-- [ ] «Выход из DevPanel» завершает оболочку после остановки всего.
-- [ ] Завершение sidecar без `exit` показывает диалог аварии на последнем сообщённом Языке интерфейса (до первого сообщения — на английском), после чего оболочка завершается.
+- [x] «Выход из DevPanel» завершает оболочку после остановки всего.
+- [x] Завершение sidecar без `exit` показывает диалог аварии на последнем сообщённом Языке интерфейса (до первого сообщения — на английском), после чего оболочка завершается.
 - [ ] Ссылки на другие источники открываются в браузере по умолчанию, никогда в окне.
-- [ ] Профиль WebView2 лежит в подкаталоге `desktop` каталога данных и следует за `DEVPANEL_APP_DATA`.
-- [ ] Rust повторяет типы протокола (serde), и юнит-тест Rust десериализует каждую строку фикстуры протокола.
-- [ ] Корневой скрипт `desktop:check` чисто проходит `cargo check` и `cargo clippy`; `pnpm check` по-прежнему не требует Rust.
-- [ ] `pnpm check` проходит.
+- [x] Профиль WebView2 лежит в подкаталоге `desktop` каталога данных и следует за `DEVPANEL_APP_DATA`.
+- [x] Rust повторяет типы протокола (serde), и юнит-тест Rust десериализует каждую строку фикстуры протокола.
+- [x] Корневой скрипт `desktop:check` чисто проходит `cargo check` и `cargo clippy`; `pnpm check` по-прежнему не требует Rust.
+- [x] `pnpm check` проходит.

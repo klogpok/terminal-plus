@@ -89,7 +89,7 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
     .drag-handle:hover { color: var(--fg); }
     .repo-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .repo-branch { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-    .repo-actions { margin-left: auto; display: flex; gap: 2px; flex: none; }
+    .repo-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }
     button { border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 2px 6px; }
     button:not(:disabled):hover { border-color: var(--accent); }
     button:disabled { opacity: 0.35; cursor: default; }

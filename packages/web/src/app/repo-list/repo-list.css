@@ -114,7 +114,7 @@
 
 .service-actions {
     display: flex;
-    gap: 2px;
+    gap: 6px;
 }
 
 .service-actions button {

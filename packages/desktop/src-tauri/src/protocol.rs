@@ -23,7 +23,6 @@ pub enum ShellMessage {
     // Sent once the tray menu (ticket 04) can ask the shell to quit.
     #[allow(dead_code)]
     QuitRequested,
-    #[allow(dead_code)]
     AutostartChanged {
         enabled: bool,
     },

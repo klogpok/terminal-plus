@@ -8,11 +8,11 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Status:** ready-for-agent
 
-- [ ] A second launch shows and focuses the running window and exits without spawning a sidecar (no second `node.exe`).
-- [ ] Start with Windows is off by default; toggling it in the tray creates or removes the autostart entry and the checkmark follows the shell's confirmation.
-- [ ] The autostart entry starts the app with `--hidden`; started that way, the window stays hidden until opened from the tray.
+- [x] A second launch shows and focuses the running window and exits without spawning a sidecar (no second `node.exe`).
+- [x] Start with Windows is off by default; toggling it in the tray creates or removes the autostart entry and the checkmark follows the shell's confirmation.
+- [x] The autostart entry starts the app with `--hidden`; started that way, the window stays hidden until opened from the tray.
 - [ ] Checked by hand (second launch, toggle, sign-out/sign-in); automated second-launch check comes in ticket 06.
-- [ ] `desktop:check` and `pnpm check` pass.
+- [x] `desktop:check` and `pnpm check` pass.
 
 ## Русский перевод
 
@@ -26,8 +26,8 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Статус:** ready-for-agent
 
-- [ ] Повторный запуск показывает работающее окно, переводит на него фокус и завершается, не запуская sidecar (второго `node.exe` нет).
-- [ ] Автозапуск по умолчанию выключен; переключение в трее создаёт или удаляет запись автозапуска, а галочка следует подтверждению оболочки.
-- [ ] Запись автозапуска запускает приложение с `--hidden`; при таком запуске окно скрыто, пока его не откроют из трея.
+- [x] Повторный запуск показывает работающее окно, переводит на него фокус и завершается, не запуская sidecar (второго `node.exe` нет).
+- [x] Автозапуск по умолчанию выключен; переключение в трее создаёт или удаляет запись автозапуска, а галочка следует подтверждению оболочки.
+- [x] Запись автозапуска запускает приложение с `--hidden`; при таком запуске окно скрыто, пока его не откроют из трея.
 - [ ] Проверено вручную (повторный запуск, переключение, выход и вход в систему); автоматическая проверка повторного запуска — в тикете 06.
-- [ ] `desktop:check` и `pnpm check` проходят.
+- [x] `desktop:check` и `pnpm check` проходят.

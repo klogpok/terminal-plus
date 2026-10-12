@@ -5,6 +5,8 @@
 // No console window in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod autostart;
+mod instance;
 mod protocol;
 mod sidecar;
 
@@ -128,6 +130,28 @@ fn show_window(app: &AppHandle) {
     }
 }
 
+/// Start with Windows for this instance (see `instance`).
+fn autostart_entry() -> String {
+    autostart::entry_name(instance::current_suffix().as_deref())
+}
+
+/// Turns the entry on or off, then reports what Windows now has, even if that failed.
+fn set_autostart(app: &AppHandle, enabled: bool) {
+    let entry = autostart_entry();
+    if let Err(error) = autostart::set(&entry, enabled) {
+        eprintln!(
+            "[shell] Could not turn Start with Windows {}: {error}",
+            if enabled { "on" } else { "off" }
+        );
+    }
+    send(
+        app,
+        &ShellMessage::AutostartChanged {
+            enabled: autostart::is_enabled(&entry),
+        },
+    );
+}
+
 fn handle(app: &AppHandle, message: SidecarMessage) {
     match message {
         SidecarMessage::OpenWindow { url, show } => {
@@ -176,8 +200,9 @@ fn handle(app: &AppHandle, message: SidecarMessage) {
             );
             send(app, &ShellMessage::ErrorDismissed { dialog_id });
         }
-        // The tray menu (ticket 04) and Start with Windows (ticket 05) are not wired yet.
-        other @ (SidecarMessage::SetTray { .. } | SidecarMessage::SetAutostart { .. }) => {
+        SidecarMessage::SetAutostart { enabled } => set_autostart(app, enabled),
+        // The tray menu (ticket 04) is not wired yet.
+        other @ SidecarMessage::SetTray { .. } => {
             eprintln!("[shell] Not handled yet: {other:?}");
         }
     }
@@ -252,22 +277,32 @@ fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let reader_app = app.clone();
     std::thread::spawn(move || read_sidecar(reader_app, child, stdout));
-    let start_hidden = std::env::args().any(|arg| arg == "--hidden");
+    let start_hidden = std::env::args().any(|arg| arg == autostart::HIDDEN_ARG);
     send(
         app,
         &ShellMessage::Start {
             start_hidden,
-            autostart_enabled: false,
+            autostart_enabled: autostart::is_enabled(&autostart_entry()),
         },
     );
     Ok(())
 }
 
 fn main() {
+    let mut context = tauri::generate_context!();
+    // The single-instance lock is keyed on the identifier: make it follow the app data folder.
+    if let Some(suffix) = instance::current_suffix() {
+        let identifier = format!("{}.data-{suffix}", context.config().identifier);
+        context.config_mut().identifier = identifier;
+    }
     tauri::Builder::default()
+        // First, so a second launch exits before anything else (the sidecar above all) starts.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            show_window(app)
+        }))
         .plugin(tauri_plugin_opener::init())
         .setup(|app| setup(app.handle()))
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("the DevPanel shell failed to build")
         .run(|_app, event| {
             // Only `exit` (or a crash) ends the shell; nothing else may, not even the last window

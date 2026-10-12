@@ -275,6 +275,11 @@ export interface RepoChangedEvent {
   repo: RepoView | null;
 }
 
+/** The Repos were reordered (`moveRepo`): every Repo id, in the new Workspace order. */
+export interface ReposReorderedEvent {
+  repoIds: string[];
+}
+
 /** A chunk of `pnpm install` pty output for a Repo (including ANSI sequences). */
 export interface InstallOutputEvent {
   repoId: string;
@@ -332,6 +337,7 @@ export interface Events {
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
   repoChanged: RepoChangedEvent;
+  reposReordered: ReposReorderedEvent;
   /** Live Service output. A client opening a tab first fetches `getServiceOutput`, see there. */
   log: LogEvent;
   installOutput: InstallOutputEvent;
@@ -372,6 +378,11 @@ export interface Commands {
   addRepo: { payload: { path?: string; name?: string }; result: RepoView | null };
   /** Stops every process of the Repo, removes it and its Local Config; never touches the folder. */
   removeRepo: { payload: { repoId: string }; result: null };
+  /**
+   * Moves a Repo to `toIndex` in the Workspace order (clamped to the list) and emits
+   * `reposReordered`; moving it to where it already is does nothing. Fails with `repoNotFound`.
+   */
+  moveRepo: { payload: { repoId: string; toIndex: number }; result: null };
   /** Points a Repo at a new folder (picker when `path` is omitted), keeping name and color. */
   relocateRepo: { payload: { repoId: string; path?: string }; result: RepoView | null };
   openFolder: { payload: { repoId: string }; result: null };

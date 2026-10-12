@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DevPanelError } from '@devpanel/shared';
@@ -185,6 +185,72 @@ describe('removeRepo', () => {
 });
 
 const FAST_REFRESH = { gracefulStopMs: 1500, branchRefreshMs: 100 };
+
+describe('moveRepo', () => {
+  function names(core: { listRepos(): { name: string }[] }): string[] {
+    return core.listRepos().map((r) => r.name);
+  }
+
+  it('moves the Repo, announces the full new order, and keeps it for the next core', async () => {
+    for (const name of ['a', 'b', 'c', 'd']) h.addRepo({ name });
+    const core = await h.createCore();
+    const [a, b, c, d] = core.listRepos().map((r) => r.id);
+    const events: unknown[] = [];
+    core.on('reposReordered', (e) => events.push(e));
+
+    await core.moveRepo(d!, 1);
+
+    expect(names(core)).toEqual(['a', 'd', 'b', 'c']);
+    expect(core.snapshot().repos.map((r) => r.name)).toEqual(['a', 'd', 'b', 'c']);
+    expect(events).toEqual([{ repoIds: [a, d, b, c] }]);
+    expect(names(await h.createCore())).toEqual(['a', 'd', 'b', 'c']);
+  });
+
+  it('clamps an index past either end', async () => {
+    for (const name of ['a', 'b', 'c']) h.addRepo({ name });
+    const core = await h.createCore();
+    const [a, , c] = core.listRepos().map((r) => r.id);
+
+    await core.moveRepo(a!, 99);
+    expect(names(core)).toEqual(['b', 'c', 'a']);
+    await core.moveRepo(c!, -5);
+    expect(names(core)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('refuses an unknown Repo', async () => {
+    h.addRepo({ name: 'a' });
+    const core = await h.createCore();
+
+    expect(await codeOf(core.moveRepo('nope', 0))).toBe('repoNotFound');
+  });
+
+  it('writes and announces nothing when the Repo is already at that index', async () => {
+    for (const name of ['a', 'b']) h.addRepo({ name });
+    const core = await h.createCore();
+    const workspace = path.join(h.appDataDir, 'workspace.json');
+    const before = statSync(workspace).mtimeMs;
+    const events: unknown[] = [];
+    core.on('reposReordered', (e) => events.push(e));
+
+    await core.moveRepo(core.listRepos()[1]!.id, 1);
+    await core.moveRepo(core.listRepos()[1]!.id, 7);
+
+    expect(events).toEqual([]);
+    expect(statSync(workspace).mtimeMs).toBe(before);
+    expect(names(core)).toEqual(['a', 'b']);
+  });
+
+  it('moves a Repo whose folder is missing', async () => {
+    h.addRepo({ name: 'a' });
+    const gone = h.addRepo({ name: 'b' });
+    rmSync(gone, { recursive: true, force: true });
+    const core = await h.createCore();
+
+    await core.moveRepo(core.listRepos()[1]!.id, 0);
+
+    expect(names(core)).toEqual(['b', 'a']);
+  });
+});
 
 describe('missing Repo folder', () => {
   it('keeps the Repo listed as missing and refuses to start its Services', async () => {

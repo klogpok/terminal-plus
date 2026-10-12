@@ -90,6 +90,8 @@ export const RU_STRINGS: UiStrings = {
     openClaudeLabel: (repoName: string) => `Открыть Claude Code в ${repoName}`,
     openTerminal: 'Терминал',
     openTerminalLabel: (repoName: string) => `Открыть терминал в ${repoName}`,
+    dragHandle: 'Перетащите, чтобы изменить порядок',
+    dragHandleLabel: (repoName: string) => `Переместить репо ${repoName}`,
   },
 
   sessions: {

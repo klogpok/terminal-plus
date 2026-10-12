@@ -17,6 +17,50 @@
     border-radius: 6px;
 }
 
+.repo-drag-preview,
+.repo-drag-placeholder {
+    box-sizing: border-box;
+    height: 34px;
+    border-radius: 6px;
+}
+
+/* Under the cursor: only the Repo's color and name, whatever the card's height. */
+.repo-drag-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: var(--panel);
+    color: var(--fg);
+    border: 2px solid;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+    font-weight: 600;
+}
+
+.repo-drag-color {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.repo-drag-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Where the card will land, in the Repo's color. */
+.repo-drag-placeholder {
+    margin-bottom: 12px;
+    border: 2px dashed currentColor;
+    background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.cdk-drop-list-dragging .repo:not(.cdk-drag-placeholder) {
+    transition: transform 200ms ease;
+}
+
 .repo-body {
     padding: 8px 10px;
     min-width: 0;
@@ -71,7 +115,7 @@
 
 .service-actions {
     display: flex;
-    gap: 2px;
+    gap: 6px;
 }
 
 .service-actions button {

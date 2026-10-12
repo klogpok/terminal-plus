@@ -1,3 +1,4 @@
+import { CdkDrag, CdkDragPlaceholder, CdkDragPreview, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import type { RepoView, ServiceStatus, ServiceView } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
@@ -20,7 +21,20 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
 /** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳. */
 @Component({
   selector: 'dp-repo-list',
-  imports: [ErrorMessage, ConfigSuggestions, PortConflictBlock, ServiceExit, AddRepo, AddService, RemoveService, RepoHeader],
+  imports: [
+    CdkDropList,
+    CdkDrag,
+    CdkDragPreview,
+    CdkDragPlaceholder,
+    ErrorMessage,
+    ConfigSuggestions,
+    PortConflictBlock,
+    ServiceExit,
+    AddRepo,
+    AddService,
+    RemoveService,
+    RepoHeader,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './repo-list.html',
   styleUrl: './repo-list.css',
@@ -59,6 +73,12 @@ export class RepoList {
   protected askRemove(repo: RepoView, service: ServiceView): void {
     if (removalNeedsConfirmation(repo, service)) this.confirmingRemoval.set(this.removalKey(repo, service));
     else this.backend.removeLocalService(repo.id, service.id);
+  }
+
+  /** A card was dragged by its handle to a new place in the list. */
+  protected drop(event: CdkDragDrop<unknown>): void {
+    const repo = this.backend.repos()[event.previousIndex];
+    if (repo) this.backend.moveRepo(repo.id, event.currentIndex);
   }
 
   protected configErrorMessage(repo: RepoView): string {

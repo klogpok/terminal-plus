@@ -18,6 +18,7 @@ import {
   type OrphansFoundEvent,
   type PortConflictChangedEvent,
   type RepoChangedEvent,
+  type ReposReorderedEvent,
   type RepoView,
   type ServiceConfig,
   type ServiceStatus,
@@ -122,6 +123,7 @@ export interface CoreEvents extends SessionEvents {
   exit: [ExitEvent];
   configChanged: [ConfigChangedEvent];
   repoChanged: [RepoChangedEvent];
+  reposReordered: [ReposReorderedEvent];
   installOutput: [InstallOutputEvent];
   installChanged: [InstallChangedEvent];
   portConflictChanged: [PortConflictChangedEvent];
@@ -343,6 +345,23 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     await this.saveWorkspace();
     await deleteLocalConfig(this.appDataDir, repo.path);
     this.emit('repoChanged', { repoId, repo: null });
+  }
+
+  /**
+   * Moves a Repo to `toIndex` in the Workspace order, clamped to the list. Moving it to where it
+   * already is writes and emits nothing.
+   */
+  async moveRepo(repoId: string, toIndex: number): Promise<void> {
+    const repo = this.getRepo(repoId);
+    const order = [...this.repos.values()];
+    const from = order.indexOf(repo);
+    const to = Math.min(Math.max(toIndex, 0), order.length - 1);
+    if (from === to) return;
+    order.splice(from, 1);
+    order.splice(to, 0, repo);
+    this.repos = new Map(order.map((r) => [r.id, r]));
+    await this.saveWorkspace();
+    this.emit('reposReordered', { repoIds: order.map((r) => r.id) });
   }
 
   /**

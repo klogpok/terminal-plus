@@ -89,6 +89,8 @@ export class BackendService {
 
   private nextCommandId = 1;
   private nextErrorId = 1;
+  /** `reposReordered` events received; a failed `moveRepo` must not undo an order stored meanwhile. */
+  private serverReorders = 0;
   private readonly pending = new Map<number, Pending>();
   private readonly listeners = new Map<EventType, Set<(payload: never) => void>>();
 
@@ -203,6 +205,25 @@ export class BackendService {
 
   removeRepo(repoId: string): void {
     this.run('removeRepo', { repoId });
+  }
+
+  /**
+   * Moves a Repo to `toIndex` in the list at once and asks the Server to store the order; when that
+   * fails, the previous order comes back (unless the Server sent another order meanwhile) and the
+   * error is shown.
+   */
+  moveRepo(repoId: string, toIndex: number): void {
+    const before = this.reposState();
+    const from = before.findIndex((r) => r.id === repoId);
+    if (from < 0 || from === toIndex) return;
+    const moved = before.filter((r) => r.id !== repoId);
+    moved.splice(toIndex, 0, before[from]!);
+    this.reposState.set(moved);
+    const reorderedBefore = this.serverReorders;
+    this.command('moveRepo', { repoId, toIndex }).catch((error: UiErrorInfo) => {
+      if (this.serverReorders === reorderedBefore) this.reorderRepos(before.map((r) => r.id));
+      this.showError(error);
+    });
   }
 
   /** Lets the user pick the new folder of a Repo (picker shown by the Server). */
@@ -392,6 +413,10 @@ export class BackendService {
       case 'repoChanged':
         this.applyRepoChange(event.payload);
         break;
+      case 'reposReordered':
+        this.serverReorders++;
+        this.reorderRepos(event.payload.repoIds);
+        break;
       case 'orphansFound':
         this.orphansState.set(event.payload.orphans);
         break;
@@ -453,6 +478,14 @@ export class BackendService {
       if (index < 0) return [...repos, repo];
       return repos.flatMap((r, i) => (i === index ? [repo] : r.id === repo.id ? [] : [r]));
     });
+  }
+
+  /** Puts the Repos in the order of `repoIds`; unknown ids are ignored, unlisted Repos keep their order at the end. */
+  private reorderRepos(repoIds: string[]): void {
+    const rank = new Map(repoIds.map((id, i) => [id, i]));
+    const rankOf = (repo: RepoView) => rank.get(repo.id) ?? repoIds.length;
+    // Array sort is stable: unlisted Repos (equal rank) keep their relative order.
+    this.reposState.update((repos) => [...repos].sort((a, b) => rankOf(a) - rankOf(b)));
   }
 
   /** Replaces (or adds, when `change` returns a tab for a missing one) the install tab of a Repo. */

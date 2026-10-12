@@ -1,3 +1,4 @@
+import { CdkDragHandle } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import type { RepoView, ServiceStatus, SessionKind } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
@@ -10,14 +11,28 @@ const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unheal
 const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'exited']);
 
 /**
- * Top of a Repo card: name, git branch, "Open folder", "Remove" with a confirmation listing what
- * runs, and for a missing folder the "Folder not found" notice with "Choose the new location".
+ * Top of a Repo card: the ⋮⋮ drag handle (of the card's `cdkDrag` in the Repo list), name, git
+ * branch, "Open folder", "Remove" with a confirmation listing what runs, and for a missing folder the "Folder not found" notice with "Choose the new location".
  */
 @Component({
   selector: 'dp-repo-header',
+  imports: [CdkDragHandle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="repo-head">
+      <span
+        class="drag-handle"
+        cdkDragHandle
+        role="img"
+        [title]="strings.repos.dragHandle"
+        [attr.aria-label]="strings.repos.dragHandleLabel(repo().name)"
+      >
+        <svg viewBox="0 0 8 14" width="8" height="14" aria-hidden="true">
+          <circle cx="1.5" cy="2" r="1.5" /><circle cx="6.5" cy="2" r="1.5" />
+          <circle cx="1.5" cy="7" r="1.5" /><circle cx="6.5" cy="7" r="1.5" />
+          <circle cx="1.5" cy="12" r="1.5" /><circle cx="6.5" cy="12" r="1.5" />
+        </svg>
+      </span>
       <span class="repo-name">{{ repo().name }}</span>
       @if (repo().branch; as branch) {
         <span class="repo-branch" [title]="strings.repos.branchTitle">⎇ {{ branch }}</span>
@@ -76,9 +91,13 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
   styles: `
     :host { display: block; }
     .repo-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .drag-handle { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 22px; margin-left: -4px; border-radius: 4px; color: var(--muted); cursor: grab; user-select: none; }
+    .drag-handle svg { fill: currentColor; }
+    .drag-handle:hover { color: var(--fg); background: var(--bg); }
+    .drag-handle:active { cursor: grabbing; }
     .repo-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .repo-branch { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-    .repo-actions { margin-left: auto; display: flex; gap: 2px; flex: none; }
+    .repo-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }
     button { border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 2px 6px; }
     button:not(:disabled):hover { border-color: var(--accent); }
     button:disabled { opacity: 0.35; cursor: default; }

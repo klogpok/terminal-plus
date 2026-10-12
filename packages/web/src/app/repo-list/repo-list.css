@@ -2,12 +2,46 @@
     display: block;
 }
 
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 8px;
+}
+
 .panel-title {
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--muted);
-    margin: 0 0 8px;
+    margin: 0;
+}
+
+.collapse-all {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+}
+
+.collapse-all:hover {
+    color: var(--fg);
+}
+
+.collapsed-dots {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.repo-attention {
+    font-size: 12px;
+    line-height: 1;
+    cursor: default;
 }
 
 .repo {
@@ -119,6 +153,10 @@
 }
 
 .service-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
     width: 26px;
     height: 24px;
     border: 1px solid var(--border);

@@ -7,7 +7,7 @@
     [title]="strings.actions.stopAllRepos"
     [attr.aria-label]="strings.actions.stopAllRepos"
     (click)="backend.stopAllRepos()"
-  >■ {{ strings.actions.stopAllRepos }}</button>
+  ><span class="icon" aria-hidden="true">■</span>{{ strings.actions.stopAllRepos }}</button>
   <div class="ui-language" role="group" [attr.aria-label]="strings.uiLanguage.label">
     @for (language of uiLanguages; track language) {
       <button

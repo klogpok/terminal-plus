@@ -2,6 +2,7 @@ import { CdkDragHandle } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import type { RepoView, ServiceStatus, SessionKind } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
+import { CollapsedRepos } from '../repo-list/collapsed-repos.service';
 import { STRINGS } from '../ui-strings';
 import { TerminalTabs, sessionTabKey } from '../terminal/terminal-tabs.service';
 
@@ -11,7 +12,8 @@ const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unheal
 const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'exited']);
 
 /**
- * Top of a Repo card: the ⋮⋮ drag handle (of the card's `cdkDrag` in the Repo list), name, git
+ * Top of a Repo card: the ⋮⋮ drag handle (of the card's `cdkDrag` in the Repo list), ▾/▸ (and the
+ * name) to collapse the card, name, git
  * branch, "Open folder", "Remove" with a confirmation listing what runs, and for a missing folder the "Folder not found" notice with "Choose the new location".
  */
 @Component({
@@ -33,7 +35,15 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
           <circle cx="1.5" cy="12" r="1.5" /><circle cx="6.5" cy="12" r="1.5" />
         </svg>
       </span>
-      <span class="repo-name">{{ repo().name }}</span>
+      <button
+        type="button"
+        class="repo-toggle"
+        [attr.aria-expanded]="!collapsed()"
+        [attr.aria-label]="toggleLabel()"
+        [title]="toggleLabel()"
+        (click)="toggle()"
+      >{{ collapsed() ? '▸' : '▾' }}</button>
+      <span class="repo-name" [title]="repo().name" (click)="toggle()">{{ repo().name }}</span>
       @if (repo().branch; as branch) {
         <span class="repo-branch" [title]="strings.repos.branchTitle">⎇ {{ branch }}</span>
       }
@@ -51,7 +61,7 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
         >✕</button>
       </span>
     </div>
-    @if (repo().services.length) {
+    @if (repo().services.length && !collapsed()) {
       <div class="run-actions">
         <button
           type="button"
@@ -59,14 +69,14 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
           [title]="strings.actions.repoAction(strings.actions.startAll, repo().name)"
           [attr.aria-label]="strings.actions.repoAction(strings.actions.startAll, repo().name)"
           (click)="backend.startAll(repo().id)"
-        >▶ {{ strings.actions.startAll }}</button>
+        ><span class="icon" aria-hidden="true">▶</span>{{ strings.actions.startAll }}</button>
         <button
           type="button"
           [disabled]="!anyStoppable()"
           [title]="strings.actions.repoAction(strings.actions.stopAll, repo().name)"
           [attr.aria-label]="strings.actions.repoAction(strings.actions.stopAll, repo().name)"
           (click)="backend.stopAll(repo().id)"
-        >■ {{ strings.actions.stopAll }}</button>
+        ><span class="icon" aria-hidden="true">■</span>{{ strings.actions.stopAll }}</button>
       </div>
     }
     @if (repo().folderMissing) {
@@ -95,12 +105,17 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
     .drag-handle svg { fill: currentColor; }
     .drag-handle:hover { color: var(--fg); background: var(--bg); }
     .drag-handle:active { cursor: grabbing; }
-    .repo-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Snug between the handle and the name (negative margins cancel most of the row gap): the name keeps its room. */
+    .repo-toggle { flex: none; width: 12px; border: none; background: none; color: var(--muted); padding: 0; margin: 0 -6px; font-size: 12px; }
+    .repo-toggle:not(:disabled):hover { color: var(--fg); }
+    .repo-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
     .repo-branch { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .repo-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }
     button { border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 2px 6px; }
     button:not(:disabled):hover { border-color: var(--accent); }
     button:disabled { opacity: 0.35; cursor: default; }
+    /* One-line icon buttons: glyphs (▶ ■ 📂 ✕ ▾) centered vertically. */
+    .repo-head button, .run-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1; height: 22px; }
     .run-actions { margin-top: 4px; display: flex; gap: 4px; }
     .missing, .remove-confirm { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; align-items: flex-start; }
     .remove-confirm { padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
@@ -115,6 +130,15 @@ export class RepoHeader {
   readonly repo = input.required<RepoView>();
   protected readonly confirming = signal(false);
   private readonly tabs = inject(TerminalTabs);
+  private readonly collapsedRepos = inject(CollapsedRepos);
+  protected readonly collapsed = computed(() => this.collapsedRepos.isCollapsed(this.repo().id));
+  protected readonly toggleLabel = computed(() =>
+    this.collapsed() ? STRINGS.repos.expand(this.repo().name) : STRINGS.repos.collapse(this.repo().name),
+  );
+
+  protected toggle(): void {
+    this.collapsedRepos.toggle(this.repo().id);
+  }
   /** Names of the Services and running Sessions that removing the Repo will stop. */
   protected readonly running = computed(() => [
     ...this.repo().services.filter((s) => LIVE.has(s.status)).map((s) => s.name),

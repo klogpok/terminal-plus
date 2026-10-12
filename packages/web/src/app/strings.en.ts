@@ -86,6 +86,21 @@ export const EN_STRINGS = {
     /** The ⋮⋮ handle that drags a Repo card to another place in the list. */
     dragHandle: 'Drag to reorder',
     dragHandleLabel: (repoName: string) => `Move Repo ${repoName}`,
+    /** The ▾/▸ button before the Repo name. */
+    collapse: (repoName: string) => `Collapse ${repoName}`,
+    expand: (repoName: string) => `Expand ${repoName}`,
+    collapseAll: 'Collapse all',
+    expandAll: 'Expand all',
+    /** Tooltip of a status dot of a collapsed Repo, e.g. "api: Running". */
+    dotTitle: (serviceName: string, status: string) => `${serviceName}: ${status}`,
+    /** Lines of the ❗ tooltip of a collapsed Repo that needs attention. */
+    attention: {
+      folderMissing: 'The folder was not found',
+      configError: 'The config has an error',
+      crashed: (serviceName: string) => `${serviceName} crashed`,
+      unhealthy: (serviceName: string) => `${serviceName} is not responding`,
+      portConflict: (serviceName: string, port: number) => `${serviceName}: port ${port} is busy`,
+    },
   },
 
   sessions: {
@@ -228,6 +243,7 @@ export const EN_STRINGS = {
     lastLines: 'Last lines of output:',
     noOutput: 'The Service printed nothing.',
     startAgain: 'Start again',
+    dismiss: 'Dismiss',
   },
 
   /** A Service's port held by someone else (see `PortConflict`). */

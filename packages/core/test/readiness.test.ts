@@ -230,6 +230,27 @@ describe('a Service that ends by itself', () => {
     expect(statuses).toEqual([]);
   });
 
+  it('Dismiss moves a crashed or exited Service to stopped and drops the exit details', async () => {
+    const { core, repoId, statuses } = await startApi({ command: 'echo bye && exit /b 3' });
+    await nextExit(core);
+    core.dismissExit(repoId, 'api');
+    expect(statusOf(core)).toBe('stopped');
+    expect(core.listRepos()[0]!.services[0]!.lastExit).toBeUndefined();
+    expect(statuses.at(-1)).toBe('stopped');
+
+    await core.startService(repoId, 'api');
+    await nextExit(core);
+    expect(statusOf(core)).toBe('crashed');
+  });
+
+  it('Dismiss leaves a Service that is not crashed or exited alone', async () => {
+    const { core, repoId } = await startApi({ command: fixtureCommand('spawn-grandchild.mjs') });
+    const before = statusOf(core);
+    core.dismissExit(repoId, 'api');
+    expect(statusOf(core)).toBe(before);
+    await core.stopService(repoId, 'api');
+  });
+
   it('a Service stopped by the user reports no exit details', async () => {
     const { core, repoId } = await startApi({ command: fixtureCommand('spawn-grandchild.mjs') });
     await core.stopService(repoId, 'api');

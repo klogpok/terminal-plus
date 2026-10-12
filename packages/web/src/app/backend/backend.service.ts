@@ -113,6 +113,11 @@ export class BackendService {
     this.run('resolvePortConflict', { repoId, serviceId });
   }
 
+  /** Dismiss: a `crashed`/`exited` Service becomes `stopped` without starting. */
+  dismissExit(repoId: string, serviceId: string): void {
+    this.run('dismissExit', { repoId, serviceId });
+  }
+
   stopService(repoId: string, serviceId: string): void {
     this.run('stopService', { repoId, serviceId });
   }

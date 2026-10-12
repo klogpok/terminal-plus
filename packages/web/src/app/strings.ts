@@ -90,6 +90,21 @@ export const RU_STRINGS: UiStrings = {
     openClaudeLabel: (repoName: string) => `Открыть Claude Code в ${repoName}`,
     openTerminal: 'Терминал',
     openTerminalLabel: (repoName: string) => `Открыть терминал в ${repoName}`,
+    /** The ▾/▸ button before the Repo name. */
+    collapse: (repoName: string) => `Свернуть ${repoName}`,
+    expand: (repoName: string) => `Развернуть ${repoName}`,
+    collapseAll: 'Свернуть все',
+    expandAll: 'Развернуть все',
+    /** Tooltip of a status dot of a collapsed Repo, e.g. "api: Работает". */
+    dotTitle: (serviceName: string, status: string) => `${serviceName}: ${status}`,
+    /** Lines of the ❗ tooltip of a collapsed Repo that needs attention. */
+    attention: {
+      folderMissing: 'Папка не найдена',
+      configError: 'В конфиге ошибка',
+      crashed: (serviceName: string) => `${serviceName} упал`,
+      unhealthy: (serviceName: string) => `${serviceName} не отвечает`,
+      portConflict: (serviceName: string, port: number) => `${serviceName}: порт ${port} занят`,
+    },
     dragHandle: 'Перетащите, чтобы изменить порядок',
     dragHandleLabel: (repoName: string) => `Переместить репо ${repoName}`,
   },
@@ -229,6 +244,7 @@ export const RU_STRINGS: UiStrings = {
     lastLines: 'Последние строки вывода:',
     noOutput: 'Сервис ничего не вывел.',
     startAgain: 'Запустить снова',
+    dismiss: 'Скрыть',
   },
 
   /** A Service's port held by someone else (see `PortConflict`). */

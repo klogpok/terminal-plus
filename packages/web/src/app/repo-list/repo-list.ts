@@ -1,9 +1,10 @@
 import { CdkDrag, CdkDragPlaceholder, CdkDragPreview, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { RepoView, ServiceStatus, ServiceView } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
 import { AddRepo } from '../add-repo/add-repo';
 import { AddService } from '../add-service/add-service';
+import { CollapsedRepos } from './collapsed-repos.service';
 import { ConfigSuggestions } from '../config-suggestions/config-suggestions';
 import { ErrorMessage } from '../error-message/error-message';
 import { PortConflictBlock } from '../port-conflict/port-conflict';
@@ -18,7 +19,7 @@ import { TerminalTabs } from '../terminal/terminal-tabs.service';
 const ACTIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy']);
 const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'exited']);
 
-/** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳. */
+/** Left panel: Repos with their Services, status dots, and ▶ ■ ⟳; a collapsed Repo shows only its dots. */
 @Component({
   selector: 'dp-repo-list',
   imports: [
@@ -43,6 +44,9 @@ export class RepoList {
   protected readonly backend = inject(BackendService);
   protected readonly strings = STRINGS;
   protected readonly tabs = inject(TerminalTabs);
+  protected readonly collapsedRepos = inject(CollapsedRepos);
+  /** Every Repo is collapsed: the panel title offers "Expand all" instead of "Collapse all". */
+  protected readonly allCollapsed = computed(() => this.backend.repos().every((r) => this.collapsedRepos.isCollapsed(r.id)));
   /** The Service whose "Remove" confirmation is open, as `repoId/serviceId`. */
   protected readonly confirmingRemoval = signal<string | undefined>(undefined);
 
@@ -60,6 +64,25 @@ export class RepoList {
   }
 
   protected readonly repoColor = repoColor;
+
+  /** Why a collapsed Repo needs attention (❗), one tooltip line per reason; empty: nothing to see. */
+  protected attention(repo: RepoView): string[] {
+    const text = this.strings.repos.attention;
+    return [
+      ...(repo.folderMissing ? [text.folderMissing] : []),
+      ...(repo.configError ? [text.configError] : []),
+      ...repo.services.flatMap((s) => [
+        ...(s.status === 'crashed' ? [text.crashed(s.name)] : []),
+        ...(s.status === 'unhealthy' ? [text.unhealthy(s.name)] : []),
+        ...(s.portConflict ? [text.portConflict(s.name, s.portConflict.port)] : []),
+      ]),
+    ];
+  }
+
+  /** The ❗ tooltip: one line per reason. */
+  protected attentionTitle(reasons: string[]): string {
+    return reasons.join('\n');
+  }
 
   /** Without a Repo Config the user edits the Local Config: "+ Add Service" and "Remove". */
   protected editsLocalConfig(repo: RepoView): boolean {

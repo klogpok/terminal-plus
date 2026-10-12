@@ -7,7 +7,8 @@ export function stripAnsi(text: string): string {
 
 /**
  * Keeps the last `maxLines` lines of pty output as plain text: ANSI stripped, and a bare `\r`
- * (progress bars) overwrites the line like a terminal would. Handles chunks split anywhere.
+ * (progress bars) overwrites the line like a terminal would, and a run of blank lines is kept as
+ * one. Handles chunks split anywhere.
  */
 export class OutputTail {
   private readonly lines: string[] = [];
@@ -19,7 +20,13 @@ export class OutputTail {
   push(data: string): void {
     const parts = (this.pending + data).split('\n');
     this.pending = parts.pop()!;
-    for (const raw of parts) this.lines.push(toPlainLine(raw));
+    for (const raw of parts) {
+      const plain = toPlainLine(raw);
+      const line = plain.trim() === '' ? '' : plain;
+      // ConPTY repaints the screen with cursor moves, which leave runs of blank lines: keep one.
+      if (line === '' && this.lines.at(-1) === '') continue;
+      this.lines.push(line);
+    }
     // A little slack so trailing blank lines (trimmed in `snapshot`) do not eat into `maxLines`.
     const keep = this.maxLines + 10;
     if (this.lines.length > keep) this.lines.splice(0, this.lines.length - keep);

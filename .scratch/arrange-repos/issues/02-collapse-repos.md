@@ -6,17 +6,17 @@ Spec: `.scratch/arrange-repos/spec.md`
 
 **Blocked by:** none (touches the same header and list files as 01; whichever lands second rebases)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] ▾/▸ is a `button` with `aria-expanded` and an accessible name in both UI string sets; clicking the Repo name toggles too.
-- [ ] Collapsed, the card hides "Start all / Stop all", the Service list, config suggestions, Install, the unused Local Config notice and "+ Add Service"; the Remove confirmation and the "Folder not found" block still show.
-- [ ] Collapsed, the card shows one status dot per Service with a tooltip naming the Service and its Status.
-- [ ] ❗ shows in a collapsed Repo when a Service is `crashed` or `unhealthy`, a Service has a `portConflict`, `configError` is set, or `folderMissing` is set; its tooltip says which. The Repo does not expand by itself.
-- [ ] "Collapse all" shows while at least one Repo is expanded, "Expand all" when all are collapsed; each does what it says.
-- [ ] The set of collapsed `repoId`s is kept in `localStorage`, survives a page reload, and drops ids of Repos no longer in the Workspace; storage that throws means nothing is collapsed or remembered and rendering still works.
-- [ ] A newly added Repo is expanded.
-- [ ] All new texts are in both UI string sets (English and Russian).
-- [ ] `pnpm check` passes.
+- [x] ▾/▸ is a `button` with `aria-expanded` and an accessible name in both UI string sets; clicking the Repo name toggles too.
+- [x] Collapsed, the card hides "Start all / Stop all", the Service list, config suggestions, Install, the unused Local Config notice and "+ Add Service"; the Remove confirmation and the "Folder not found" block still show.
+- [x] Collapsed, the card shows one status dot per Service with a tooltip naming the Service and its Status.
+- [x] ❗ shows in a collapsed Repo when a Service is `crashed` or `unhealthy`, a Service has a `portConflict`, `configError` is set, or `folderMissing` is set; its tooltip says which. The Repo does not expand by itself.
+- [x] "Collapse all" shows while at least one Repo is expanded, "Expand all" when all are collapsed; each does what it says.
+- [x] The set of collapsed `repoId`s is kept in `localStorage`, survives a page reload, and drops ids of Repos no longer in the Workspace; storage that throws means nothing is collapsed or remembered and rendering still works.
+- [x] A newly added Repo is expanded.
+- [x] All new texts are in both UI string sets (English and Russian).
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -28,14 +28,14 @@ Spec: `.scratch/arrange-repos/spec.md`
 
 **Блокируется:** ничем (затрагивает те же файлы заголовка и списка, что и 01; кто вливается вторым, тот делает rebase)
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] ▾/▸ — `button` с `aria-expanded` и доступным именем в обоих наборах строк UI; клик по имени Репо тоже переключает.
-- [ ] В свёрнутом виде карточка прячет «Start all / Stop all», список Сервисов, предложения конфига, Install, уведомление о неиспользуемом Локальном конфиге и «+ Add Service»; подтверждение удаления и блок «Папка не найдена» по-прежнему видны.
-- [ ] В свёрнутом виде карточка показывает по одной точке статуса на Сервис с подсказкой, называющей Сервис и его Статус.
-- [ ] ❗ показывается у свёрнутого Репо, когда Сервис `crashed` или `unhealthy`, у Сервиса есть `portConflict`, задан `configError` или `folderMissing`; подсказка говорит, что именно. Репо сам не разворачивается.
-- [ ] «Свернуть всё» видно, пока хотя бы один Репо развёрнут, «Развернуть всё» — когда свёрнуты все; каждая делает то, что написано.
-- [ ] Набор свёрнутых `repoId` хранится в `localStorage`, переживает перезагрузку страницы и теряет id Репо, которых больше нет в Workspace; хранилище, бросающее исключение, означает «ничего не свёрнуто и не запоминается», а отрисовка всё равно работает.
-- [ ] Новый Репо добавляется развёрнутым.
-- [ ] Все новые тексты — в обоих наборах строк UI (английском и русском).
-- [ ] `pnpm check` проходит.
+- [x] ▾/▸ — `button` с `aria-expanded` и доступным именем в обоих наборах строк UI; клик по имени Репо тоже переключает.
+- [x] В свёрнутом виде карточка прячет «Start all / Stop all», список Сервисов, предложения конфига, Install, уведомление о неиспользуемом Локальном конфиге и «+ Add Service»; подтверждение удаления и блок «Папка не найдена» по-прежнему видны.
+- [x] В свёрнутом виде карточка показывает по одной точке статуса на Сервис с подсказкой, называющей Сервис и его Статус.
+- [x] ❗ показывается у свёрнутого Репо, когда Сервис `crashed` или `unhealthy`, у Сервиса есть `portConflict`, задан `configError` или `folderMissing`; подсказка говорит, что именно. Репо сам не разворачивается.
+- [x] «Свернуть всё» видно, пока хотя бы один Репо развёрнут, «Развернуть всё» — когда свёрнуты все; каждая делает то, что написано.
+- [x] Набор свёрнутых `repoId` хранится в `localStorage`, переживает перезагрузку страницы и теряет id Репо, которых больше нет в Workspace; хранилище, бросающее исключение, означает «ничего не свёрнуто и не запоминается», а отрисовка всё равно работает.
+- [x] Новый Репо добавляется развёрнутым.
+- [x] Все новые тексты — в обоих наборах строк UI (английском и русском).
+- [x] `pnpm check` проходит.

@@ -1,7 +1,7 @@
 :host { display: flex; flex-direction: column; height: 100vh; }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--panel); }
 .app-title { font-weight: 700; flex: 1; }
-.stop-all-repos, .exit-button, .exit-confirm button, .orphans button { height: 26px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 0 10px; }
+.stop-all-repos, .exit-button, .exit-confirm button, .orphans button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1; height: 26px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 0 10px; }
 .stop-all-repos:disabled, .exit-button:disabled { opacity: 0.35; cursor: default; }
 .stop-all-repos:not(:disabled):hover, .exit-button:not(:disabled):hover, .exit-confirm button:hover, .orphans button:hover { border-color: var(--accent); }
 .ui-language { display: flex; }

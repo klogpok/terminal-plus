@@ -368,6 +368,8 @@ export interface Commands {
    * is free, then starts the Service, unless the conflict came from a Stop.
    */
   resolvePortConflict: { payload: ServiceRef; result: null };
+  /** Dismiss: a `crashed`/`exited` Service becomes `stopped` without starting; other Statuses are left alone. */
+  dismissExit: { payload: ServiceRef; result: null };
   /** "Start all": starts every Service of the Repo in dependsOn order (Services only, never Sessions). */
   startAll: { payload: { repoId: string }; result: null };
   /** "Stop all": stops every Service of the Repo (Services only, never Sessions). */

@@ -10,6 +10,15 @@ files:
   - dist/main.cjs
   - assets/**
   - package.json
+  # node-pty ships its sources and every platform's prebuilds; at runtime it only loads
+  # prebuilds/win32-x64 (lib/utils.js), so drop the rest. Revisit if an arm64 target is added.
+  - "!**/node_modules/node-pty/{src,deps,third_party,scripts}/**"
+  - "!**/node_modules/node-pty/prebuilds/{darwin-*,win32-arm64}/**"
+# Chromium ships ~50 locale packs; keep only the UI languages.
+electronLanguages:
+  - en-US
+  - ru
+compression: maximum
 # The built Angular UI, served by the in-process Server from resources\web.
 extraResources:
   - from: ../web/dist/browser

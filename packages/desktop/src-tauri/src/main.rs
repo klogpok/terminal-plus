@@ -5,8 +5,10 @@
 // No console window in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod dialog;
 mod protocol;
 mod sidecar;
+mod tray;
 
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -14,7 +16,6 @@ use std::process::{Child, ChildStdout};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_opener::OpenerExt;
@@ -161,23 +162,28 @@ fn handle(app: &AppHandle, message: SidecarMessage) {
             app.state::<Shell>().exiting.store(true, Ordering::SeqCst);
             app.exit(code);
         }
-        // Error dialogs come in ticket 04: log the error and dismiss it at once, so a start
-        // failure still ends the shell.
         SidecarMessage::ShowError {
             dialog_id,
             title,
             message,
             details,
+            buttons,
             ..
         } => {
-            eprintln!(
-                "[shell] {title}: {message}{}",
-                details.map(|d| format!("\n{d}")).unwrap_or_default()
-            );
-            send(app, &ShellMessage::ErrorDismissed { dialog_id });
+            // The box blocks until closed; the sidecar's other messages keep flowing meanwhile.
+            let app = app.clone();
+            std::thread::spawn(move || {
+                dialog::show_error(&title, &message, details.as_deref(), &buttons);
+                send(&app, &ShellMessage::ErrorDismissed { dialog_id });
+            });
         }
-        // The tray menu (ticket 04) and Start with Windows (ticket 05) are not wired yet.
-        other @ (SidecarMessage::SetTray { .. } | SidecarMessage::SetAutostart { .. }) => {
+        SidecarMessage::SetTray { tooltip, items } => {
+            if let Err(error) = tray::set(app, &tooltip, &items) {
+                eprintln!("[shell] Could not update the tray: {error}");
+            }
+        }
+        // Start with Windows is not wired yet (ticket 05).
+        other @ SidecarMessage::SetAutostart { .. } => {
             eprintln!("[shell] Not handled yet: {other:?}");
         }
     }
@@ -230,25 +236,7 @@ fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         exiting: AtomicBool::new(false),
     });
 
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .ok_or("The app has no icon")?;
-    TrayIconBuilder::with_id("main")
-        .icon(icon)
-        .tooltip("DevPanel")
-        .show_menu_on_left_click(false)
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                send(tray.app_handle(), &ShellMessage::TrayClicked);
-            }
-        })
-        .build(app)?;
+    tray::create(app, send)?;
 
     let reader_app = app.clone();
     std::thread::spawn(move || read_sidecar(reader_app, child, stdout));

@@ -20,7 +20,7 @@ pub enum ShellMessage {
         item_id: String,
     },
     WindowCloseRequested,
-    // Sent once the tray menu (ticket 04) can ask the shell to quit.
+    // Not sent yet: the tray's Exit item goes to the sidecar as `trayItemClicked`.
     #[allow(dead_code)]
     QuitRequested,
     #[allow(dead_code)]

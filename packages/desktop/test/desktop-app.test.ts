@@ -1,12 +1,13 @@
 /**
- * The desktop app's main-process behavior, driven through `runDesktop` with a fake Electron host
- * (window, tray, login items, quit) and a fake DevPanel Server. The real Electron wiring is covered
- * by `electron.e2e.test.ts`.
+ * The desktop app's main-process behavior, driven through `runDesktop` with a fake host (window,
+ * tray, Start with Windows, crash texts, quit) and a fake DevPanel Server. The real Electron wiring,
+ * including the single-instance lock the adapter takes, is covered by `electron.e2e.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
 import {
   runDesktop,
+  type CrashTexts,
   type DesktopError,
   type DesktopHost,
   type DesktopOptions,
@@ -75,21 +76,43 @@ class FakeTray implements DesktopTray {
 }
 
 class FakeHost implements DesktopHost {
-  lockAvailable = true;
+  /** Start with Windows as the host (the OS) has it. */
   autostartEnabled = false;
+  /** When false, requests wait for `confirmAutostart()`, like a slow shell. */
+  autostartConfirmsAtOnce = true;
+  autostartRequests: boolean[] = [];
   window?: FakeWindow;
   tray?: FakeTray;
   errors: DesktopError[] = [];
+  crashTexts: CrashTexts[] = [];
   exitCode?: number;
   quitRequests = 0;
-  private secondInstance?: () => void;
   private beforeQuit?: (event: QuitEvent) => void;
+  private autostartListener?: (enabled: boolean) => void;
 
-  requestSingleInstanceLock(): boolean {
-    return this.lockAvailable;
+  isAutostartEnabled(): boolean {
+    return this.autostartEnabled;
   }
-  onSecondInstance(listener: () => void): void {
-    this.secondInstance = listener;
+  requestAutostart(enabled: boolean): void {
+    this.autostartRequests.push(enabled);
+    if (this.autostartConfirmsAtOnce) this.confirmAutostart();
+  }
+  onAutostartChanged(listener: (enabled: boolean) => void): void {
+    this.autostartListener = listener;
+  }
+  /** The host applies the last request and reports the new state. */
+  confirmAutostart(): void {
+    const requested = this.autostartRequests.at(-1);
+    if (requested === undefined) return;
+    this.reportAutostart(requested);
+  }
+  /** The host reports a Start with Windows state (after a request, or changed outside DevPanel). */
+  reportAutostart(enabled: boolean): void {
+    this.autostartEnabled = enabled;
+    this.autostartListener?.(enabled);
+  }
+  setCrashTexts(texts: CrashTexts): void {
+    this.crashTexts.push(texts);
   }
   onBeforeQuit(listener: (event: QuitEvent) => void): void {
     this.beforeQuit = listener;
@@ -104,12 +127,6 @@ class FakeHost implements DesktopHost {
   }
   async showError(error: DesktopError): Promise<void> {
     this.errors.push(error);
-  }
-  isAutostartEnabled(): boolean {
-    return this.autostartEnabled;
-  }
-  setAutostartEnabled(enabled: boolean): void {
-    this.autostartEnabled = enabled;
   }
   /**
    * Like `app.quit()`: emits before-quit, then closes the windows; a listener preventing either
@@ -126,9 +143,6 @@ class FakeHost implements DesktopHost {
   /** Like `app.exit()`: no events, the process ends. */
   exit(code: number): void {
     this.exitCode ??= code;
-  }
-  launchSecondInstance(): void {
-    this.secondInstance?.();
   }
 }
 
@@ -199,27 +213,6 @@ function setup(overrides: Partial<DesktopOptions> & { server?: FakeServer } = {}
   };
   return { host, server, options, exitFromUi: () => requestExit?.() };
 }
-
-describe('single instance', () => {
-  it('a second launch exits at once without starting a Server', async () => {
-    const { host, options } = setup();
-    host.lockAvailable = false;
-    let started = false;
-    const result = await runDesktop({ ...options, startServer: async () => ((started = true), new FakeServer()) });
-    expect(result).toBe('secondInstance');
-    expect(started).toBe(false);
-    expect(host.exitCode).toBe(0);
-    expect(host.window).toBeUndefined();
-  });
-
-  it('a second launch shows and focuses the existing window', async () => {
-    const { host, options } = setup();
-    expect(await runDesktop(options)).toBe('running');
-    host.window!.hide();
-    host.launchSecondInstance();
-    expect(host.window!.visible).toBe(true);
-  });
-});
 
 describe('window', () => {
   it('shows the Server URL with the Access Key, so the web UI runs unchanged', async () => {
@@ -334,16 +327,59 @@ describe('tray', () => {
     ]);
   });
 
-  it('start with Windows is off by default and toggles from the tray', async () => {
+  it('start with Windows shows the state the host reports at start', async () => {
+    const { host, options } = setup();
+    host.autostartEnabled = true;
+    await runDesktop(options);
+    expect(host.tray!.item(EN.autostart)).toMatchObject({ type: 'checkbox', checked: true });
+  });
+
+  it('start with Windows toggles from the tray by asking the host', async () => {
     const { host, options } = setup();
     await runDesktop(options);
     expect(host.tray!.item(EN.autostart)).toMatchObject({ type: 'checkbox', checked: false });
     host.tray!.item(EN.autostart).click!();
-    expect(host.autostartEnabled).toBe(true);
+    expect(host.autostartRequests).toEqual([true]);
     expect(host.tray!.item(EN.autostart).checked).toBe(true);
     host.tray!.item(EN.autostart).click!();
-    expect(host.autostartEnabled).toBe(false);
+    expect(host.autostartRequests).toEqual([true, false]);
     expect(host.tray!.item(EN.autostart).checked).toBe(false);
+  });
+
+  it('the start with Windows checkmark changes only once the host confirms', async () => {
+    const { host, options } = setup();
+    host.autostartConfirmsAtOnce = false;
+    await runDesktop(options);
+    host.tray!.item(EN.autostart).click!();
+    expect(host.autostartRequests).toEqual([true]);
+    expect(host.tray!.item(EN.autostart).checked).toBe(false);
+    host.confirmAutostart();
+    expect(host.tray!.item(EN.autostart).checked).toBe(true);
+  });
+});
+
+describe('crash texts', () => {
+  it('are handed to the host at start, in the UI Language', async () => {
+    const { host, options } = setup();
+    await runDesktop(options);
+    expect(host.crashTexts).toEqual([
+      {
+        title: 'DevPanel stopped',
+        message: 'DevPanel stopped unexpectedly and will close. Start it again from the Start menu.',
+      },
+    ]);
+  });
+
+  it('are handed to the host again in the new UI Language after it changes', async () => {
+    const { host, options, server } = setup();
+    await runDesktop(options);
+    server.switchUiLanguage('ru');
+    expect(host.crashTexts.at(-1)).toEqual({
+      title: 'DevPanel остановился',
+      message: 'DevPanel неожиданно остановился и будет закрыт. Запустите его снова из меню «Пуск».',
+    });
+    server.switchUiLanguage('en');
+    expect(host.crashTexts.at(-1)).toEqual({ title: EN.crashedTitle, message: EN.crashed });
   });
 });
 

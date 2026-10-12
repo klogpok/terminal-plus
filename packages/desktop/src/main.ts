@@ -93,23 +93,30 @@ async function showError({ title, message, details, language }: DesktopError): P
   }
 }
 
+/** The window `runDesktop` created, shown again by a second launch. */
+let mainWindow: DesktopWindow | undefined;
+const autostartListeners: ((enabled: boolean) => void)[] = [];
+const isAutostartEnabled = () => app.getLoginItemSettings(loginItem()).openAtLogin;
+
 const host: DesktopHost = {
-  requestSingleInstanceLock: () => app.requestSingleInstanceLock(),
-  onSecondInstance: (listener) => app.on('second-instance', listener),
   onBeforeQuit: (listener) => app.on('before-quit', listener),
   quit: () => app.quit(),
   exit: (code) => app.exit(code),
-  createWindow,
+  createWindow: (url) => (mainWindow = createWindow(url)),
   createTray,
   showError,
-  isAutostartEnabled: () => app.getLoginItemSettings(loginItem()).openAtLogin,
-  setAutostartEnabled: (enabled) => app.setLoginItemSettings({ openAtLogin: enabled, ...loginItem() }),
+  isAutostartEnabled,
+  requestAutostart: (enabled) => {
+    app.setLoginItemSettings({ openAtLogin: enabled, ...loginItem() });
+    const reported = isAutostartEnabled();
+    for (const listener of autostartListeners) listener(reported);
+  },
+  onAutostartChanged: (listener) => autostartListeners.push(listener),
+  // Electron shows no crash dialog: the Server runs in this process and dies with it.
+  setCrashTexts: () => undefined,
 };
 
-// The window hides instead of closing, so this only matters while quitting: never quit from here.
-app.on('window-all-closed', () => undefined);
-
-void app.whenReady().then(() =>
+const startDesktop = () =>
   runDesktop({
     host,
     port,
@@ -126,5 +133,14 @@ void app.whenReady().then(() =>
         onUiLanguageChanged: (listener) => devPanel.core.on('uiLanguageChanged', (e) => listener(e.language)),
       };
     },
-  }),
-);
+  });
+
+// One DevPanel per machine: a second launch shows the running window and ends before any Server starts.
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
+} else {
+  app.on('second-instance', () => mainWindow?.show());
+  // The window hides instead of closing, so this only matters while quitting: never quit from here.
+  app.on('window-all-closed', () => undefined);
+  void app.whenReady().then(startDesktop);
+}

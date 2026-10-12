@@ -52,6 +52,9 @@ const EN_HOST_STRINGS = {
     unexpected: 'Something went wrong while starting. Press "Details" and show the text to a developer.',
     stopAllFailedTitle: 'Could not stop everything',
     stopAllFailed: 'Some Services could not be stopped. Press "Details" and show the text to a developer.',
+    /** The dialog the desktop shell shows if the DevPanel Server stops unexpectedly, before it closes. */
+    crashedTitle: 'DevPanel stopped',
+    crashed: 'DevPanel stopped unexpectedly and will close. Start it again from the Start menu.',
     /** Error dialog buttons. */
     ok: 'OK',
     details: 'Details',
@@ -97,6 +100,8 @@ const RU_HOST_STRINGS: HostStrings = {
     unexpected: 'Что-то пошло не так при запуске. Нажмите «Подробности» и покажите текст разработчику.',
     stopAllFailedTitle: 'Не удалось остановить всё',
     stopAllFailed: 'Не все сервисы удалось остановить. Нажмите «Подробности» и покажите текст разработчику.',
+    crashedTitle: 'DevPanel остановился',
+    crashed: 'DevPanel неожиданно остановился и будет закрыт. Запустите его снова из меню «Пуск».',
     ok: 'OK',
     details: 'Подробности',
     detailsTitle: 'Подробности для разработчика',

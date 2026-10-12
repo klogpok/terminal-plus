@@ -8,13 +8,13 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Status:** ready-for-agent
 
-- [ ] The desktop host interface no longer has single-instance members; the Electron adapter takes the lock and shows the window on a second launch before or around `runDesktop`.
-- [ ] Start with Windows: the host reports the current state, the behaviour asks it to change, and the tray checkmark reflects what the host reports.
-- [ ] Crash dialog title and message exist in `HostStrings` for English and Russian (compile error if one is missing).
-- [ ] The behaviour hands the crash texts to the host at start and again after each UI Language change.
-- [ ] The desktop unit tests (fake host) cover: autostart toggling through the host, crash texts at start and after a language change. The single-instance cases move out of this suite or are adapted to the adapter.
-- [ ] The Electron end-to-end test still passes; the Electron desktop app behaves as before.
-- [ ] `pnpm check` passes.
+- [x] The desktop host interface no longer has single-instance members; the Electron adapter takes the lock and shows the window on a second launch before or around `runDesktop`.
+- [x] Start with Windows: the host reports the current state, the behaviour asks it to change, and the tray checkmark reflects what the host reports.
+- [x] Crash dialog title and message exist in `HostStrings` for English and Russian (compile error if one is missing).
+- [x] The behaviour hands the crash texts to the host at start and again after each UI Language change.
+- [x] The desktop unit tests (fake host) cover: autostart toggling through the host, crash texts at start and after a language change. The single-instance cases move out of this suite or are adapted to the adapter.
+- [x] The Electron end-to-end test still passes; the Electron desktop app behaves as before.
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -28,10 +28,10 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Статус:** ready-for-agent
 
-- [ ] В интерфейсе десктопного хоста нет членов для единственного экземпляра; Electron-адаптер берёт блокировку и показывает окно при повторном запуске до или вокруг `runDesktop`.
-- [ ] Автозапуск с Windows: хост сообщает текущее состояние, поведение просит изменить его, галочка в трее отражает то, что сообщил хост.
-- [ ] Заголовок и текст диалога аварии есть в `HostStrings` на английском и русском (ошибка компиляции, если одного не хватает).
-- [ ] Поведение передаёт тексты аварии хосту при старте и снова после каждой смены Языка интерфейса.
-- [ ] Юнит-тесты десктопа (фейковый хост) покрывают переключение автозапуска через хост и тексты аварии при старте и после смены языка. Случаи единственного экземпляра уходят из этого набора или переносятся на адаптер.
-- [ ] Electron e2e-тест по-прежнему проходит; Electron-приложение ведёт себя как раньше.
-- [ ] `pnpm check` проходит.
+- [x] В интерфейсе десктопного хоста нет членов для единственного экземпляра; Electron-адаптер берёт блокировку и показывает окно при повторном запуске до или вокруг `runDesktop`.
+- [x] Автозапуск с Windows: хост сообщает текущее состояние, поведение просит изменить его, галочка в трее отражает то, что сообщил хост.
+- [x] Заголовок и текст диалога аварии есть в `HostStrings` на английском и русском (ошибка компиляции, если одного не хватает).
+- [x] Поведение передаёт тексты аварии хосту при старте и снова после каждой смены Языка интерфейса.
+- [x] Юнит-тесты десктопа (фейковый хост) покрывают переключение автозапуска через хост и тексты аварии при старте и после смены языка. Случаи единственного экземпляра уходят из этого набора или переносятся на адаптер.
+- [x] Electron e2e-тест по-прежнему проходит; Electron-приложение ведёт себя как раньше.
+- [x] `pnpm check` проходит.

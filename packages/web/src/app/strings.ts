@@ -90,6 +90,21 @@ export const RU_STRINGS: UiStrings = {
     openClaudeLabel: (repoName: string) => `Открыть Claude Code в ${repoName}`,
     openTerminal: 'Терминал',
     openTerminalLabel: (repoName: string) => `Открыть терминал в ${repoName}`,
+    /** The ▾/▸ button before the Repo name. */
+    collapse: (repoName: string) => `Свернуть ${repoName}`,
+    expand: (repoName: string) => `Развернуть ${repoName}`,
+    collapseAll: 'Свернуть все',
+    expandAll: 'Развернуть все',
+    /** Tooltip of a status dot of a collapsed Repo, e.g. "api: Работает". */
+    dotTitle: (serviceName: string, status: string) => `${serviceName}: ${status}`,
+    /** Lines of the ❗ tooltip of a collapsed Repo that needs attention. */
+    attention: {
+      folderMissing: 'Папка не найдена',
+      configError: 'В конфиге ошибка',
+      crashed: (serviceName: string) => `${serviceName} упал`,
+      unhealthy: (serviceName: string) => `${serviceName} не отвечает`,
+      portConflict: (serviceName: string, port: number) => `${serviceName}: порт ${port} занят`,
+    },
     dragHandle: 'Перетащите, чтобы изменить порядок',
     dragHandleLabel: (repoName: string) => `Переместить репо ${repoName}`,
   },
@@ -102,6 +117,8 @@ export const RU_STRINGS: UiStrings = {
     finished: (exitCode: number | undefined) =>
       exitCode === undefined || exitCode === 0 ? 'Сессия завершена.' : `Сессия завершена (код ${exitCode}).`,
     confirmClose: (label: string) => `Сессия «${label}» ещё работает. Закрыть вкладку и завершить сессию?`,
+    /** The same question shown inside the tab, where space is short. */
+    confirmCloseShort: (label: string) => `Завершить «${label}»?`,
     confirmYes: 'Завершить',
     confirmNo: 'Отмена',
   },
@@ -189,6 +206,12 @@ export const RU_STRINGS: UiStrings = {
     names: { en: 'English', ru: 'Русский' },
   },
 
+  /** The Theme switch in the header (per browser). */
+  theme: {
+    label: 'Тема',
+    names: { system: 'Как в системе', light: 'Светлая тема', dark: 'Тёмная тема' },
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'После прошлого запуска DevPanel остались работающие процессы:',
@@ -229,6 +252,7 @@ export const RU_STRINGS: UiStrings = {
     lastLines: 'Последние строки вывода:',
     noOutput: 'Сервис ничего не вывел.',
     startAgain: 'Запустить снова',
+    dismiss: 'Скрыть',
   },
 
   /** A Service's port held by someone else (see `PortConflict`). */

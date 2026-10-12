@@ -1,4 +1,11 @@
-<h2 class="panel-title">{{ strings.repos.title }}</h2>
+<div class="panel-head">
+  <h2 class="panel-title">{{ strings.repos.title }}</h2>
+  @if (backend.repos().length) {
+    <button type="button" class="collapse-all" (click)="collapsedRepos.setAll(!allCollapsed())">
+      {{ allCollapsed() ? strings.repos.expandAll : strings.repos.collapseAll }}
+    </button>
+  }
+</div>
 <dp-add-repo />
 <div class="repo-cards" cdkDropList (cdkDropListDropped)="drop($event)">
 @for (repo of backend.repos(); track repo.id) {
@@ -10,105 +17,128 @@
     <div *cdkDragPlaceholder class="repo-drag-placeholder" [style.color]="repoColor(repo)"></div>
     <div class="repo-body">
       <dp-repo-header [repo]="repo" />
-      @if (repo.configError) {
-        <dp-error-message [message]="configErrorMessage(repo)" [details]="repo.configError" />
-      }
-      @if (repo.install) {
-        <button
-          type="button"
-          class="install-button"
-          [disabled]="repo.install.state === 'running'"
-          (click)="backend.installDependencies(repo.id)"
-        >{{ repo.install.state === 'running' ? strings.install.running : strings.install.button }}</button>
-      }
-      @if (repo.unusedLocalConfig) {
-        <div class="notice">
-          <span>{{ strings.config.unusedLocalConfig }}</span>
-          <button type="button" (click)="backend.deleteLocalConfig(repo.id)">{{ strings.config.deleteLocalConfig }}</button>
-        </div>
-      }
-      @if (repo.suggestions && repo.configSource !== 'local') {
-        <dp-config-suggestions [repo]="repo" />
-      }
-      <ul class="services">
-        @for (service of repo.services; track service.id) {
-          <li class="service" [attr.data-service-id]="service.id">
-            <span
-              class="status-dot"
-              [class]="'status-dot status-' + service.status"
-              [title]="strings.status[service.status]"
-              role="img"
-              [attr.aria-label]="strings.status[service.status]"
-            ></span>
-            <span class="service-name">
-              <button
-                type="button"
-                class="service-open"
-                [attr.aria-label]="strings.terminal.open(service.name)"
-                (click)="tabs.open({ repoId: repo.id, serviceId: service.id })"
-              >{{ service.name }}</button>
-              @if (service.removedFromConfig) {
-                <span class="config-flag">{{ strings.config.serviceRemoved }}</span>
-              } @else if (service.configChanged) {
-                <span class="config-flag">{{ strings.config.serviceConfigChanged }}</span>
-              }
-              @if (service.waitingFor) {
-                <span class="config-flag">{{ strings.waitingFor(service.waitingFor) }}</span>
-              }
-            </span>
-            <span class="service-actions">
-              @if (service.url) {
-                <button
-                  type="button"
-                  [title]="strings.repos.openInBrowserTitle"
-                  [attr.aria-label]="strings.repos.openInBrowser(service.name)"
-                  (click)="backend.openUrl(repo.id, service.id)"
-                >↗</button>
-              }
-              <button
-                type="button"
-                [disabled]="!canStart(service.status) || repo.folderMissing"
-                [title]="strings.actions.start"
-                [attr.aria-label]="strings.actions.serviceAction(strings.actions.start, service.name)"
-                (click)="backend.startService(repo.id, service.id)"
-              >▶</button>
-              <button
-                type="button"
-                [disabled]="!canStop(service)"
-                [title]="strings.actions.stop"
-                [attr.aria-label]="strings.actions.serviceAction(strings.actions.stop, service.name)"
-                (click)="backend.stopService(repo.id, service.id)"
-              >■</button>
-              <button
-                type="button"
-                [disabled]="!canRestart(service.status)"
-                [title]="strings.actions.restart"
-                [attr.aria-label]="strings.actions.serviceAction(strings.actions.restart, service.name)"
-                (click)="backend.restartService(repo.id, service.id)"
-              >⟳</button>
-              @if (editsLocalConfig(repo) && !service.removedFromConfig) {
-                <button
-                  type="button"
-                  [title]="strings.editConfig.remove"
-                  [attr.aria-label]="strings.editConfig.removeService(service.name)"
-                  (click)="askRemove(repo, service)"
-                >✕</button>
-              }
-            </span>
-            <dp-port-conflict [service]="service" (resolve)="backend.resolvePortConflict(repo.id, service.id)" />
-            <dp-service-exit [service]="service" (startAgain)="backend.startService(repo.id, service.id)" />
-            @if (confirmingRemoval() === removalKey(repo, service)) {
-              <dp-remove-service [repo]="repo" [service]="service" (closed)="confirmingRemoval.set(undefined)" />
+      @if (collapsedRepos.isCollapsed(repo.id)) {
+        @let reasons = attention(repo);
+        @if (repo.services.length || reasons.length) {
+          <div class="collapsed-dots">
+            @if (reasons.length) {
+              <span class="repo-attention" role="img" [title]="attentionTitle(reasons)" [attr.aria-label]="reasons.join('. ')">❗</span>
             }
-          </li>
-        } @empty {
-          @if (!repo.configError) {
-            <li class="muted">{{ strings.repos.noServices }}</li>
-          }
+            @for (service of repo.services; track service.id) {
+              <span
+                [class]="'status-dot status-' + service.status"
+                [title]="strings.repos.dotTitle(service.name, strings.status[service.status])"
+                role="img"
+                [attr.aria-label]="strings.repos.dotTitle(service.name, strings.status[service.status])"
+              ></span>
+            }
+          </div>
         }
-      </ul>
-      @if (editsLocalConfig(repo) && !repo.folderMissing) {
-        <dp-add-service [repo]="repo" />
+      } @else {
+        @if (repo.configError) {
+          <dp-error-message [message]="configErrorMessage(repo)" [details]="repo.configError" />
+        }
+        @if (repo.install) {
+          <button
+            type="button"
+            class="install-button"
+            [disabled]="repo.install.state === 'running'"
+            (click)="backend.installDependencies(repo.id)"
+          >{{ repo.install.state === 'running' ? strings.install.running : strings.install.button }}</button>
+        }
+        @if (repo.unusedLocalConfig) {
+          <div class="notice">
+            <span>{{ strings.config.unusedLocalConfig }}</span>
+            <button type="button" (click)="backend.deleteLocalConfig(repo.id)">{{ strings.config.deleteLocalConfig }}</button>
+          </div>
+        }
+        @if (repo.suggestions && repo.configSource !== 'local') {
+          <dp-config-suggestions [repo]="repo" />
+        }
+        <ul class="services">
+          @for (service of repo.services; track service.id) {
+            <li class="service" [attr.data-service-id]="service.id">
+              <span
+                class="status-dot"
+                [class]="'status-dot status-' + service.status"
+                [title]="strings.status[service.status]"
+                role="img"
+                [attr.aria-label]="strings.status[service.status]"
+              ></span>
+              <span class="service-name">
+                <button
+                  type="button"
+                  class="service-open"
+                  [attr.aria-label]="strings.terminal.open(service.name)"
+                  (click)="tabs.open({ repoId: repo.id, serviceId: service.id })"
+                >{{ service.name }}</button>
+                @if (service.removedFromConfig) {
+                  <span class="config-flag">{{ strings.config.serviceRemoved }}</span>
+                } @else if (service.configChanged) {
+                  <span class="config-flag">{{ strings.config.serviceConfigChanged }}</span>
+                }
+                @if (service.waitingFor) {
+                  <span class="config-flag">{{ strings.waitingFor(service.waitingFor) }}</span>
+                }
+              </span>
+              <span class="service-actions">
+                @if (service.url) {
+                  <button
+                    type="button"
+                    [title]="strings.repos.openInBrowserTitle"
+                    [attr.aria-label]="strings.repos.openInBrowser(service.name)"
+                    (click)="backend.openUrl(repo.id, service.id)"
+                  >↗</button>
+                }
+                <button
+                  type="button"
+                  [disabled]="!canStart(service.status) || repo.folderMissing"
+                  [title]="strings.actions.start"
+                  [attr.aria-label]="strings.actions.serviceAction(strings.actions.start, service.name)"
+                  (click)="backend.startService(repo.id, service.id)"
+                >▶</button>
+                <button
+                  type="button"
+                  [disabled]="!canStop(service)"
+                  [title]="strings.actions.stop"
+                  [attr.aria-label]="strings.actions.serviceAction(strings.actions.stop, service.name)"
+                  (click)="backend.stopService(repo.id, service.id)"
+                >■</button>
+                <button
+                  type="button"
+                  [disabled]="!canRestart(service.status)"
+                  [title]="strings.actions.restart"
+                  [attr.aria-label]="strings.actions.serviceAction(strings.actions.restart, service.name)"
+                  (click)="backend.restartService(repo.id, service.id)"
+                >⟳</button>
+                @if (editsLocalConfig(repo) && !service.removedFromConfig) {
+                  <button
+                    type="button"
+                    [title]="strings.editConfig.remove"
+                    [attr.aria-label]="strings.editConfig.removeService(service.name)"
+                    (click)="askRemove(repo, service)"
+                  >✕</button>
+                }
+              </span>
+              <dp-port-conflict [service]="service" (resolve)="backend.resolvePortConflict(repo.id, service.id)" />
+              <dp-service-exit
+                [service]="service"
+                (startAgain)="backend.startService(repo.id, service.id)"
+                (dismiss)="backend.dismissExit(repo.id, service.id)"
+              />
+              @if (confirmingRemoval() === removalKey(repo, service)) {
+                <dp-remove-service [repo]="repo" [service]="service" (closed)="confirmingRemoval.set(undefined)" />
+              }
+            </li>
+          } @empty {
+            @if (!repo.configError) {
+              <li class="muted">{{ strings.repos.noServices }}</li>
+            }
+          }
+        </ul>
+        @if (editsLocalConfig(repo) && !repo.folderMissing) {
+          <dp-add-service [repo]="repo" />
+        }
       }
     </div>
   </section>

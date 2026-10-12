@@ -1,7 +1,7 @@
 @if (openTabs().length) {
   <div class="strip" role="tablist" [attr.aria-label]="strings.terminal.tabsLabel">
     @for (tab of openTabs(); track tab.key) {
-      <span class="tab-wrap" [class.active]="tab.key === activeKey()" [style.border-top-color]="tab.color">
+      <span class="tab-wrap" [class.active]="tab.key === activeKey()">
         <button
           type="button"
           class="tab"
@@ -11,24 +11,25 @@
           [attr.aria-controls]="'panel-' + tab.key"
           [title]="tab.title"
           (click)="tabs.selectKey(tab.key)"
-        ><span class="dot" [style.background-color]="tab.color"></span>{{ tab.label }}@if (tab.kind === 'session' && tab.session.state === 'finished') {<span class="finished">{{ ' ' + strings.sessions.finishedMark }}</span>}</button>
-        <button
-          type="button"
-          class="close"
-          [attr.aria-label]="strings.terminal.close(tab.label)"
-          [title]="strings.terminal.close(tab.label)"
-          (click)="close(tab)"
-        >×</button>
+        ><span class="dot" [style.background-color]="tab.color"></span><span class="label">@if (tab.repo) {<span class="repo">{{ tab.repo }} / </span>}{{ tab.label }}</span>@if (tab.kind === 'session' && tab.session.state === 'finished') {<span class="finished">{{ ' ' + strings.sessions.finishedMark }}</span>}</button>
+        @if (confirming()?.key === tab.key) {
+          <span class="close-confirm" role="alertdialog" [attr.aria-label]="strings.sessions.confirmClose(tab.label)" (keydown.escape)="cancelClose()">
+            <span [title]="strings.sessions.confirmClose(tab.label)">{{ strings.sessions.confirmCloseShort(tab.label) }}</span>
+            <button type="button" class="danger" (click)="confirmClose()">{{ strings.sessions.confirmYes }}</button>
+            <button #cancelButton type="button" (click)="cancelClose()">{{ strings.sessions.confirmNo }}</button>
+          </span>
+        } @else {
+          <button
+            type="button"
+            class="close"
+            [attr.aria-label]="strings.terminal.close(tab.label)"
+            [title]="strings.terminal.close(tab.label)"
+            (click)="close(tab)"
+          >×</button>
+        }
       </span>
     }
   </div>
-  @if (confirming(); as tab) {
-    <div class="close-confirm" role="alertdialog" [style.border-left-color]="tab.color">
-      <span>{{ strings.sessions.confirmClose(tab.label) }}</span>
-      <button type="button" class="danger" (click)="confirmClose()">{{ strings.sessions.confirmYes }}</button>
-      <button type="button" (click)="confirmingKey.set(null)">{{ strings.sessions.confirmNo }}</button>
-    </div>
-  }
   @for (tab of openTabs(); track tab.key) {
     @switch (tab.kind) {
       @case ('session') {

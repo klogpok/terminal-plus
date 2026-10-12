@@ -10,6 +10,8 @@
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
     "start": "pnpm --filter @devpanel/server start",
+    "desktop": "pnpm --filter @devpanel/desktop start",
+    "desktop:dist": "pnpm build && pnpm --filter @devpanel/desktop dist",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . --max-warnings 0",
     "check": "pnpm typecheck && pnpm lint && pnpm test",

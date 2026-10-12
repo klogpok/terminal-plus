@@ -56,6 +56,10 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: serviceRef,
     run: async (core, p) => (await core.resolvePortConflict(p.repoId, p.serviceId), null),
   },
+  dismissExit: {
+    payload: serviceRef,
+    run: (core, p) => (core.dismissExit(p.repoId, p.serviceId), null),
+  },
   startAll: {
     payload: repoRef,
     run: async (core, p) => (await core.startAll(p.repoId), null),

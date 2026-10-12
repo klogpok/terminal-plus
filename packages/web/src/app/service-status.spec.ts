@@ -128,6 +128,32 @@ describe('a Service that ended by itself', () => {
     expect(transport.lastCommand('startService').payload).toEqual({ repoId: 'b1', serviceId: 'once' });
   });
 
+  it('Dismiss asks the Server to dismiss the exit; the block goes once the Service is stopped', async () => {
+    await transport.connectWith({
+      repos: [aRepo({ id: 'b1', services: [aService({ id: 'job', status: 'crashed', lastExit: { exitCode: 3, lastLines: lines } })] })],
+    });
+    await stable();
+
+    const dismiss = [...exitBlock('job')!.querySelectorAll('button')].find((b) => b.textContent?.includes('Dismiss'));
+    dismiss!.click();
+    expect(transport.lastCommand('dismissExit').payload).toEqual({ repoId: 'b1', serviceId: 'job' });
+
+    transport.emit('statusChanged', { repoId: 'b1', serviceId: 'job', status: 'stopped' });
+    await stable();
+    expect(exitBlock('job')).toBeNull();
+  });
+
+  it('an exited Service can be dismissed too', async () => {
+    await transport.connectWith({
+      repos: [aRepo({ id: 'b1', services: [aService({ id: 'once', status: 'exited', lastExit: { exitCode: 0, lastLines: ['done'] } })] })],
+    });
+    await stable();
+
+    const dismiss = [...exitBlock('once')!.querySelectorAll('button')].find((b) => b.textContent?.includes('Dismiss'));
+    dismiss!.click();
+    expect(transport.lastCommand('dismissExit').payload).toEqual({ repoId: 'b1', serviceId: 'once' });
+  });
+
   it('gets its details from the exit event, and loses them when started again', async () => {
     await transport.connectWith({ repos: [aRepo({ id: 'b1', services: [aService({ id: 'api', status: 'running' })] })] });
     await stable();

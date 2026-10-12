@@ -795,6 +795,15 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     if (await this.ports.resolve(repo, service)) await this.startService(repoId, serviceId);
   }
 
+  /** Dismiss: a `crashed`/`exited` Service becomes `stopped` without starting, dropping its exit details. */
+  dismissExit(repoId: string, serviceId: string): void {
+    const repo = this.getRepo(repoId);
+    const service = this.getService(repo, serviceId);
+    if (service.status !== 'crashed' && service.status !== 'exited') return;
+    service.lastExit = undefined;
+    this.setStatus(repo, service, 'stopped');
+  }
+
   /** Stops the Service if it runs (waiting for the exit), then starts it again. */
   async restartService(repoId: string, serviceId: string): Promise<void> {
     await this.stopService(repoId, serviceId);

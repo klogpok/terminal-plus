@@ -86,6 +86,21 @@ export const EN_STRINGS = {
     /** The ⋮⋮ handle that drags a Repo card to another place in the list. */
     dragHandle: 'Drag to reorder',
     dragHandleLabel: (repoName: string) => `Move Repo ${repoName}`,
+    /** The ▾/▸ button before the Repo name. */
+    collapse: (repoName: string) => `Collapse ${repoName}`,
+    expand: (repoName: string) => `Expand ${repoName}`,
+    collapseAll: 'Collapse all',
+    expandAll: 'Expand all',
+    /** Tooltip of a status dot of a collapsed Repo, e.g. "api: Running". */
+    dotTitle: (serviceName: string, status: string) => `${serviceName}: ${status}`,
+    /** Lines of the ❗ tooltip of a collapsed Repo that needs attention. */
+    attention: {
+      folderMissing: 'The folder was not found',
+      configError: 'The config has an error',
+      crashed: (serviceName: string) => `${serviceName} crashed`,
+      unhealthy: (serviceName: string) => `${serviceName} is not responding`,
+      portConflict: (serviceName: string, port: number) => `${serviceName}: port ${port} is busy`,
+    },
   },
 
   sessions: {
@@ -96,6 +111,8 @@ export const EN_STRINGS = {
     finished: (exitCode: number | undefined) =>
       exitCode === undefined || exitCode === 0 ? 'The Session has ended.' : `The Session has ended (code ${exitCode}).`,
     confirmClose: (label: string) => `The "${label}" Session is still running. Close the tab and end the Session?`,
+    /** The same question shown inside the tab, where space is short. */
+    confirmCloseShort: (label: string) => `End ${label}?`,
     confirmYes: 'End Session',
     confirmNo: 'Cancel',
   },
@@ -186,6 +203,12 @@ export const EN_STRINGS = {
     names: { en: 'English', ru: 'Русский' },
   },
 
+  /** The Theme switch in the header (per browser). */
+  theme: {
+    label: 'Theme',
+    names: { system: 'System theme', light: 'Light theme', dark: 'Dark theme' },
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'Some processes from the previous DevPanel run are still running:',
@@ -228,6 +251,7 @@ export const EN_STRINGS = {
     lastLines: 'Last lines of output:',
     noOutput: 'The Service printed nothing.',
     startAgain: 'Start again',
+    dismiss: 'Dismiss',
   },
 
   /** A Service's port held by someone else (see `PortConflict`). */

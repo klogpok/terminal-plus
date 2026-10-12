@@ -7,7 +7,7 @@
       <span class="repo-drag-color" [style.background]="repoColor(repo)"></span>
       <span class="repo-drag-name">{{ repo.name }}</span>
     </div>
-    <div *cdkDragPlaceholder class="repo-drag-placeholder"></div>
+    <div *cdkDragPlaceholder class="repo-drag-placeholder" [style.color]="repoColor(repo)"></div>
     <div class="repo-body">
       <dp-repo-header [repo]="repo" />
       @if (repo.configError) {

@@ -50,10 +50,11 @@
     white-space: nowrap;
 }
 
-/* Where the card will land. */
+/* Where the card will land, in the Repo's color. */
 .repo-drag-placeholder {
     margin-bottom: 12px;
-    border: 2px dashed var(--border);
+    border: 2px dashed currentColor;
+    background: color-mix(in srgb, currentColor 15%, transparent);
 }
 
 .cdk-drop-list-dragging .repo:not(.cdk-drag-placeholder) {

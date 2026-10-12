@@ -26,7 +26,13 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
         role="img"
         [title]="strings.repos.dragHandle"
         [attr.aria-label]="strings.repos.dragHandleLabel(repo().name)"
-      >⋮⋮</span>
+      >
+        <svg viewBox="0 0 8 14" width="8" height="14" aria-hidden="true">
+          <circle cx="1.5" cy="2" r="1.5" /><circle cx="6.5" cy="2" r="1.5" />
+          <circle cx="1.5" cy="7" r="1.5" /><circle cx="6.5" cy="7" r="1.5" />
+          <circle cx="1.5" cy="12" r="1.5" /><circle cx="6.5" cy="12" r="1.5" />
+        </svg>
+      </span>
       <span class="repo-name">{{ repo().name }}</span>
       @if (repo().branch; as branch) {
         <span class="repo-branch" [title]="strings.repos.branchTitle">⎇ {{ branch }}</span>
@@ -85,8 +91,10 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
   styles: `
     :host { display: block; }
     .repo-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .drag-handle { flex: none; margin-right: -4px; color: var(--muted); cursor: grab; user-select: none; letter-spacing: -3px; }
-    .drag-handle:hover { color: var(--fg); }
+    .drag-handle { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 22px; margin-left: -4px; border-radius: 4px; color: var(--muted); cursor: grab; user-select: none; }
+    .drag-handle svg { fill: currentColor; }
+    .drag-handle:hover { color: var(--fg); background: var(--bg); }
+    .drag-handle:active { cursor: grabbing; }
     .repo-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .repo-branch { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .repo-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }

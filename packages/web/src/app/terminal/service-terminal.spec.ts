@@ -68,9 +68,9 @@ describe('Service terminal tab', () => {
   it('opens on click, colored like its Repo', async () => {
     await openTab('API');
 
-    expect(tabs().map((t) => t.textContent?.trim())).toEqual(['API']);
+    expect(tabs().map((t) => t.textContent?.trim())).toEqual(['Billing / API']);
     expect(tabs()[0]!.getAttribute('aria-selected')).toBe('true');
-    expect(tabs()[0]!.closest<HTMLElement>('.tab-wrap')!.style.borderTopColor).toBe('rgb(233, 30, 99)');
+    expect(tabs()[0]!.querySelector<HTMLElement>('.dot')!.style.backgroundColor).toBe('rgb(233, 30, 99)');
   });
 
   it('replays the buffered output first, then streams live output', async () => {
@@ -106,7 +106,7 @@ describe('Service terminal tab', () => {
 
     await loadPage();
 
-    expect(tabs().map((t) => t.textContent?.trim())).toEqual(['API']);
+    expect(tabs().map((t) => t.textContent?.trim())).toEqual(['Billing / API']);
     await transport.reply(transport.lastCommand('getServiceOutput'), 'buffered\r\n');
     expect(view().screen).toBe('buffered\r\n');
   });
@@ -146,7 +146,7 @@ describe('Service terminal tab', () => {
     page.querySelector<HTMLButtonElement>('button[aria-label="Close the Web tab"]')!.click();
     await stable();
 
-    expect(tabs().map((t) => t.textContent?.trim())).toEqual(['API']);
+    expect(tabs().map((t) => t.textContent?.trim())).toEqual(['Billing / API']);
     expect(tabs()[0]!.getAttribute('aria-selected')).toBe('true');
     expect(view(1).disposed).toBe(true);
   });

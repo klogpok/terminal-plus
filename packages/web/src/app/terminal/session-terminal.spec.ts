@@ -90,16 +90,16 @@ describe('opening Sessions', () => {
   it('"Terminal" opens a shell Session tab colored like the Repo, and shows it', async () => {
     await open('Open a terminal in Billing', shell1);
 
-    expect(tabTexts()).toEqual(['Terminal']);
+    expect(tabTexts()).toEqual(['Billing / Terminal']);
     expect(tabs()[0]!.getAttribute('aria-selected')).toBe('true');
-    expect(tabs()[0]!.closest<HTMLElement>('.tab-wrap')!.style.borderTopColor).toBe('rgb(233, 30, 99)');
+    expect(tabs()[0]!.querySelector<HTMLElement>('.dot')!.style.backgroundColor).toBe('rgb(233, 30, 99)');
   });
 
   it('"Claude Code" opens one more Session per click', async () => {
     await open('Open Claude Code in Billing', claude1);
     await open('Open Claude Code in Billing', claude2);
 
-    expect(tabTexts()).toEqual(['Claude Code', 'Claude Code 2']);
+    expect(tabTexts()).toEqual(['Billing / Claude Code', 'Billing / Claude Code 2']);
     expect(tabs().map((t) => t.getAttribute('aria-selected'))).toEqual(['false', 'true']);
   });
 
@@ -116,7 +116,7 @@ describe('opening Sessions', () => {
     transport.emit('sessionChanged', { session: shell1 });
     await stable();
 
-    expect(tabTexts()).toEqual(['Terminal']);
+    expect(tabTexts()).toEqual(['Billing / Terminal']);
   });
 });
 
@@ -142,7 +142,7 @@ describe('Session terminal', () => {
   it('reappears with its buffered output after a page reload', async () => {
     await loadPage({ repos: [billing], sessions: [shell1, { ...claude1, state: 'finished', exitCode: 0 }] });
 
-    expect(tabTexts()).toEqual(['Terminal', 'Claude Code (ended)']);
+    expect(tabTexts()).toEqual(['Billing / Terminal', 'Billing / Claude Code (ended)']);
     await transport.reply(transport.commands('getSessionOutput')[0]!, 'history\r\n');
     expect(view().screen).toBe('history\r\n');
   });
@@ -153,7 +153,7 @@ describe('Session terminal', () => {
     transport.emit('sessionChanged', { session: { ...shell1, state: 'finished', exitCode: 0 } });
     await stable();
 
-    expect(tabTexts()).toEqual(['Terminal (ended)']);
+    expect(tabTexts()).toEqual(['Billing / Terminal (ended)']);
     expect(page.querySelector('dp-service-terminal .ended')!.textContent).toContain('The Session has ended');
   });
 });
@@ -165,7 +165,9 @@ describe('closing a Session tab', () => {
     button('Close the Terminal tab').click();
     await stable();
     const confirm = page.querySelector<HTMLElement>('.close-confirm')!;
-    expect(confirm.textContent).toContain('is still running');
+    expect(confirm.getAttribute('aria-label')).toContain('is still running');
+    expect(confirm.textContent).toContain('End Terminal?');
+    expect(document.activeElement?.textContent).toBe('Cancel');
     expect(transport.commands('closeSession')).toEqual([]);
 
     button('End Session', confirm).click();
@@ -189,7 +191,20 @@ describe('closing a Session tab', () => {
 
     expect(transport.commands('closeSession')).toEqual([]);
     expect(page.querySelector('.close-confirm')).toBeNull();
-    expect(tabTexts()).toEqual(['Terminal']);
+    expect(tabTexts()).toEqual(['Billing / Terminal']);
+  });
+
+  it('is cancelled by Escape, and focus returns to the tab', async () => {
+    await open('Open a terminal in Billing', shell1);
+
+    button('Close the Terminal tab').click();
+    await stable();
+    page.querySelector('.close-confirm')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await stable();
+
+    expect(transport.commands('closeSession')).toEqual([]);
+    expect(page.querySelector('.close-confirm')).toBeNull();
+    expect(document.activeElement).toBe(tabs()[0]);
   });
 
   it('closes a finished Session without asking', async () => {

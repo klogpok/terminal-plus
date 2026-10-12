@@ -117,6 +117,8 @@ export const RU_STRINGS: UiStrings = {
     finished: (exitCode: number | undefined) =>
       exitCode === undefined || exitCode === 0 ? 'Сессия завершена.' : `Сессия завершена (код ${exitCode}).`,
     confirmClose: (label: string) => `Сессия «${label}» ещё работает. Закрыть вкладку и завершить сессию?`,
+    /** The same question shown inside the tab, where space is short. */
+    confirmCloseShort: (label: string) => `Завершить «${label}»?`,
     confirmYes: 'Завершить',
     confirmNo: 'Отмена',
   },
@@ -202,6 +204,12 @@ export const RU_STRINGS: UiStrings = {
   uiLanguage: {
     label: 'Язык',
     names: { en: 'English', ru: 'Русский' },
+  },
+
+  /** The Theme switch in the header (per browser). */
+  theme: {
+    label: 'Тема',
+    names: { system: 'Как в системе', light: 'Светлая тема', dark: 'Тёмная тема' },
   },
 
   /** Processes left over from a previous run (after a crash or a forced shutdown). */

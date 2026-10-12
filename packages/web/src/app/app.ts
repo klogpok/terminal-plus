@@ -4,6 +4,7 @@ import { BackendService } from './backend/backend.service';
 import { ErrorMessage } from './error-message/error-message';
 import { RepoList } from './repo-list/repo-list';
 import { TerminalTabStrip } from './terminal/terminal-tab-strip';
+import { THEMES, ThemeService, type Theme } from './theme';
 import { STRINGS, loadedUiLanguage } from './ui-strings';
 
 const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy']);
@@ -28,6 +29,10 @@ export class App {
   /** The UI Languages offered by the header switch, and the one this page is shown in. */
   protected readonly uiLanguages = UI_LANGUAGES;
   protected readonly activeUiLanguage = loadedUiLanguage();
+  /** The Themes offered by the header switch; the icon stands for each, its name is the tooltip. */
+  protected readonly themes = THEMES;
+  protected readonly themeIcons: Record<Theme, string> = { system: '◐', light: '☀', dark: '☾' };
+  protected readonly theme = inject(ThemeService);
   /** The "Exit DevPanel" confirmation is open. */
   protected readonly confirmingExit = signal(false);
   /** "Stop everything in all Repos" is enabled while any Service has a live process. */

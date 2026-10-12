@@ -111,6 +111,8 @@ export const EN_STRINGS = {
     finished: (exitCode: number | undefined) =>
       exitCode === undefined || exitCode === 0 ? 'The Session has ended.' : `The Session has ended (code ${exitCode}).`,
     confirmClose: (label: string) => `The "${label}" Session is still running. Close the tab and end the Session?`,
+    /** The same question shown inside the tab, where space is short. */
+    confirmCloseShort: (label: string) => `End ${label}?`,
     confirmYes: 'End Session',
     confirmNo: 'Cancel',
   },
@@ -199,6 +201,12 @@ export const EN_STRINGS = {
     label: 'Language',
     // eslint-disable-next-line no-restricted-syntax -- each language is named in its own language
     names: { en: 'English', ru: 'Русский' },
+  },
+
+  /** The Theme switch in the header (per browser). */
+  theme: {
+    label: 'Theme',
+    names: { system: 'System theme', light: 'Light theme', dark: 'Dark theme' },
   },
 
   /** Processes left over from a previous run (after a crash or a forced shutdown). */

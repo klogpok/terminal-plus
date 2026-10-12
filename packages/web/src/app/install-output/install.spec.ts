@@ -80,7 +80,7 @@ describe('Install dependencies', () => {
 
     const tab = installTab('b1')!;
     expect(selectedTab().textContent).toContain('Installing dependencies: Billing');
-    expect(selectedTab().closest<HTMLElement>('.tab-wrap')!.style.borderTopColor).not.toBe('');
+    expect(selectedTab().querySelector<HTMLElement>('.dot')!.style.backgroundColor).not.toBe('');
     // Raw pty output goes into an xterm, colors included.
     expect(installView().screen).toBe('\u001b[32mProgress: resolved 12\u001b[39m\r\n');
     expect(tab.querySelector('.install-status')!.textContent).toContain('Installing, this may take');

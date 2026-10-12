@@ -1,4 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild,
+  type ElementRef,
+} from '@angular/core';
 import type { ServiceRef, SessionView } from '@devpanel/shared';
 import { BackendService, type InstallTab } from '../backend/backend.service';
 import { InstallOutput } from '../install-output/install-output';
@@ -10,6 +22,8 @@ import { TerminalTabs, installTabKey, sessionTabKey, tabKey } from './terminal-t
 interface TabBase {
   key: string;
   title: string;
+  /** Name of the tab's Repo, shown before the label; empty when the label already names it. */
+  repo: string;
   label: string;
   color: string;
 }
@@ -34,6 +48,8 @@ export class TerminalTabStrip {
   protected readonly strings = STRINGS;
   protected readonly tabs = inject(TerminalTabs);
   private readonly backend = inject(BackendService);
+  private readonly injector = inject(Injector);
+  private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');
 
   /** Open tabs whose Service exists in the current state (others are hidden, not forgotten). */
   protected readonly openTabs = computed<OpenTab[]>(() => {
@@ -44,7 +60,7 @@ export class TerminalTabStrip {
       const service = repo?.services.find((s) => s.id === ref.serviceId);
       if (!repo || !service) continue;
       const key = tabKey(ref);
-      result.push({ kind: 'service', key, title: `${repo.name} · ${service.name}`, label: service.name, color: repoColor(repo), ref });
+      result.push({ kind: 'service', key, title: `${repo.name} · ${service.name}`, repo: repo.name, label: service.name, color: repoColor(repo), ref });
     }
     for (const session of this.backend.sessions()) {
       const repo = repos.find((r) => r.id === session.repoId);
@@ -54,6 +70,7 @@ export class TerminalTabStrip {
         kind: 'session',
         key: sessionTabKey(session.id),
         title: `${repo?.name ?? ''} · ${label}${finished ? ` ${STRINGS.sessions.finishedMark}` : ''}`,
+        repo: repo?.name ?? '',
         label,
         color: repo ? repoColor(repo) : 'var(--muted)',
         session,
@@ -65,7 +82,7 @@ export class TerminalTabStrip {
       const repo = repos.find((r) => r.id === install.repoId);
       const label = STRINGS.install.title(repo?.name ?? install.repoId);
       const color = repo ? repoColor(repo) : 'var(--muted)';
-      result.push({ kind: 'install', key: installTabKey(install.repoId), title: label, label, color, install });
+      result.push({ kind: 'install', key: installTabKey(install.repoId), title: label, repo: '', label, color, install });
     }
     return result;
   });
@@ -101,8 +118,21 @@ export class TerminalTabStrip {
   protected close(tab: OpenTab): void {
     if (tab.kind === 'service') this.tabs.close(tab.ref);
     else if (tab.kind === 'install') this.backend.closeInstallTab(tab.install.repoId);
-    else if (tab.session.state === 'running') this.confirmingKey.set(tab.key);
+    else if (tab.session.state === 'running') this.askToClose(tab.key);
     else this.backend.closeSession(tab.session.id);
+  }
+
+  /** Turns the tab into the close confirmation, with focus on the safe answer. */
+  private askToClose(key: string): void {
+    this.confirmingKey.set(key);
+    afterNextRender(() => this.cancelButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Puts the tab back, with focus on it. */
+  protected cancelClose(): void {
+    const key = this.confirmingKey();
+    this.confirmingKey.set(null);
+    if (key) afterNextRender(() => document.getElementById(`tab-${key}`)?.focus(), { injector: this.injector });
   }
 
   /** Ends the Session whose close was confirmed. */

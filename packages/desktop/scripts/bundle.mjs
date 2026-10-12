@@ -1,8 +1,6 @@
-// Bundles the desktop entry points (desktop + server + core + shared and their JS deps) into one
-// CommonJS file each, so neither needs workspace symlinks in node_modules:
-// - dist/main.cjs: the Electron main process;
-// - dist/sidecar.cjs: the headless sidecar the Tauri shell runs with plain Node.
-// Only `electron` (provided by the runtime) and `node-pty` (native, shipped as a real dependency) stay external.
+// Bundles the sidecar (desktop + server + core + shared and their JS deps) into one CommonJS file,
+// dist/sidecar.cjs, which the Tauri shell runs with plain Node and which needs no workspace
+// symlinks in node_modules. Only `node-pty` (native, shipped as a real dependency) stays external.
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 
@@ -22,10 +20,7 @@ const options = {
     '@devpanel/server': src('server'),
   },
   // `ws` tries these optional native speed-ups inside try/catch.
-  external: ['electron', 'node-pty', 'bufferutil', 'utf-8-validate'],
+  external: ['node-pty', 'bufferutil', 'utf-8-validate'],
 };
 
-await Promise.all([
-  build({ ...options, entryPoints: [here('src/main.ts')], outfile: here('dist/main.cjs') }),
-  build({ ...options, entryPoints: [here('src/sidecar.ts')], outfile: here('dist/sidecar.cjs') }),
-]);
+await build({ ...options, entryPoints: [here('src/sidecar.ts')], outfile: here('dist/sidecar.cjs') });

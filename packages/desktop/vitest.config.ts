@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   test: {
-    // The end-to-end tests run the real Electron app and the real sidecar with real processes (node-pty).
+    // The end-to-end tests run the real sidecar and the built Tauri app with real processes (node-pty).
     pool: 'forks',
     fileParallelism: false,
     testTimeout: 60_000,

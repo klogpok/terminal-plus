@@ -1,5 +1,5 @@
 #!/bin/sh
 # Fast subset of `pnpm check`: typecheck + lint (seconds). Tests spawn real processes,
-# ConPTY sessions and Electron and take minutes, so they run in `pnpm check`, not here.
+# ConPTY sessions and the desktop sidecar and take minutes, so they run in `pnpm check`, not here.
 # Skip once with `git commit --no-verify`.
 pnpm typecheck && pnpm lint

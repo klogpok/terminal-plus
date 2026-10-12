@@ -17,12 +17,12 @@ The first Tauri release notes tell Electron users to uninstall the old version f
 
 **Status:** ready-for-agent
 
-- [ ] No Electron or electron-builder dependency, configuration, adapter, script or test remains; the lockfile is updated.
-- [ ] `pnpm desktop` and `pnpm desktop:dist` run the Tauri app and installer; `pnpm check` needs no Rust and no Electron.
-- [ ] The architecture doc describes the shell, the sidecar and the protocol, how to run and build the desktop app, the Rust toolchain needed for it, and `desktop:check`.
-- [ ] The release smoke checklist exists in the docs and names the built-app end-to-end test.
-- [ ] Release notes for the first Tauri release ask Electron users to uninstall the old version first: otherwise its Start with Windows entry keeps launching it and one of the two apps shows "DevPanel already runs" at every sign-in. They say the Workspace, Local Configs and UI Language are kept and the Theme falls back to "as in the system" once.
-- [ ] `desktop:check` and `pnpm check` pass.
+- [x] No Electron or electron-builder dependency, configuration, adapter, script or test remains; the lockfile is updated.
+- [x] `pnpm desktop` and `pnpm desktop:dist` run the Tauri app and installer; `pnpm check` needs no Rust and no Electron.
+- [x] The architecture doc describes the shell, the sidecar and the protocol, how to run and build the desktop app, the Rust toolchain needed for it, and `desktop:check`.
+- [x] The release smoke checklist exists in the docs and names the built-app end-to-end test.
+- [x] Release notes for the first Tauri release ask Electron users to uninstall the old version first: otherwise its Start with Windows entry keeps launching it and one of the two apps shows "DevPanel already runs" at every sign-in. They say the Workspace, Local Configs and UI Language are kept and the Theme falls back to "as in the system" once.
+- [x] `desktop:check` and `pnpm check` pass.
 
 ## Русский перевод
 
@@ -45,9 +45,9 @@ The first Tauri release notes tell Electron users to uninstall the old version f
 
 **Статус:** ready-for-agent
 
-- [ ] Не осталось ни зависимостей, ни конфигурации, ни адаптера, ни скриптов, ни тестов Electron или electron-builder; lock-файл обновлён.
-- [ ] `pnpm desktop` и `pnpm desktop:dist` запускают Tauri-приложение и собирают установщик; `pnpm check` не требует ни Rust, ни Electron.
-- [ ] Архитектурный документ описывает оболочку, sidecar и протокол, как запускать и собирать десктопное приложение, нужный Rust-тулчейн и `desktop:check`.
-- [ ] Чек-лист релизного смоука есть в документации и ссылается на e2e-тест собранного приложения.
-- [ ] Заметки к первому релизу на Tauri просят пользователей Electron сначала удалить старую версию: иначе её запись автозапуска продолжит её запускать, и одно из двух приложений будет при каждом входе в систему показывать «DevPanel уже работает». В них сказано, что Workspace, Локальные конфиги и Язык интерфейса сохранятся, а Тема один раз сбросится на «как в системе».
-- [ ] `desktop:check` и `pnpm check` проходят.
+- [x] Не осталось ни зависимостей, ни конфигурации, ни адаптера, ни скриптов, ни тестов Electron или electron-builder; lock-файл обновлён.
+- [x] `pnpm desktop` и `pnpm desktop:dist` запускают Tauri-приложение и собирают установщик; `pnpm check` не требует ни Rust, ни Electron.
+- [x] Архитектурный документ описывает оболочку, sidecar и протокол, как запускать и собирать десктопное приложение, нужный Rust-тулчейн и `desktop:check`.
+- [x] Чек-лист релизного смоука есть в документации и ссылается на e2e-тест собранного приложения.
+- [x] Заметки к первому релизу на Tauri просят пользователей Electron сначала удалить старую версию: иначе её запись автозапуска продолжит её запускать, и одно из двух приложений будет при каждом входе в систему показывать «DevPanel уже работает». В них сказано, что Workspace, Локальные конфиги и Язык интерфейса сохранятся, а Тема один раз сбросится на «как в системе».
+- [x] `desktop:check` и `pnpm check` проходят.

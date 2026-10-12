@@ -1,5 +1,5 @@
 //! Which DevPanel this process is. The single-instance lock and the Start with Windows entry are
-//! keyed on the app data folder, like the Electron lock was: a dev or test instance with its own
+//! keyed on the app data folder: a dev or test instance with its own
 //! `DEVPANEL_APP_DATA` never focuses, nor turns off the autostart of, the installed app.
 
 use std::path::Path;

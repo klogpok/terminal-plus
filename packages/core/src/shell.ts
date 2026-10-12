@@ -2,8 +2,7 @@
  * The desktop shell: the folder picker and opening folders/URLs on the user's machine. A browser
  * cannot return a folder path or be trusted to open things, so these always run in the backend
  * (spec: "Opening folders and URLs always goes through the backend"). `core` takes it as an option;
- * tests inject a fake so no real dialog, Explorer window or browser ever opens. Electron (stage 6)
- * will pass an implementation over `dialog.showOpenDialog` / `shell.openPath` / `shell.openExternal`.
+ * tests inject a fake so no real dialog, Explorer window or browser ever opens.
  */
 import { execFile, spawn } from 'node:child_process';
 

@@ -1,10 +1,10 @@
 /**
- * The desktop app's main-process behavior, free of Electron imports: `main.ts` passes the real
- * Electron objects through `DesktopHost`, tests pass fakes.
+ * The desktop app's behavior, free of any shell: the sidecar (`sidecar.ts`) passes the Tauri shell
+ * through `DesktopHost` (`protocol-host.ts`), tests pass fakes.
  *
- * The Electron main process hosts the DevPanel Server (ADR-0001) in-process, on the same
- * 127.0.0.1 WebSocket transport as the web version (ADR-0002); the window just loads the Server's
- * URL with the Access Key in the fragment, so the `web` build runs unchanged.
+ * The sidecar hosts the DevPanel Server (ADR-0001) in-process, on the same 127.0.0.1 WebSocket
+ * transport as the web version (ADR-0002, ADR-0003); the window just loads the Server's URL with
+ * the Access Key in the fragment, so the `web` build runs unchanged.
  */
 import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
 import { isAddressInUse, portBlocker, portBlockerMessage, type PortProbe } from '@devpanel/server';

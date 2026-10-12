@@ -1,7 +1,7 @@
 /**
  * The desktop app's main-process behavior, driven through `runDesktop` with a fake host (window,
- * tray, Start with Windows, crash texts, quit) and a fake DevPanel Server. The real Electron wiring,
- * including the single-instance lock the adapter takes, is covered by `electron.e2e.test.ts`.
+ * tray, Start with Windows, crash texts, quit) and a fake DevPanel Server. The real wiring is covered by `sidecar.e2e.test.ts` (the
+ * shell–sidecar protocol) and the optional built-app test `tauri.e2e.test.ts` (single instance).
  */
 import { describe, expect, it } from 'vitest';
 import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';

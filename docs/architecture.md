@@ -35,7 +35,7 @@ Output replay ordering: `getServiceOutput` / `getSessionOutput` handlers are syn
 
 - Web: `pnpm build && pnpm start`, then open the printed `http://127.0.0.1:7777/#key=...`. The Access Key changes on every Server start.
 - UI dev loop: run the Server with `DEVPANEL_DEV_ORIGINS=http://localhost:4200`, then `pnpm --filter @devpanel/web start` (proxies `/ws`), open `http://localhost:4200/#key=<appdata>/access-key`. Use a throwaway `DEVPANEL_APP_DATA` to keep your real Workspace out of it.
-- Desktop: `pnpm build`, then `pnpm --filter @devpanel/desktop start` with `ELECTRON_RUN_AS_NODE` unset. Installer: `pnpm --filter @devpanel/desktop dist` into `packages/desktop/release/`.
+- Desktop: `pnpm build && pnpm desktop`. Installer: `pnpm desktop:dist` into `packages/desktop/release/`.
 - Single tests: `cd packages/core && npx vitest run test/x.test.ts`; `cd packages/web && npx ng test --watch=false --include app/x.spec.ts`.
 
 ## Tests
@@ -48,7 +48,7 @@ Output replay ordering: `getServiceOutput` / `getSessionOutput` handlers are syn
 
 ## Gotchas
 
-- **`ELECTRON_RUN_AS_NODE=1`** is set in the Claude Code / VS Code environment: `electron.exe` then runs as plain Node and `require('electron')` fails. Delete it when spawning Electron.
+- **`ELECTRON_RUN_AS_NODE=1`** is set in the Claude Code / VS Code environment: `electron.exe` then runs as plain Node and `require('electron')` fails. Code that spawns Electron deletes it, as `packages/desktop/scripts/start.mjs` and the e2e do.
 - **pnpm 12 `allowBuilds`**: a new dependency with an install script fails `pnpm install` with `ERR_PNPM_IGNORED_BUILDS` until it is listed in `pnpm-workspace.yaml`. pnpm may also write a placeholder line there; replace it with `true`/`false`.
 - **Two TypeScripts**: Angular 22 needs TS ~6.0 and vitest 5, so `web` has its own; the rest stays on TS ~5.9 and vitest 4.
 - **netstat** localizes `LISTENING`; `ports.ts` recognises listening rows by the foreign address `0.0.0.0:0` / `[::]:0`. A port bound on both IPv4 and IPv6 yields two rows with the same PID.

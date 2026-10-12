@@ -5,7 +5,8 @@
  * stdout. Its own logging (anything written through `console` or `process.stdout`) goes to stderr.
  *
  * Environment (same names as the web version's Server):
- * - DEVPANEL_APP_DATA: app data directory (default %APPDATA%\DevPanel, shared with the web version)
+ * - DEVPANEL_APP_DATA: app data directory (default %APPDATA%\DevPanel, shared with the web version; see
+ *   `appDataDirFrom`). The shell always passes it, and DEVPANEL_PORT too when it has one.
  * - DEVPANEL_PORT: port (default 7777)
  * - DEVPANEL_WEB_ROOT: the built `web` UI (default: the workspace build, `../../web/dist/browser`
  *   from this bundle)
@@ -14,8 +15,8 @@
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { readUiLanguage, windowsShell } from '@devpanel/core';
-import { probePort, readStoredAccessKey, startDevPanel } from '@devpanel/server';
-import { DEFAULT_PORT } from '@devpanel/shared';
+import { appDataDirFrom, probePort, readStoredAccessKey, startDevPanel } from '@devpanel/server';
+import { DEFAULT_PORT, errorDetails } from '@devpanel/shared';
 import { runDesktop } from './desktop-app.js';
 import { formatLine } from './protocol.js';
 import { connectShell } from './protocol-host.js';
@@ -26,7 +27,7 @@ process.stdout.write = process.stderr.write.bind(process.stderr) as typeof proce
 
 const log = (text: string) => process.stderr.write(`[sidecar] ${text}\n`);
 
-const appDataDir = process.env.DEVPANEL_APP_DATA ?? path.join(process.env.APPDATA ?? '', 'DevPanel');
+const appDataDir = appDataDirFrom(process.env);
 const port = process.env.DEVPANEL_PORT ? Number(process.env.DEVPANEL_PORT) : DEFAULT_PORT;
 const webRoot = process.env.DEVPANEL_WEB_ROOT ?? path.join(__dirname, '..', '..', 'web', 'dist', 'browser');
 
@@ -62,6 +63,6 @@ const main = async () => {
 
 main().catch((error: unknown) => {
   // No exit message: the shell shows the crash dialog.
-  log(`The sidecar failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+  log(`The sidecar failed: ${errorDetails(error)}`);
   process.exit(1);
 });

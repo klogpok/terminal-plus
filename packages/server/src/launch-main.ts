@@ -11,7 +11,7 @@
  */
 import { existsSync } from 'node:fs';
 import { readUiLanguage, windowsShell } from '@devpanel/core';
-import { HOST_STRINGS } from '@devpanel/shared';
+import { errorDetails, HOST_STRINGS } from '@devpanel/shared';
 import { readStoredAccessKey } from './access-key.js';
 import { cliSettings, runServer } from './cli.js';
 import { launch } from './launch.js';
@@ -42,7 +42,7 @@ const result = await launch({
   print,
 }).catch((error: unknown) => {
   print(strings.failed);
-  print(error instanceof Error ? (error.stack ?? error.message) : String(error));
+  print(errorDetails(error));
   process.exit(1);
 });
 

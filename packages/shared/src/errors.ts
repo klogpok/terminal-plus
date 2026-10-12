@@ -98,11 +98,15 @@ export class DevPanelError<C extends ErrorCode = ErrorCode> extends Error {
   }
 }
 
+/** The technical details of anything thrown: the stack (or message) of an `Error`, else its text. */
+export function errorDetails(error: unknown): string {
+  return error instanceof Error ? (error.stack ?? error.message) : String(error);
+}
+
 /** Converts anything thrown into an `ErrorInfo`; unknown errors become `internal`. */
 export function toErrorInfo(error: unknown): ErrorInfo {
   if (error instanceof DevPanelError) {
     return { code: error.code, params: error.params, details: error.message } as ErrorInfo;
   }
-  const details = error instanceof Error ? (error.stack ?? error.message) : String(error);
-  return { code: 'internal', params: {}, details };
+  return { code: 'internal', params: {}, details: errorDetails(error) };
 }

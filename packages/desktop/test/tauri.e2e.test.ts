@@ -11,13 +11,13 @@
  */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PID_FILE } from '@devpanel/core';
+import { freePort, isAlive, waitUntil } from './processes.js';
 
 const exe = process.env.DEVPANEL_DESKTOP_EXE;
 const fixture = (name: string) => fileURLToPath(new URL(`../../core/test/fixtures/${name}`, import.meta.url));
@@ -27,31 +27,6 @@ let appDataDir: string;
 let port: number;
 const apps: ChildProcess[] = [];
 const sockets: WebSocket[] = [];
-
-async function freePort(): Promise<number> {
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const { port: p } = server.address() as { port: number };
-  await new Promise((resolve) => server.close(resolve));
-  return p;
-}
-
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function waitUntil(condition: () => boolean | Promise<boolean>, what: string, timeoutMs = 30_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!(await condition())) {
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${what}`);
-    await new Promise((r) => setTimeout(r, 200));
-  }
-}
 
 /** Only Windows itself on PATH (PowerShell lists processes for core): no Node, no pnpm, no Git. */
 function windowsOnlyPath(): string {

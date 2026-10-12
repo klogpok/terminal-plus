@@ -2,7 +2,7 @@
 //! keyed on the app data folder: a dev or test instance with its own
 //! `DEVPANEL_APP_DATA` never focuses, nor turns off the autostart of, the installed app.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// The suffix that sets an overridden app data folder apart, or `None` for the default folder.
 /// Windows paths ignore case, so the same folder spelled differently is the same instance.
@@ -18,13 +18,29 @@ pub fn suffix(app_data_override: Option<&Path>) -> Option<String> {
     Some(format!("{hash:016x}"))
 }
 
-/// This process's suffix, from `DEVPANEL_APP_DATA`.
-pub fn current_suffix() -> Option<String> {
-    suffix(
-        std::env::var_os("DEVPANEL_APP_DATA")
-            .as_deref()
-            .map(Path::new),
-    )
+/// This process's DevPanel, from `DEVPANEL_APP_DATA` (read once, in `main`).
+pub struct Instance {
+    /// The app data folder, as the web version's Server resolves it (`appDataDirFrom`).
+    pub app_data: PathBuf,
+    /// `None` for the default app data folder (the installed app).
+    pub suffix: Option<String>,
+}
+
+impl Instance {
+    pub fn from_env() -> Instance {
+        let app_data_override = std::env::var_os("DEVPANEL_APP_DATA").map(PathBuf::from);
+        let suffix = suffix(app_data_override.as_deref());
+        let app_data = app_data_override.unwrap_or_else(|| {
+            // Never a relative path: without %APPDATA% the home folder, as Node's `os.homedir()`
+            // (Windows always has one; the drive root only keeps this total).
+            std::env::var_os("APPDATA")
+                .map(PathBuf::from)
+                .or_else(std::env::home_dir)
+                .unwrap_or_else(|| PathBuf::from(r"C:\"))
+                .join("DevPanel")
+        });
+        Instance { app_data, suffix }
+    }
 }
 
 #[cfg(test)]

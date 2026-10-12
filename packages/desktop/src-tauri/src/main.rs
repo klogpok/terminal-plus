@@ -11,6 +11,7 @@ mod instance;
 mod protocol;
 mod sidecar;
 mod tray;
+mod window;
 
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -18,32 +19,48 @@ use std::process::{Child, ChildStdout};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use rfd::MessageButtons;
+use tauri::{AppHandle, Manager, RunEvent, Url};
 use tauri_plugin_opener::OpenerExt;
 
+use instance::Instance;
 use protocol::{ShellMessage, SidecarMessage};
 use sidecar::{Launch, Sidecar};
 
-const WINDOW: &str = "main";
+/// What the shell shows if the sidecar ends without `exit`.
+struct CrashTexts {
+    title: String,
+    message: String,
+}
 
-/// What the shell shows if the sidecar ends without `exit`, until the first `setCrashTexts`.
-const FALLBACK_CRASH_TITLE: &str = "DevPanel stopped";
-const FALLBACK_CRASH_MESSAGE: &str = "DevPanel stopped unexpectedly and will close.";
+impl CrashTexts {
+    /// Until the first `setCrashTexts`. The shell reads no settings, so it does not know the UI
+    /// Language yet: these are `HOST_STRINGS.en.desktop.crashedTitle` / `crashed`, word for word.
+    fn fallback() -> CrashTexts {
+        CrashTexts {
+            title: "DevPanel stopped".into(),
+            message:
+                "DevPanel stopped unexpectedly and will close. Start it again from the Start menu."
+                    .into(),
+        }
+    }
+}
 
 struct Shell {
     sidecar: Sidecar,
-    crash_texts: Mutex<(String, String)>,
+    crash_texts: Mutex<CrashTexts>,
     /// The sidecar sent `exit`: its end is expected.
     exiting: AtomicBool,
 }
 
-/// The app data folder, as the web version's Server resolves it.
-fn app_data_dir() -> PathBuf {
-    match std::env::var_os("DEVPANEL_APP_DATA") {
-        Some(dir) => PathBuf::from(dir),
-        None => PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default()).join("DevPanel"),
-    }
+/// The shell's own error box, for failures before or without a sidecar to word them. English only:
+/// the UI Language is the sidecar's to know. Plain words first, the technical details below.
+fn show_shell_error(message: &str, details: &str) {
+    dialog::alert(
+        "DevPanel could not start",
+        &format!("{message}\n\nDetails for a developer:\n{details}"),
+        MessageButtons::Ok,
+    );
 }
 
 /// Development: the developer's Node and the sidecar bundled from source, with the workspace web
@@ -71,74 +88,14 @@ fn send(app: &AppHandle, message: &ShellMessage) {
     app.state::<Shell>().sidecar.send(message);
 }
 
-fn open_externally(app: &AppHandle, url: &Url) {
-    if !matches!(url.scheme(), "http" | "https") {
-        eprintln!("[shell] Not opening {url}: only http(s) links go to the browser.");
-        return;
-    }
-    if let Err(error) = app.opener().open_url(url.as_str(), None::<&str>) {
-        eprintln!("[shell] Could not open {url}: {error}");
-    }
-}
-
-fn open_window(app: &AppHandle, url: &str, show: bool) -> tauri::Result<()> {
-    let url: Url = url.parse().map_err(io_error)?;
-    let origin = url.origin();
-    let (navigation_app, new_window_app) = (app.clone(), app.clone());
-    let window = WebviewWindowBuilder::new(app, WINDOW, WebviewUrl::External(url))
-        .title("DevPanel")
-        .inner_size(1400.0, 900.0)
-        .center()
-        .visible(show)
-        // The WebView2 profile follows the app data folder, so a test instance never shares it.
-        .data_directory(app_data_dir().join("desktop"))
-        // The window only ever shows DevPanel: links to other origins go to the default browser.
-        .on_navigation(move |target| {
-            if target.origin() == origin {
-                return true;
-            }
-            open_externally(&navigation_app, target);
-            false
-        })
-        .on_new_window(move |target, _features| {
-            open_externally(&new_window_app, &target);
-            NewWindowResponse::Deny
-        })
-        .build()?;
-    let close_app = app.clone();
-    window.on_window_event(move |event| {
-        // Closing is not Exit: the window stays until the sidecar answers `hideWindow`.
-        if let WindowEvent::CloseRequested { api, .. } = event {
-            api.prevent_close();
-            send(&close_app, &ShellMessage::WindowCloseRequested);
-        }
-    });
-    if show {
-        let _ = window.set_focus();
-    }
-    Ok(())
-}
-
-fn io_error(error: impl std::fmt::Display) -> tauri::Error {
-    tauri::Error::Io(std::io::Error::other(error.to_string()))
-}
-
-fn show_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window(WINDOW) {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-}
-
 /// Start with Windows for this instance (see `instance`).
-fn autostart_entry() -> String {
-    autostart::entry_name(instance::current_suffix().as_deref())
+fn autostart_entry(app: &AppHandle) -> String {
+    autostart::entry_name(app.state::<Instance>().suffix.as_deref())
 }
 
 /// Turns the entry on or off, then reports what Windows now has, even if that failed.
 fn set_autostart(app: &AppHandle, enabled: bool) {
-    let entry = autostart_entry();
+    let entry = autostart_entry(app);
     if let Err(error) = autostart::set(&entry, enabled) {
         eprintln!(
             "[shell] Could not turn Start with Windows {}: {error}",
@@ -153,28 +110,34 @@ fn set_autostart(app: &AppHandle, enabled: bool) {
     );
 }
 
+fn open_window(app: &AppHandle, url: &str, show: bool) {
+    let app_data = app.state::<Instance>().app_data.clone();
+    let on_close = |app: &AppHandle| send(app, &ShellMessage::WindowCloseRequested);
+    if let Err(error) = window::open(app, url, show, &app_data, on_close) {
+        eprintln!("[shell] Could not open the window: {error}");
+        // The box blocks; the sidecar is ended with the shell (Job Object).
+        show_shell_error(
+            "DevPanel started, but its window could not open. Restart your computer and start \
+             DevPanel again from the Start menu.",
+            &error.to_string(),
+        );
+        app.exit(1);
+    }
+}
+
 fn handle(app: &AppHandle, message: SidecarMessage) {
     match message {
-        SidecarMessage::OpenWindow { url, show } => {
-            if let Err(error) = open_window(app, &url, show) {
-                eprintln!("[shell] Could not open the window: {error}");
-                app.exit(1);
-            }
-        }
-        SidecarMessage::ShowWindow => show_window(app),
-        SidecarMessage::HideWindow => {
-            if let Some(window) = app.get_webview_window(WINDOW) {
-                let _ = window.hide();
-            }
-        }
+        SidecarMessage::OpenWindow { url, show } => open_window(app, &url, show),
+        SidecarMessage::ShowWindow => window::show(app),
+        SidecarMessage::HideWindow => window::hide(app),
         SidecarMessage::SetCrashTexts { title, message } => {
             *app.state::<Shell>()
                 .crash_texts
                 .lock()
-                .unwrap_or_else(|e| e.into_inner()) = (title, message);
+                .unwrap_or_else(|e| e.into_inner()) = CrashTexts { title, message };
         }
         SidecarMessage::OpenUrl { url } => match url.parse::<Url>() {
-            Ok(url) => open_externally(app, &url),
+            Ok(url) => window::open_externally(app, &url),
             Err(error) => eprintln!("[shell] Not opening {url}: {error}"),
         },
         SidecarMessage::OpenFolder { path } => {
@@ -186,19 +149,17 @@ fn handle(app: &AppHandle, message: SidecarMessage) {
             app.state::<Shell>().exiting.store(true, Ordering::SeqCst);
             app.exit(code);
         }
-        SidecarMessage::ShowError {
-            dialog_id,
-            title,
-            message,
-            details,
-            buttons,
-            ..
-        } => {
+        SidecarMessage::ShowError(error) => {
             // The box blocks until closed; the sidecar's other messages keep flowing meanwhile.
             let app = app.clone();
             std::thread::spawn(move || {
-                dialog::show_error(&title, &message, details.as_deref(), &buttons);
-                send(&app, &ShellMessage::ErrorDismissed { dialog_id });
+                dialog::show_error(&error);
+                send(
+                    &app,
+                    &ShellMessage::ErrorDismissed {
+                        dialog_id: error.dialog_id,
+                    },
+                );
             });
         }
         SidecarMessage::SetTray { tooltip, items } => {
@@ -228,32 +189,38 @@ fn read_sidecar(app: AppHandle, mut child: Child, stdout: ChildStdout) {
         return;
     }
     eprintln!("[shell] The sidecar ended without exit: {status:?}");
-    let (title, message) = shell
-        .crash_texts
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone();
-    rfd::MessageDialog::new()
-        .set_level(rfd::MessageLevel::Error)
-        .set_title(title)
-        .set_description(message)
-        .set_buttons(rfd::MessageButtons::Ok)
-        .show();
+    let crash = shell.crash_texts.lock().unwrap_or_else(|e| e.into_inner());
+    let (title, message) = (crash.title.clone(), crash.message.clone());
+    drop(crash);
+    dialog::alert(&title, &message, MessageButtons::Ok);
     app.exit(1);
 }
 
 fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let launch = sidecar_launch(app)?;
-    let (sidecar, child, stdout) = Sidecar::spawn(&launch, &app_data_dir()).map_err(|e| {
-        format!(
-            "Could not start the sidecar {} {}: {e}",
-            launch.node.display(),
-            launch.script.display()
-        )
-    })?;
+    let app_data = app.state::<Instance>().app_data.clone();
+    let port = std::env::var_os("DEVPANEL_PORT");
+    let (sidecar, child, stdout) = match Sidecar::spawn(&launch, &app_data, port.as_deref()) {
+        Ok(started) => started,
+        Err(error) => {
+            let details = format!(
+                "Could not start {} {}: {error}",
+                launch.node.display(),
+                launch.script.display()
+            );
+            eprintln!("[shell] {details}");
+            show_shell_error(
+                "A part of DevPanel did not start. Reinstall DevPanel, then start it again from \
+                 the Start menu.",
+                &details,
+            );
+            // Nothing else runs yet: end here rather than show a second, vaguer box from `main`.
+            std::process::exit(1);
+        }
+    };
     app.manage(Shell {
         sidecar,
-        crash_texts: Mutex::new((FALLBACK_CRASH_TITLE.into(), FALLBACK_CRASH_MESSAGE.into())),
+        crash_texts: Mutex::new(CrashTexts::fallback()),
         exiting: AtomicBool::new(false),
     });
 
@@ -266,36 +233,51 @@ fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         app,
         &ShellMessage::Start {
             start_hidden,
-            autostart_enabled: autostart::is_enabled(&autostart_entry()),
+            autostart_enabled: autostart::is_enabled(&autostart_entry(app)),
         },
     );
     Ok(())
 }
 
 fn main() {
+    let instance = Instance::from_env();
     let mut context = tauri::generate_context!();
     // The single-instance lock is keyed on the identifier: make it follow the app data folder.
-    if let Some(suffix) = instance::current_suffix() {
+    if let Some(suffix) = &instance.suffix {
         let identifier = format!("{}.data-{suffix}", context.config().identifier);
         context.config_mut().identifier = identifier;
     }
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         // First, so a second launch exits before anything else (the sidecar above all) starts.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            show_window(app)
+            window::show(app)
         }))
         .plugin(tauri_plugin_opener::init())
+        .manage(instance)
         .setup(|app| setup(app.handle()))
-        .build(context)
-        .expect("the DevPanel shell failed to build")
-        .run(|_app, event| {
-            // Only `exit` (or a crash) ends the shell; nothing else may, not even the last window
-            // going away.
-            if let RunEvent::ExitRequested {
-                code: None, api, ..
-            } = event
-            {
-                api.prevent_exit();
+        .build(context);
+    let app = match app {
+        Ok(app) => app,
+        Err(error) => {
+            show_shell_error(
+                "DevPanel could not start on this computer. Restart your computer and start \
+                 DevPanel again from the Start menu.",
+                &error.to_string(),
+            );
+            std::process::exit(1);
+        }
+    };
+    app.run(|app, event| {
+        // Only the sidecar's `exit` (or a crash) ends the shell. Anything else asking it to quit
+        // goes to the sidecar as `quitRequested`, which stops everything and then sends `exit`.
+        if let RunEvent::ExitRequested {
+            code: None, api, ..
+        } = event
+        {
+            api.prevent_exit();
+            if app.try_state::<Shell>().is_some() {
+                send(app, &ShellMessage::QuitRequested);
             }
-        });
+        }
+    });
 }

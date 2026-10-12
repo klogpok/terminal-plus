@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DevPanelCore, PID_FILE } from '@devpanel/core';
 import { HOST_STRINGS } from '@devpanel/shared';
 import { formatLine, parseSidecarMessage, type ShellMessage, type SidecarMessage } from '../src/protocol.js';
+import { freePort, isAlive, waitUntil } from './processes.js';
 
 const sidecarBundle = fileURLToPath(new URL('../dist/sidecar.cjs', import.meta.url));
 const fixture = (name: string) => fileURLToPath(new URL(`../../core/test/fixtures/${name}`, import.meta.url));
@@ -93,31 +94,6 @@ class FakeShell {
 
   get running(): boolean {
     return this.process.exitCode === null && this.process.signalCode === null;
-  }
-}
-
-async function freePort(): Promise<number> {
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const { port: p } = server.address() as { port: number };
-  await new Promise((resolve) => server.close(resolve));
-  return p;
-}
-
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function waitUntil(condition: () => boolean | Promise<boolean>, what: string, timeoutMs = 30_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!(await condition())) {
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${what}`);
-    await new Promise((r) => setTimeout(r, 200));
   }
 }
 
@@ -307,8 +283,19 @@ describe('desktop sidecar over the stdio protocol', () => {
     spawnSync('taskkill', ['/F', '/PID', String(shell.process.pid)]);
     await shell.exited();
     expect(shell.types()).not.toContain('exit');
-    // ConPTY takes its console's processes down within ~3 s; survivors are what is left after that.
-    await new Promise((r) => setTimeout(r, 3_000));
+    // ConPTY takes its console's processes down within a few seconds; survivors are what is left
+    // once the set of live processes has stopped shrinking for a second.
+    let alive = pids.filter(isAlive).join();
+    let changedAt = Date.now();
+    await waitUntil(
+      () => {
+        const now = pids.filter(isAlive).join();
+        if (now !== alive) [alive, changedAt] = [now, Date.now()];
+        return Date.now() - changedAt >= 1_000;
+      },
+      'ConPTY to finish ending its console processes',
+      20_000,
+    );
 
     const core = new DevPanelCore({ appDataDir });
     await core.load();
@@ -331,7 +318,8 @@ describe('desktop sidecar over the stdio protocol', () => {
       buttons: { ok: 'OK', details: 'Details', detailsTitle: 'Details for a developer' },
     });
     expect(error.details).toBeUndefined();
-    // The dialog is still open: give a wrongly eager exit time to show up before dismissing.
+    // The dialog is still open: give a wrongly eager exit time to show up before dismissing. A
+    // fixed wait, as this checks that something does NOT happen: there is no event to poll for.
     await new Promise((r) => setTimeout(r, 500));
     expect(shell.types()).not.toContain('exit');
     expect(shell.running).toBe(true);

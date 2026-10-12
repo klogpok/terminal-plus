@@ -1,12 +1,20 @@
-//! Native error boxes (`showError`), drawn with the texts and button labels the sidecar sent.
+//! Native error boxes: `showError`, drawn with the texts and button labels the sidecar sent, and the
+//! shell's own few boxes (`alert`) for when there is no sidecar to ask.
 
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 
-use crate::protocol::ErrorButtons;
+use crate::protocol::ErrorBox;
 
 /// Shows the error box and, if the user asks for them, the details in a second box. Blocks until
 /// the user has closed both, so call it off the main thread.
-pub fn show_error(title: &str, message: &str, details: Option<&str>, buttons: &ErrorButtons) {
+pub fn show_error(error: &ErrorBox) {
+    let ErrorBox {
+        title,
+        message,
+        details,
+        buttons,
+        ..
+    } = error;
     let Some(details) = details else {
         alert(title, message, MessageButtons::OkCustom(buttons.ok.clone()));
         return;
@@ -31,8 +39,8 @@ pub fn show_error(title: &str, message: &str, details: Option<&str>, buttons: &E
     }
 }
 
-/// A plain error box with one button.
-fn alert(title: &str, message: &str, button: MessageButtons) {
+/// A plain error box with one button. Blocks until closed.
+pub fn alert(title: &str, message: &str, button: MessageButtons) {
     MessageDialog::new()
         .set_level(MessageLevel::Error)
         .set_title(title)

@@ -6,7 +6,7 @@
  * transport as the web version (ADR-0002, ADR-0003); the window just loads the Server's URL with
  * the Access Key in the fragment, so the `web` build runs unchanged.
  */
-import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
+import { errorDetails, HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
 import { isAddressInUse, portBlocker, portBlockerMessage, type PortProbe } from '@devpanel/server';
 
 /**
@@ -110,8 +110,6 @@ export interface DesktopOptions {
 
 export type DesktopResult = 'running' | 'startFailed';
 
-const describe = (error: unknown) => (error instanceof Error ? (error.stack ?? error.message) : String(error));
-
 /** Starts the desktop app: Server, window, tray, and Exit on quit. */
 export async function runDesktop(options: DesktopOptions): Promise<DesktopResult> {
   const { host } = options;
@@ -176,7 +174,7 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
             // In the UI Language current when it failed, not when the menu was built.
             const now = server.uiLanguage();
             const { stopAllFailedTitle, stopAllFailed } = HOST_STRINGS[now].desktop;
-            void host.showError({ title: stopAllFailedTitle, message: stopAllFailed, details: describe(error), language: now });
+            void host.showError({ title: stopAllFailedTitle, message: stopAllFailed, details: errorDetails(error), language: now });
           });
         },
       },
@@ -216,7 +214,7 @@ async function explainStartFailure(
   language: UiLanguage,
 ): Promise<Pick<DesktopError, 'message' | 'details'>> {
   const strings = HOST_STRINGS[language].desktop;
-  if (!isAddressInUse(error)) return { message: strings.unexpected, details: describe(error) };
+  if (!isAddressInUse(error)) return { message: strings.unexpected, details: errorDetails(error) };
   const probe = await options.probePort(options.port).catch((): PortProbe => ({ kind: 'foreign' }));
   const blocker = portBlocker(probe);
   return { message: blocker ? portBlockerMessage(blocker, options.port, language) : strings.alreadyRunning };

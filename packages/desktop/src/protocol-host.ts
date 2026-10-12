@@ -4,7 +4,7 @@
  * executes; all decisions stay in `runDesktop`.
  */
 import type { DesktopShell } from '@devpanel/core';
-import { HOST_STRINGS } from '@devpanel/shared';
+import { errorDetails, HOST_STRINGS } from '@devpanel/shared';
 import type { DesktopHost, DesktopTray, DesktopWindow, QuitEvent, TrayMenuItem } from './desktop-app.js';
 import { parseShellMessage, type ShellMessage, type SidecarMessage } from './protocol.js';
 
@@ -33,8 +33,8 @@ export interface ShellConnection {
 
 type Listener<A extends unknown[] = []> = (...args: A) => void;
 
-/** Quit/close events: `preventDefault` keeps the window or the app. */
-function emit(listeners: Listener<[QuitEvent]>[]): boolean {
+/** Emits a quit/close event to `listeners`; true if one called `preventDefault` (keep the window or the app). */
+function emitPreventable(listeners: Listener<[QuitEvent]>[]): boolean {
   let prevented = false;
   const event: QuitEvent = { preventDefault: () => (prevented = true) };
   for (const listener of listeners) listener(event);
@@ -60,7 +60,7 @@ export function connectShell(options: ShellConnectionOptions): ShellConnection {
   const host: DesktopHost = {
     onBeforeQuit: (listener) => beforeQuitListeners.push(listener),
     quit() {
-      if (!emit(beforeQuitListeners)) host.exit(0);
+      if (!emitPreventable(beforeQuitListeners)) host.exit(0);
     },
     exit(code) {
       if (exiting) return;
@@ -155,7 +155,7 @@ export function connectShell(options: ShellConnectionOptions): ShellConnection {
       }
       case 'windowCloseRequested':
         // A close nobody prevented happens while quitting: the shell keeps the window until `exit`.
-        emit(closeListeners);
+        emitPreventable(closeListeners);
         return;
       case 'quitRequested':
         return host.quit();
@@ -194,7 +194,7 @@ export function connectShell(options: ShellConnectionOptions): ShellConnection {
       try {
         handle(parsed.message);
       } catch (error) {
-        log(`Handling ${parsed.message.type} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+        log(`Handling ${parsed.message.type} failed: ${errorDetails(error)}`);
       }
     },
     started,

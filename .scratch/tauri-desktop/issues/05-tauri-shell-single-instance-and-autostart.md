@@ -31,3 +31,17 @@ Spec: `.scratch/tauri-desktop/spec.md`
 - [x] Запись автозапуска запускает приложение с `--hidden`; при таком запуске окно скрыто, пока его не откроют из трея.
 - [ ] Проверено вручную (повторный запуск, переключение, выход и вход в систему); автоматическая проверка повторного запуска — в тикете 06.
 - [x] `desktop:check` и `pnpm check` проходят.
+
+## Comments
+
+- Review fixes (deliberate deviations from the spec, which names the Tauri autostart plugin):
+  - Start with Windows is the shell's own small writer of a value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (`src-tauri/src/autostart.rs`), not the autostart plugin: the plugin leaves the exe path unquoted (a profile path with spaces then relies on Windows guessing) and tries the machine-wide key first when it can.
+  - The `Run` value name follows the app data folder: `DevPanel` for the installed app, `DevPanel-<suffix>` for an instance with its own `DEVPANEL_APP_DATA` (the same suffix keys the single-instance lock, `instance.rs`). A dev or test instance never turns off, nor reports, the installed app's Start with Windows.
+  - Task Manager's Startup tab (`...\Explorer\StartupApproved\Run`) is honoured: an entry the user turned off there reads as off, and turning it on or off in DevPanel drops that mark, so it cannot outlive the entry and hide a later one.
+
+### Русский перевод
+
+- Исправления по ревью (сознательные отступления от спецификации, где назван плагин Tauri autostart):
+  - Запуск вместе с Windows — собственная небольшая запись оболочки в значение под `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (`src-tauri/src/autostart.rs`), а не плагин autostart: плагин оставляет путь к exe без кавычек (тогда путь профиля с пробелами зависит от догадки Windows) и, когда может, сначала пробует общий для машины ключ.
+  - Имя значения в `Run` следует за папкой данных приложения: `DevPanel` для установленного приложения, `DevPanel-<суффикс>` для экземпляра со своей `DEVPANEL_APP_DATA` (тот же суффикс задаёт блокировку единственного экземпляра, `instance.rs`). Экземпляр для разработки или тестов никогда не выключает и не показывает Запуск вместе с Windows установленного приложения.
+  - Учитывается вкладка «Автозагрузка» диспетчера задач (`...\Explorer\StartupApproved\Run`): запись, выключенная там пользователем, считается выключенной, а включение или выключение в DevPanel убирает эту отметку, чтобы она не пережила запись и не скрыла следующую.

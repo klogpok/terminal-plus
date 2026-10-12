@@ -20,8 +20,6 @@ pub enum ShellMessage {
         item_id: String,
     },
     WindowCloseRequested,
-    // Not sent yet: the tray's Exit item goes to the sidecar as `trayItemClicked`.
-    #[allow(dead_code)]
     QuitRequested,
     AutostartChanged {
         enabled: bool,
@@ -56,6 +54,19 @@ pub struct ErrorButtons {
     pub details_title: String,
 }
 
+/// What `showError` asks the shell to show.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ErrorBox {
+    pub dialog_id: i64,
+    pub title: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+    pub language: String,
+    pub buttons: ErrorButtons,
+}
+
 /// sidecar → shell
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(
@@ -74,15 +85,7 @@ pub enum SidecarMessage {
         tooltip: String,
         items: Vec<TrayItem>,
     },
-    ShowError {
-        dialog_id: i64,
-        title: String,
-        message: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        details: Option<String>,
-        language: String,
-        buttons: ErrorButtons,
-    },
+    ShowError(ErrorBox),
     SetAutostart {
         enabled: bool,
     },

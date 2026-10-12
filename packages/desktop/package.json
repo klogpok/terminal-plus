@@ -14,7 +14,8 @@
     "start": "node scripts/bundle.mjs && tauri dev",
     "start:electron": "node scripts/start.mjs",
     "tauri": "tauri",
-    "dist": "electron-builder --win nsis"
+    "dist": "node scripts/fetch-node.ts && node scripts/stage-sidecar.ts && tauri build -c src-tauri/tauri.dist.conf.json",
+    "dist:electron": "electron-builder --win nsis"
   },
   "dependencies": {
     "node-pty": "1.1.0"

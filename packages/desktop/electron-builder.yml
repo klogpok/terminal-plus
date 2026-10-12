@@ -1,5 +1,5 @@
-# NSIS installer for the DevPanel desktop app: `pnpm build` at the repo root, then
-# `pnpm --filter @devpanel/desktop dist`. Output goes to packages/desktop/release (not committed).
+# NSIS installer for the Electron app, until it is removed: `pnpm desktop:dist:electron` at the
+# repo root. Output goes to packages/desktop/release (not committed).
 appId: com.devpanel.desktop
 productName: DevPanel
 artifactName: DevPanel-Setup-${version}.${ext}

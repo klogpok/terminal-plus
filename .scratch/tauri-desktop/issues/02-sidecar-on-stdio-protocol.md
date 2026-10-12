@@ -10,7 +10,7 @@ The message types are defined once in TypeScript. A protocol fixture holds one s
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A sidecar bundle can be built and started with plain Node; it reads `DEVPANEL_APP_DATA`, `DEVPANEL_PORT` and the hidden-start flag from `start`.
 - [x] Protocol message types are defined in one place in TypeScript; malformed or unknown incoming lines are logged to stderr and ignored, never crash the sidecar.
@@ -44,7 +44,7 @@ The message types are defined once in TypeScript. A protocol fixture holds one s
 
 **Блокируется:** 01
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [x] Бандл sidecar собирается и запускается обычным Node; он читает `DEVPANEL_APP_DATA`, `DEVPANEL_PORT`, а признак скрытого старта — из `start`.
 - [x] Типы сообщений протокола определены в одном месте на TypeScript; некорректные или неизвестные входящие строки пишутся в stderr и игнорируются, sidecar от них не падает.

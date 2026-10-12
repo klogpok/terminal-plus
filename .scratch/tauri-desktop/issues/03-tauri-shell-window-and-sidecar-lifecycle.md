@@ -6,7 +6,7 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `pnpm desktop` builds what it needs and opens the DevPanel window via Tauri; the web UI is unchanged and Services and Sessions work.
 - [x] The sidecar runs in a Job Object with kill-on-close: killing the shell from Task Manager kills the sidecar and every Service and Session (checked by hand; automated in ticket 06).
@@ -29,7 +29,7 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Блокируется:** 02
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [x] `pnpm desktop` собирает нужное и открывает окно DevPanel через Tauri; веб-UI не изменился, Сервисы и Сессии работают.
 - [x] Sidecar работает в Job Object с завершением при закрытии: убийство оболочки через диспетчер задач убивает sidecar и все Сервисы и Сессии (проверено вручную; автоматизация — в тикете 06).

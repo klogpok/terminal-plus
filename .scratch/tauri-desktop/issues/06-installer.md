@@ -11,7 +11,7 @@ WebView2 is installed through the download bootstrapper only when missing. As to
 
 **Blocked by:** 04, 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `pnpm desktop:dist` builds the web UI, the sidecar bundle and the Tauri shell and outputs an NSIS installer; a wrong `node.exe` checksum fails the build.
 - [x] The installed app (on a machine or user profile without Node) starts, runs Services and Sessions through node-pty, and Exit stops everything.
@@ -48,7 +48,7 @@ WebView2 ставится через загрузочный bootstrapper, тол
 
 **Блокируется:** 04, 05
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [x] `pnpm desktop:dist` собирает веб-UI, бандл sidecar и оболочку Tauri и выдаёт NSIS-установщик; неверная контрольная сумма `node.exe` проваливает сборку.
 - [x] Установленное приложение (на машине или в профиле без Node) запускается, выполняет Сервисы и Сессии через node-pty, а Выход всё останавливает.

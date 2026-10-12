@@ -6,7 +6,7 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The tray tooltip and menu render from `setTray` and are rebuilt on every `setTray`, in the UI Language the sidecar chose.
 - [x] The menu opens on a right click; a left click does not open it and still shows the window.
@@ -44,7 +44,7 @@ Run each in English and again in Russian (switch the language in DevPanel's sett
 
 **Блокируется:** 03
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [x] Подсказка и меню трея рисуются из `setTray` и перестраиваются при каждом `setTray` на Языке интерфейса, выбранном sidecar.
 - [x] Меню открывается правой кнопкой; левая кнопка его не открывает и по-прежнему показывает окно.

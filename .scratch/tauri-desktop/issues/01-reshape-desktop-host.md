@@ -6,7 +6,7 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The desktop host interface no longer has single-instance members; the Electron adapter takes the lock and shows the window on a second launch before or around `runDesktop`.
 - [x] Start with Windows: the host reports the current state, the behaviour asks it to change, and the tray checkmark reflects what the host reports.
@@ -26,7 +26,7 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Блокируется:** ничем (можно начинать сразу)
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [x] В интерфейсе десктопного хоста нет членов для единственного экземпляра; Electron-адаптер берёт блокировку и показывает окно при повторном запуске до или вокруг `runDesktop`.
 - [x] Автозапуск с Windows: хост сообщает текущее состояние, поведение просит изменить его, галочка в трее отражает то, что сообщил хост.

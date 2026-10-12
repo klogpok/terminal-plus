@@ -6,7 +6,7 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A second launch shows and focuses the running window and exits without spawning a sidecar (no second `node.exe`).
 - [x] Start with Windows is off by default; toggling it in the tray creates or removes the autostart entry and the checkmark follows the shell's confirmation.
@@ -24,7 +24,7 @@ Spec: `.scratch/tauri-desktop/spec.md`
 
 **Блокируется:** 03
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [x] Повторный запуск показывает работающее окно, переводит на него фокус и завершается, не запуская sidecar (второго `node.exe` нет).
 - [x] Автозапуск по умолчанию выключен; переключение в трее создаёт или удаляет запись автозапуска, а галочка следует подтверждению оболочки.

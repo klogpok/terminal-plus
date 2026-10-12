@@ -15,7 +15,7 @@ The first Tauri release notes tell Electron users to uninstall the old version f
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] No Electron or electron-builder dependency, configuration, adapter, script or test remains; the lockfile is updated.
 - [x] `pnpm desktop` and `pnpm desktop:dist` run the Tauri app and installer; `pnpm check` needs no Rust and no Electron.
@@ -43,7 +43,7 @@ The first Tauri release notes tell Electron users to uninstall the old version f
 
 **Блокируется:** 06
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [x] Не осталось ни зависимостей, ни конфигурации, ни адаптера, ни скриптов, ни тестов Electron или electron-builder; lock-файл обновлён.
 - [x] `pnpm desktop` и `pnpm desktop:dist` запускают Tauri-приложение и собирают установщик; `pnpm check` не требует ни Rust, ни Electron.

@@ -12,11 +12,11 @@ The message types are defined once in TypeScript. A protocol fixture holds one s
 
 **Status:** ready-for-agent
 
-- [ ] A sidecar bundle can be built and started with plain Node; it reads `DEVPANEL_APP_DATA`, `DEVPANEL_PORT` and the hidden-start flag from `start`.
-- [ ] Protocol message types are defined in one place in TypeScript; malformed or unknown incoming lines are logged to stderr and ignored, never crash the sidecar.
-- [ ] Nothing but protocol lines is written to stdout (Service and Session output never leaks there).
-- [ ] A protocol fixture with one sample line per message exists and a TS test parses every line against the types.
-- [ ] End-to-end test (fake shell, temporary app data, random port, in `pnpm test`):
+- [x] A sidecar bundle can be built and started with plain Node; it reads `DEVPANEL_APP_DATA`, `DEVPANEL_PORT` and the hidden-start flag from `start`.
+- [x] Protocol message types are defined in one place in TypeScript; malformed or unknown incoming lines are logged to stderr and ignored, never crash the sidecar.
+- [x] Nothing but protocol lines is written to stdout (Service and Session output never leaks there).
+- [x] A protocol fixture with one sample line per message exists and a TS test parses every line against the types.
+- [x] End-to-end test (fake shell, temporary app data, random port, in `pnpm test`):
   - after `openWindow` the Server answers `/api/hello` and the URL carries the Access Key;
   - a Service and a shell Session run through node-pty;
   - `windowCloseRequested` yields `hideWindow` and stops nothing;
@@ -24,7 +24,11 @@ The message types are defined once in TypeScript. A protocol fixture holds one s
   - a forced kill of the sidecar leaves every surviving recorded process detectable as an Orphan on the next start;
   - a port held by DevPanel or another program yields `showError` with the plain-language message, and `exit` only after the test sends `errorDismissed`;
   - "Exit DevPanel" through the WebSocket yields `exit`.
-- [ ] `pnpm check` passes.
+- [x] `pnpm check` passes.
+
+## Comments
+
+- Orchestrator addition: in the Tauri app the sidecar runs inside a Job Object with kill-on-close, so a browser or Explorer window the sidecar spawned (`windowsShell.openUrl` / `openFolder`) could live in the Job and die when DevPanel exits. Two more sidecar → shell messages, `openUrl` (url) and `openFolder` (path), hand these to the shell: the sidecar passes `startDevPanel` a `DesktopShell` whose `openUrl` (http(s) only, as `windowsShell`) and `openFolder` send them; `pickFolder` stays the PowerShell picker. Both are in the protocol types and the fixture, and the e2e test covers them.
 
 ## Русский перевод
 
@@ -42,11 +46,11 @@ The message types are defined once in TypeScript. A protocol fixture holds one s
 
 **Статус:** ready-for-agent
 
-- [ ] Бандл sidecar собирается и запускается обычным Node; он читает `DEVPANEL_APP_DATA`, `DEVPANEL_PORT`, а признак скрытого старта — из `start`.
-- [ ] Типы сообщений протокола определены в одном месте на TypeScript; некорректные или неизвестные входящие строки пишутся в stderr и игнорируются, sidecar от них не падает.
-- [ ] В stdout не пишется ничего, кроме строк протокола (вывод Сервисов и Сессий туда не попадает).
-- [ ] Есть фикстура протокола с одной образцовой строкой на сообщение, и TS-тест разбирает каждую строку по типам.
-- [ ] E2e-тест (фейковая оболочка, временный каталог данных, случайный порт, в `pnpm test`):
+- [x] Бандл sidecar собирается и запускается обычным Node; он читает `DEVPANEL_APP_DATA`, `DEVPANEL_PORT`, а признак скрытого старта — из `start`.
+- [x] Типы сообщений протокола определены в одном месте на TypeScript; некорректные или неизвестные входящие строки пишутся в stderr и игнорируются, sidecar от них не падает.
+- [x] В stdout не пишется ничего, кроме строк протокола (вывод Сервисов и Сессий туда не попадает).
+- [x] Есть фикстура протокола с одной образцовой строкой на сообщение, и TS-тест разбирает каждую строку по типам.
+- [x] E2e-тест (фейковая оболочка, временный каталог данных, случайный порт, в `pnpm test`):
   - после `openWindow` Сервер отвечает на `/api/hello`, а URL содержит Ключ доступа;
   - Сервис и Сессия оболочки работают через node-pty;
   - `windowCloseRequested` даёт `hideWindow` и ничего не останавливает;
@@ -54,4 +58,8 @@ The message types are defined once in TypeScript. A protocol fixture holds one s
   - после принудительного убийства sidecar каждый выживший записанный процесс находится как Зомби при следующем старте;
   - порт, занятый DevPanel или другой программой, даёт `showError` с понятным сообщением, а `exit` — только после того, как тест отправит `errorDismissed`;
   - «Выход из DevPanel» через WebSocket даёт `exit`.
-- [ ] `pnpm check` проходит.
+- [x] `pnpm check` проходит.
+
+## Комментарии
+
+- Дополнение оркестратора: в приложении на Tauri sidecar работает внутри Job Object с завершением при закрытии, поэтому окно браузера или Проводника, запущенное sidecar (`windowsShell.openUrl` / `openFolder`), могло бы оказаться в Job и умереть при выходе из DevPanel. Два новых сообщения sidecar → оболочка, `openUrl` (url) и `openFolder` (path), передают это оболочке: sidecar отдаёт `startDevPanel` `DesktopShell`, у которого `openUrl` (только http(s), как в `windowsShell`) и `openFolder` отправляют эти сообщения; `pickFolder` остаётся выбором папки через PowerShell. Оба сообщения есть в типах протокола и в фикстуре, e2e-тест их покрывает.

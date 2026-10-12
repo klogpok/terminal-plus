@@ -47,6 +47,8 @@ export interface DesktopWindow {
 }
 
 export interface TrayMenuItem {
+  /** Stable across rebuilds: the shell reports clicks by it. */
+  id: string;
   label: string;
   type?: 'normal' | 'checkbox' | 'separator';
   checked?: boolean;
@@ -165,8 +167,9 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
     const strings = HOST_STRINGS[language].desktop;
     tray.setToolTip(strings.tooltip);
     tray.setMenu([
-      { label: strings.show, click: () => window.show() },
+      { id: 'show', label: strings.show, click: () => window.show() },
       {
+        id: 'stopAllRepos',
         label: strings.stopAllRepos,
         click: () => {
           server.stopAllRepos().catch((error: unknown) => {
@@ -177,16 +180,17 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
           });
         },
       },
-      { label: '', type: 'separator' },
+      { id: 'separator-1', label: '', type: 'separator' },
       {
+        id: 'autostart',
         label: strings.autostart,
         type: 'checkbox',
         checked: host.isAutostartEnabled(),
         // The checkmark follows the host: it changes once the host reports the new state.
         click: () => host.requestAutostart(!host.isAutostartEnabled()),
       },
-      { label: '', type: 'separator' },
-      { label: strings.quit, click: () => host.quit() },
+      { id: 'separator-2', label: '', type: 'separator' },
+      { id: 'quit', label: strings.quit, click: () => host.quit() },
     ]);
   };
   /** The crash dialog the host may need later, in the current UI Language. */

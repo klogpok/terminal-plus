@@ -26,6 +26,8 @@ export interface ReadinessOptions {
   timings: ReadinessTimings;
   /** Is the Service process still alive? Checked before declaring a criteria-less Service ready. */
   isAlive(): boolean;
+  /** Resolves once the process has started: the liveness period counts from here, not from the spawn call. */
+  started: Promise<void>;
   onReady(): void;
   onUnhealthy(): void;
 }
@@ -71,8 +73,11 @@ export function watchReadiness(options: ReadinessOptions): ReadinessWatch {
   };
 
   if (pattern === undefined && !polled) {
-    later(timings.livenessMs, () => {
-      if (options.isAlive()) ready();
+    void options.started.then(() => {
+      if (done) return;
+      later(timings.livenessMs, () => {
+        if (options.isAlive()) ready();
+      });
     });
   } else {
     later(timings.readinessTimeoutMs, () => {

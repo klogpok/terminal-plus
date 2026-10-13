@@ -160,7 +160,8 @@ export class PortConflicts {
     const servicesByPid = new Map<number, { repo: RepoState; service: ServiceState }>();
     for (const repo of this.host.repos()) {
       for (const service of repo.services.values()) {
-        if (service.process) servicesByPid.set(service.process.pid, { repo, service });
+        // A Service not started yet (PID 0) holds no port; PID 0 would match every ancestry.
+        if (service.process?.pid) servicesByPid.set(service.process.pid, { repo, service });
       }
     }
     for (const { pid } of listeners) {

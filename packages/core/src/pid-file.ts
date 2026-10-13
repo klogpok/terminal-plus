@@ -24,6 +24,12 @@ export interface RunInfo {
   owner: ProcessOwner;
 }
 
+/** A run's root process: its PID is 0 until it has started (see `ServiceProcess`). */
+export interface RunRoot {
+  readonly pid: number;
+  readonly started: Promise<void>;
+}
+
 /** One recorded process. */
 export interface PidRecord extends RunInfo {
   pid: number;
@@ -120,7 +126,7 @@ export function processTree(root: number, processes: Map<number, ProcessInfo>): 
  * every request made before it started.
  */
 export class ProcessRecorder {
-  private readonly runs = new Map<string, RunInfo & { rootPid: number }>();
+  private readonly runs = new Map<string, RunInfo & { root: RunRoot }>();
   private readonly requested = new Set<string>();
   private flushing: Promise<void> | undefined;
   private timer: NodeJS.Timeout | undefined;
@@ -130,11 +136,11 @@ export class ProcessRecorder {
     private readonly list: () => Promise<Map<number, ProcessInfo>> = listProcesses,
   ) {}
 
-  /** Starts recording a newly spawned run (its pty root PID). Returns the run id. */
-  track(rootPid: number, info: RunInfo): string {
+  /** Starts recording a newly spawned run (its pty root), first as soon as it has started. Returns the run id. */
+  track(root: RunRoot, info: RunInfo): string {
     const runId = randomUUID();
-    this.runs.set(runId, { ...info, rootPid });
-    this.refresh(runId);
+    this.runs.set(runId, { ...info, root });
+    void root.started.then(() => this.refresh(runId));
     // The root (cmd.exe) starts the real program only now; record the tree again shortly.
     setTimeout(() => this.refresh(runId), FOLLOW_UP_MS).unref();
     this.timer ??= setInterval(() => {
@@ -180,10 +186,11 @@ export class ProcessRecorder {
       for (const runId of ids) {
         const run = this.runs.get(runId);
         if (!run) continue; // ended meanwhile
-        const { rootPid, ...info } = run;
+        const { root, ...info } = run;
+        if (root.pid <= 0) continue; // not started yet
         fresh.set(
           runId,
-          processTree(rootPid, processes).map((p) => ({ pid: p.pid, createdAt: p.createdAt, runId, ...info })),
+          processTree(root.pid, processes).map((p) => ({ pid: p.pid, createdAt: p.createdAt, runId, ...info })),
         );
       }
       if (fresh.size === 0) continue;

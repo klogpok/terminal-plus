@@ -1,0 +1,236 @@
+diff --git a/packages/desktop/src/desktop-app.ts b/packages/desktop/src/desktop-app.ts
+index 3fdef6d..8c9b90d 100644
+--- a/packages/desktop/src/desktop-app.ts
++++ b/packages/desktop/src/desktop-app.ts
+@@ -6,7 +6,7 @@
+  * transport as the web version (ADR-0002, ADR-0003); the window just loads the Server's URL with
+  * the Access Key in the fragment, so the `web` build runs unchanged.
+  */
+-import { errorDetails, HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
++import { errorDetails, HOST_STRINGS, type ServiceSetStartResult, type ServiceSetView, type UiLanguage } from '@devpanel/shared';
+ import { isAddressInUse, portBlocker, portBlockerMessage, type PortProbe } from '@devpanel/server';
+ 
+ /**
+@@ -32,6 +32,12 @@ export interface RunningServer {
+   uiLanguage(): UiLanguage;
+   /** Calls `listener` after each UI Language change (`uiLanguageChanged`). */
+   onUiLanguageChanged(listener: (language: UiLanguage) => void): void;
++  /** The Service Sets, in creation order. */
++  serviceSets(): ServiceSetView[];
++  /** Calls `listener` after each change of the Service Sets (`serviceSetsChanged`). */
++  onServiceSetsChanged(listener: (sets: ServiceSetView[]) => void): void;
++  /** Starts a Service Set (`Commands.startServiceSet`); rejects with `serviceSetNotFound` for an unknown id. */
++  startServiceSet(id: string): Promise<ServiceSetStartResult>;
+ }
+ 
+ export interface QuitEvent {
+@@ -159,6 +165,16 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
+   });
+ 
+   const tray = host.createTray();
++  /** One item per Service Set, set apart by separators; nothing at all when there are none. */
++  const serviceSetItems = (): TrayMenuItem[] => {
++    const sets = server.serviceSets();
++    if (sets.length === 0) return [];
++    return [
++      { id: 'separator-sets-before', label: '', type: 'separator' },
++      ...sets.map((set) => ({ id: `serviceSet:${set.id}`, label: trayLabel(set.name) })),
++      { id: 'separator-sets-after', label: '', type: 'separator' },
++    ];
++  };
+   /** Builds the tooltip and menu in the current UI Language. */
+   const renderMenu = () => {
+     const language = server.uiLanguage();
+@@ -166,6 +182,7 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
+     tray.setToolTip(strings.tooltip);
+     tray.setMenu([
+       { id: 'show', label: strings.show, click: () => window.show() },
++      ...serviceSetItems(),
+       {
+         id: 'stopAllRepos',
+         label: strings.stopAllRepos,
+@@ -207,6 +224,11 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
+   return 'running';
+ }
+ 
++/** A user-entered text as a tray label: Windows menus read `&` as a mnemonic marker, `&&` is a literal `&`. */
++function trayLabel(text: string): string {
++  return text.replaceAll('&', '&&');
++}
++
+ /** Explains in plain language why the Server did not start; technical details only when unexpected. */
+ async function explainStartFailure(
+   options: DesktopOptions,
+diff --git a/packages/desktop/test/desktop-app.test.ts b/packages/desktop/test/desktop-app.test.ts
+index f2496eb..d6fef29 100644
+--- a/packages/desktop/test/desktop-app.test.ts
++++ b/packages/desktop/test/desktop-app.test.ts
+@@ -4,7 +4,7 @@
+  * shell–sidecar protocol) and the optional built-app test `tauri.e2e.test.ts` (single instance).
+  */
+ import { describe, expect, it } from 'vitest';
+-import { HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
++import { HOST_STRINGS, type ServiceSetStartResult, type ServiceSetView, type UiLanguage } from '@devpanel/shared';
+ import {
+   runDesktop,
+   type CrashTexts,
+@@ -188,8 +188,36 @@ class FakeServer implements RunningServer {
+     this.language = language;
+     for (const listener of this.languageListeners) listener(language);
+   }
++  sets: ServiceSetView[] = [];
++  private setsListeners: ((sets: ServiceSetView[]) => void)[] = [];
++  serviceSets(): ServiceSetView[] {
++    return this.sets;
++  }
++  onServiceSetsChanged(listener: (sets: ServiceSetView[]) => void): void {
++    this.setsListeners.push(listener);
++  }
++  /** The Service Sets change, in this or another window (`serviceSetsChanged`). */
++  changeServiceSets(sets: ServiceSetView[]): void {
++    this.sets = sets;
++    for (const listener of this.setsListeners) listener(sets);
++  }
++  startSetCalls: string[] = [];
++  /** What `startServiceSet` resolves with; or rejects with `startSetFailure`. */
++  startSetResult: ServiceSetStartResult = { notFound: [], notRunning: [] };
++  startSetFailure?: Error;
++  async startServiceSet(id: string): Promise<ServiceSetStartResult> {
++    this.startSetCalls.push(id);
++    if (this.startSetFailure) throw this.startSetFailure;
++    return this.startSetResult;
++  }
+ }
+ 
++const aSet = (id: string, name: string): ServiceSetView => ({
++  id,
++  name,
++  services: [{ ref: { repoId: 'r1', serviceId: 'api' }, repoName: 'Billing', serviceName: 'API', found: true }],
++});
++
+ const EN = HOST_STRINGS.en.desktop;
+ const RU = HOST_STRINGS.ru.desktop;
+ 
+@@ -358,6 +386,122 @@ describe('tray', () => {
+   });
+ });
+ 
++describe('Service Sets in the tray', () => {
++  const labels = (tray: FakeTray) => tray.menu.filter((i) => i.type !== 'separator').map((i) => i.label);
++
++  it('lists the Sets in order between Show and "Stop everything in all Repos", with ids from the Set ids', async () => {
++    const server = new FakeServer();
++    server.sets = [aSet('s1', 'Morning'), aSet('s2', 'Billing only')];
++    const { host, options } = setup({ server });
++    await runDesktop(options);
++    expect(labels(host.tray!)).toEqual([
++      'Show DevPanel',
++      'Morning',
++      'Billing only',
++      'Stop everything in all Repos',
++      'Start with Windows',
++      'Exit DevPanel',
++    ]);
++    expect(host.tray!.item('Morning').id).toBe('serviceSet:s1');
++    expect(host.tray!.item('Billing only').id).toBe('serviceSet:s2');
++    const ids = host.tray!.menu.map((i) => i.id);
++    expect(new Set(ids).size).toBe(ids.length);
++  });
++
++  it('shows an "&" in a Set name literally (Windows menus read a single "&" as a mnemonic)', async () => {
++    const server = new FakeServer();
++    server.sets = [aSet('s1', 'R&D')];
++    const { host, options } = setup({ server });
++    await runDesktop(options);
++    expect(host.tray!.menu.find((i) => i.id === 'serviceSet:s1')!.label).toBe('R&&D');
++  });
++
++  it('is rebuilt when the Sets change, in the current UI Language', async () => {
++    const { host, options, server } = setup();
++    await runDesktop(options);
++    server.switchUiLanguage('ru');
++
++    server.changeServiceSets([aSet('s1', 'Morning')]);
++
++    expect(labels(host.tray!)).toEqual([RU.show, 'Morning', RU.stopAllRepos, RU.autostart, RU.quit]);
++
++    server.changeServiceSets([]);
++
++    expect(labels(host.tray!)).toEqual([RU.show, RU.stopAllRepos, RU.autostart, RU.quit]);
++  });
++
++  it('clicking a Set starts it and keeps the window hidden when every Service reached running', async () => {
++    const server = new FakeServer();
++    server.sets = [aSet('s1', 'Morning'), aSet('s2', 'Evening')];
++    const { host, options } = setup({ server, startHidden: true });
++    await runDesktop(options);
++
++    host.tray!.item('Evening').click!();
++    await flush();
++
++    expect(server.startSetCalls).toEqual(['s2']);
++    expect(host.window!.visible).toBe(false);
++    expect(host.window!.shows).toBe(0);
++    expect(host.errors).toEqual([]);
++  });
++
++  it('shows the window when some Service of the Set did not reach running', async () => {
++    const server = new FakeServer();
++    server.sets = [aSet('s1', 'Morning')];
++    server.startSetResult = { notFound: [], notRunning: [{ repoId: 'r1', serviceId: 'api' }] };
++    const { host, options } = setup({ server, startHidden: true });
++    await runDesktop(options);
++
++    host.tray!.item('Morning').click!();
++    await flush();
++
++    expect(host.window!.visible).toBe(true);
++    // The web shows the message itself (`serviceSetStartReported`).
++    expect(host.errors).toEqual([]);
++  });
++
++  it('shows the window when some Service of the Set was not found', async () => {
++    const server = new FakeServer();
++    server.sets = [aSet('s1', 'Morning')];
++    server.startSetResult = { notFound: [{ repoId: 'r1', serviceId: 'api' }], notRunning: [] };
++    const { host, options } = setup({ server, startHidden: true });
++    await runDesktop(options);
++
++    host.tray!.item('Morning').click!();
++    await flush();
++
++    expect(host.window!.visible).toBe(true);
++  });
++
++  it('a start that fails shows the window and explains in the UI Language current at failure', async () => {
++    const server = new FakeServer();
++    server.sets = [aSet('s1', 'Morning')];
++    server.startSetFailure = new Error('This Service Set no longer exists');
++    const { host, options } = setup({ server, startHidden: true });
++    await runDesktop(options);
++
++    host.tray!.item('Morning').click!();
++    server.switchUiLanguage('ru');
++    await flush();
++
++    expect(host.window!.visible).toBe(true);
++    expect(host.errors).toEqual([
++      {
++        title: RU.serviceSetStartFailedTitle,
++        message: RU.serviceSetStartFailed('Morning'),
++        details: expect.stringContaining('This Service Set no longer exists'),
++        language: 'ru',
++      },
++    ]);
++  });
++
++  it('with no Sets the menu is exactly as before (no extra separator)', async () => {
++    const { host, options } = setup();
++    await runDesktop(options);
++    expect(host.tray!.menu.map((i) => i.id)).toEqual(['show', 'stopAllRepos', 'separator-1', 'autostart', 'separator-2', 'quit']);
++  });
++});
++
+ describe('crash texts', () => {
+   it('are handed to the host at start, in the UI Language', async () => {
+     const { host, options } = setup();

@@ -4,14 +4,14 @@
 
 **Blocked by:** 01 (Create a Service Set and see it in the menu).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Shared: `updateServiceSet` and `deleteServiceSet` commands; `serviceSetNotFound` error code (add it here if ticket 02 has not landed yet).
-- [ ] Core: update (same validation as create, its own name allowed) and delete, both persisted and followed by `serviceSetsChanged`.
-- [ ] Server: zod-validated handlers.
-- [ ] Web: edit action per Set; dialog prefilled; Save sends update; Delete asks for confirmation then sends delete; refusals shown.
-- [ ] Core harness tests: rename keeps the id, validation, delete, persistence, unknown id, events. Web specs through `FakeTransport`.
-- [ ] `pnpm check` passes.
+- [x] Shared: `updateServiceSet` and `deleteServiceSet` commands; `serviceSetNotFound` error code (add it here if ticket 02 has not landed yet).
+- [x] Core: update (same validation as create, its own name allowed) and delete, both persisted and followed by `serviceSetsChanged`.
+- [x] Server: zod-validated handlers.
+- [x] Web: edit action per Set; dialog prefilled; Save sends update; Delete asks for confirmation then sends delete; refusals shown.
+- [x] Core harness tests: rename keeps the id, validation, delete, persistence, unknown id, events. Web specs through `FakeTransport`.
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -21,11 +21,11 @@
 
 **Заблокирован:** 01 (Создать Набор и увидеть его в меню).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Shared: команды `updateServiceSet` и `deleteServiceSet`. Код ошибки `serviceSetNotFound` (добавить здесь, если тикет 02 ещё не влит).
-- [ ] Core: правка (те же проверки, что при создании, собственное имя разрешено) и удаление. Оба действия сохраняются и сопровождаются `serviceSetsChanged`.
-- [ ] Сервер: обработчики с zod-проверкой.
-- [ ] Web: действие правки у каждого Набора; диалог заполнен заранее; «Сохранить» отправляет правку; «Удалить» просит подтверждение, затем отправляет удаление; отказы показываются.
-- [ ] Тесты через harness core: переименование сохраняет id, проверки, удаление, сохранение, неизвестный id, события. Спеки web через `FakeTransport`.
-- [ ] `pnpm check` проходит.
+- [x] Shared: команды `updateServiceSet` и `deleteServiceSet`. Код ошибки `serviceSetNotFound` (добавить здесь, если тикет 02 ещё не влит).
+- [x] Core: правка (те же проверки, что при создании, собственное имя разрешено) и удаление. Оба действия сохраняются и сопровождаются `serviceSetsChanged`.
+- [x] Сервер: обработчики с zod-проверкой.
+- [x] Web: действие правки у каждого Набора; диалог заполнен заранее; «Сохранить» отправляет правку; «Удалить» просит подтверждение, затем отправляет удаление; отказы показываются.
+- [x] Тесты через harness core: переименование сохраняет id, проверки, удаление, сохранение, неизвестный id, события. Спеки web через `FakeTransport`.
+- [x] `pnpm check` проходит.

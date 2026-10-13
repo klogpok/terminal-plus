@@ -87,7 +87,7 @@ export class Sessions {
     const session = new Session(randomUUID(), repo.id, kind, number);
     session.process = proc;
     this.sessions.set(session.id, session);
-    const runId = this.recorder.track(proc.pid, {
+    const runId = this.recorder.track(proc, {
       repoId: repo.id,
       repoName: repo.name,
       owner: { kind: 'session', sessionKind: kind },

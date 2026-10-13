@@ -15,7 +15,7 @@
     "dist": "electron-builder --win nsis"
   },
   "dependencies": {
-    "node-pty": "1.1.0"
+    "node-pty": "1.2.0-beta.15"
   },
   "devDependencies": {
     "@devpanel/core": "workspace:*",

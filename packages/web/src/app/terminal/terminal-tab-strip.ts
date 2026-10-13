@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Injector,
   afterNextRender,
   computed,
@@ -14,6 +15,7 @@ import {
 import type { ServiceRef, SessionView } from '@devpanel/shared';
 import { BackendService, type InstallTab } from '../backend/backend.service';
 import { InstallOutput } from '../install-output/install-output';
+import { OpenTabOnStart } from '../open-tab-on-start';
 import { repoColor } from '../repo-color';
 import { STRINGS } from '../ui-strings';
 import { ServiceTerminal, type TerminalRef } from './service-terminal';
@@ -48,6 +50,7 @@ export class TerminalTabStrip {
   protected readonly strings = STRINGS;
   protected readonly tabs = inject(TerminalTabs);
   private readonly backend = inject(BackendService);
+  private readonly openTabOnStart = inject(OpenTabOnStart);
   private readonly injector = inject(Injector);
   private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');
 
@@ -104,6 +107,16 @@ export class TerminalTabStrip {
       }
       known = repoIds;
     });
+
+    // With the setting on, a starting Service gets its tab; the shown tab stays on screen.
+    const stopFollowing = this.backend.on('statusChanged', ({ repoId, serviceId, status }) => {
+      if (status !== 'starting' || !this.openTabOnStart.enabled()) return;
+      const shown = this.activeKey();
+      const ref = { repoId, serviceId };
+      this.tabs.add(ref);
+      this.tabs.selectKey(shown ?? tabKey(ref));
+    });
+    inject(DestroyRef).onDestroy(stopFollowing);
   }
 
   /** Key of the running Session tab whose close awaits confirmation. */

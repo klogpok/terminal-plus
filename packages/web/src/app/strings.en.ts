@@ -214,6 +214,12 @@ export const EN_STRINGS = {
     names: { system: 'System theme', light: 'Light theme', dark: 'Dark theme' },
   },
 
+  /** The Settings checkbox that opens a Service's terminal tab when it starts (per browser). */
+  openTabOnStart: {
+    label: 'Open the terminal tab when a Service starts',
+    hint: 'However the Service is started. The tab you are looking at stays on screen.',
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'Some processes from the previous DevPanel run are still running:',

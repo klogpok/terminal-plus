@@ -70,6 +70,17 @@ describe('Settings button', () => {
     expect(gear(page).getAttribute('aria-label')).toBe('Настройки');
   });
 
+  it('labels the "open the terminal tab" setting in Russian when the UI Language is Russian', async () => {
+    localStorage.setItem('devpanel.uiLanguage', 'ru');
+    const page = await openDevPanel({ repos: [], uiLanguage: 'ru' });
+
+    await openSettings(page);
+
+    expect(page.querySelector('.settings-panel label')!.textContent!.trim()).toBe(
+      'Открывать вкладку терминала при запуске Сервиса',
+    );
+  });
+
   it('opens Settings with the language and Theme switches', async () => {
     const page = await openDevPanel();
 

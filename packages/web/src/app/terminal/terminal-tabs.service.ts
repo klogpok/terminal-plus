@@ -40,11 +40,15 @@ export class TerminalTabs {
 
   /** Opens the Service's tab (or shows it if already open). */
   open(ref: ServiceRef): void {
+    this.add(ref);
+    this.selectKey(tabKey(ref));
+  }
+
+  /** Adds the Service's tab without showing it; an open tab is left as it is. */
+  add(ref: ServiceRef): void {
     const key = tabKey(ref);
-    if (!this.tabsState().some((t) => tabKey(t) === key)) {
-      this.tabsState.update((tabs) => [...tabs, { repoId: ref.repoId, serviceId: ref.serviceId }]);
-    }
-    this.activeState.set(key);
+    if (this.tabsState().some((t) => tabKey(t) === key)) return;
+    this.tabsState.update((tabs) => [...tabs, { repoId: ref.repoId, serviceId: ref.serviceId }]);
     this.save();
   }
 

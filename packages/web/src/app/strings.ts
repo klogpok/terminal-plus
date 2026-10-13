@@ -217,6 +217,12 @@ export const RU_STRINGS: UiStrings = {
     names: { system: 'Как в системе', light: 'Светлая тема', dark: 'Тёмная тема' },
   },
 
+  /** The Settings checkbox that opens a Service's terminal tab when it starts (per browser). */
+  openTabOnStart: {
+    label: 'Открывать вкладку терминала при запуске Сервиса',
+    hint: 'Как бы Сервис ни запустили. Вкладка, на которую вы смотрите, остаётся на экране.',
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'После прошлого запуска DevPanel остались работающие процессы:',

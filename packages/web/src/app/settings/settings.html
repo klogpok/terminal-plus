@@ -39,5 +39,17 @@
         }
       </div>
     </div>
+    <div class="setting-check">
+      <input
+        type="checkbox"
+        id="dp-settings-open-tab"
+        data-setting="openTabOnStart"
+        aria-describedby="dp-settings-open-tab-hint"
+        [checked]="openTabOnStart.enabled()"
+        (change)="openTabOnStart.choose($any($event.target).checked)"
+      />
+      <label for="dp-settings-open-tab">{{ strings.openTabOnStart.label }}</label>
+      <span class="setting-hint" id="dp-settings-open-tab-hint">{{ strings.openTabOnStart.hint }}</span>
+    </div>
   </div>
 }

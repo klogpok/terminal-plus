@@ -91,3 +91,24 @@
 .theme-switch button[aria-pressed="true"] {
   background: var(--border);
 }
+.setting-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 2px;
+  max-width: 280px;
+  font-size: 12px;
+}
+.setting-check input {
+  margin: 0;
+  cursor: pointer;
+}
+.setting-check label {
+  cursor: pointer;
+}
+.setting-hint {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 11px;
+}

@@ -1,0 +1,17 @@
+# Ticket 05 handoff (start a Service Set from the tray)
+
+Branch `service-sets-05-tray`, worktree `D:\projects\terminal-plus\.claude\worktrees\agent-a064d536af2424649`.
+Commits: `6df595b` (feature), `a48b429` (ticket marked resolved, both language halves), `8d02b73` (merge of `service-sets` @ `d9c33c0`; it brought only `.scratch/service-sets/notes/*` docs, so no conflicts and no code change). `pnpm check` is green (web 151, core 190, server 33, desktop 48 + 3 skipped), with no flaky timeouts. Rust `cargo test protocol` also passes.
+
+## Changes
+- `packages/desktop/src/desktop-app.ts`: `RunningServer` gains `serviceSets()`, `onServiceSetsChanged(listener)`, `startServiceSet(id): Promise<ServiceSetStartResult>`. The tray menu is now: `show`, then (only when there are Sets) `separator-sets-before`, one `serviceSet:<id>` item per Set in order, `separator-sets-after`, then the old items unchanged. With no Sets the ids are exactly as before (decision 8), so `sidecar.e2e` stays green. Labels go through `trayLabel()`, which escapes `&` as `&&`. `server.onServiceSetsChanged(renderMenu)` rebuilds the menu.
+- Click: `server.startServiceSet(set.id)`. On success with empty lists it stays quiet. With a non-empty `notFound`/`notRunning` it runs `window.show()` (the web shows the message from `serviceSetStartReported`). On a rejection it runs `window.show()` **and** shows a host error dialog `serviceSetStartFailedTitle` / `serviceSetStartFailed(name)` with `errorDetails` in the UI Language current at failure (same pattern as `stopAllRepos`). This was my call: the web does not report a tray-initiated rejection (no event for `serviceSetNotFound`), so the window alone would explain nothing.
+- `packages/shared/src/strings.ts`: `HOST_STRINGS.{en,ru}.desktop.serviceSetStartFailedTitle` and `serviceSetStartFailed(name)`.
+- `packages/desktop/src/sidecar.ts`: `serviceSets: () => devPanel.core.snapshot().serviceSets` (no new core getter, to avoid touching `core.ts` while 03 is in flight; `snapshot()` is cheap), `onServiceSetsChanged` on `core.on('serviceSetsChanged')`, `startServiceSet: (id) => devPanel.core.startServiceSet(id)`.
+- `packages/desktop/test/fixtures/protocol.jsonl` line 11 (`setTray`) now includes `{"id":"serviceSet:3f2a","label":"R&&D","kind":"normal"}`. TS and Rust both parse it. No Rust change.
+- Tests in `packages/desktop/test/desktop-app.test.ts`, describe "Service Sets in the tray" (8 tests): order and ids, `&&`, rebuild on change in ru and back to none, a click starts the Set and the window stays hidden, the window is shown on notRunning and on notFound (no host dialog), a rejection shows the window plus a dialog in the language current at failure, and the no-Sets menu ids are exact. FakeServer gained `sets`, `changeServiceSets()`, `startSetCalls`, `startSetResult`, `startSetFailure`.
+
+## Notable
+- `service-sets` had `d9c33c0` with `.scratch/service-sets/notes/ticket-05-tray-wip.patch`. It is a mid-run snapshot of this same work and is now superseded. The orchestrator may delete it and update `PROGRESS.md` (it still says "05 tray: in progress, WIP commit").
+- Merge with 03 should be clean: this branch does not touch `core`, `server`, `web`, or `errors.ts`. Only `strings.ts` (the `desktop` sections of HOST_STRINGS) is shared.
+- The UX gap from `04-desktop.md` still holds for notFound-only results until ticket 04 makes core fill `notFound` and emit the report. After that the web message covers it.

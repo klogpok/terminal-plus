@@ -8,7 +8,7 @@
 {"type":"openWindow","url":"http://127.0.0.1:7777/#key=0123456789abcdef","show":true}
 {"type":"showWindow"}
 {"type":"hideWindow"}
-{"type":"setTray","tooltip":"DevPanel","items":[{"id":"show","label":"Show DevPanel","kind":"normal"},{"id":"separator-1","label":"","kind":"separator"},{"id":"autostart","label":"Start with Windows","kind":"checkbox","checked":true},{"id":"quit","label":"Exit DevPanel","kind":"normal"}]}
+{"type":"setTray","tooltip":"DevPanel","items":[{"id":"show","label":"Show DevPanel","kind":"normal"},{"id":"serviceSet:3f2a","label":"R&&D","kind":"normal"},{"id":"separator-1","label":"","kind":"separator"},{"id":"autostart","label":"Start with Windows","kind":"checkbox","checked":true},{"id":"quit","label":"Exit DevPanel","kind":"normal"}]}
 {"type":"showError","dialogId":1,"title":"DevPanel did not start","message":"Something went wrong while starting.","details":"Error: boom\n    at start (sidecar.cjs:1:1)","language":"en","buttons":{"ok":"OK","details":"Details","detailsTitle":"Details for a developer"}}
 {"type":"setAutostart","enabled":false}
 {"type":"setCrashTexts","title":"DevPanel stopped","message":"DevPanel stopped unexpectedly and will close."}

@@ -22,6 +22,7 @@ import {
   type RepoView,
   type ServiceConfig,
   type ServiceRef,
+  type ServiceSetStartResult,
   type ServiceSetView,
   type ServiceStatus,
   type SessionView,
@@ -233,7 +234,11 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     this.serviceSets = new ServiceSets(
       {
         findService: (ref) => this.findService(ref),
-        emit: (event, payload) => this.emit(event, payload),
+        status: ({ repoId, serviceId }) => this.getService(this.getRepo(repoId), serviceId).status,
+        startService: ({ repoId, serviceId }) => this.startService(repoId, serviceId),
+        settledStatus: ({ repoId, serviceId }) =>
+          this.settledStatus(this.getService(this.getRepo(repoId), serviceId), new AbortController().signal),
+        emit: this.emit.bind(this),
       },
       this.appDataDir,
     );
@@ -523,6 +528,14 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
    */
   createServiceSet(options: { name: string; services: ServiceRef[] }): Promise<ServiceSetView> {
     return this.serviceSets.create(options);
+  }
+
+  /**
+   * Starts every Service of the Service Set that is not `running` or `starting` (see
+   * `Commands.startServiceSet`). Fails with `serviceSetNotFound`.
+   */
+  startServiceSet(id: string): Promise<ServiceSetStartResult> {
+    return this.serviceSets.start(id);
   }
 
   /** The Service `ref` names, unless its Repo is not in the Workspace or it is not in the config. */

@@ -169,6 +169,10 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: z.object({ name: z.string().max(100), services: z.array(serviceRef).max(1000) }),
     run: (core, p) => core.createServiceSet(p),
   },
+  startServiceSet: {
+    payload: z.object({ id: z.string().min(1).max(100) }),
+    run: (core, p) => core.startServiceSet(p.id),
+  },
   openTerminal: { payload: repoRef, run: (core, p) => core.openTerminal(p.repoId) },
   openClaude: { payload: repoRef, run: (core, p) => core.openClaude(p.repoId) },
   closeSession: {

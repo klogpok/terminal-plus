@@ -4,7 +4,15 @@
  * set directly; they read `STRINGS` from `ui-strings.ts`. Plain language for a non-programmer,
  * with the glossary's English terms (Repo, Service, Session, Workspace, Orphan, Repo Config).
  */
-import type { Orphan, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
+import type {
+  Orphan,
+  PortConflict,
+  PortOwner,
+  PortOwnerKind,
+  ServiceSetStartReportEntry,
+  ServiceStatus,
+  SessionKind,
+} from '@devpanel/shared';
 import type { AllErrorParams, UiErrorCode } from './ui-errors';
 
 /**
@@ -28,6 +36,11 @@ function describePortOwner(owner: PortOwner): string {
 
 function sessionKindName(kind: SessionKind): string {
   return kind === 'claude' ? 'Claude Code' : 'terminal';
+}
+
+/** "API in Repo Billing, Web in Repo Shop" (a Service Set start report). */
+function serviceList(entries: ServiceSetStartReportEntry[]): string {
+  return entries.map((e) => `${e.serviceName} in Repo ${e.repoName}`).join(', ');
 }
 
 /** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */
@@ -365,10 +378,19 @@ export const EN_STRINGS = {
     serviceSetNameEmpty: () => 'Enter a name for the Service Set.',
     serviceSetNameTaken: (p) => `A Service Set named "${p.name}" already exists. Choose another name.`,
     serviceSetEmpty: () => 'Check at least one Service.',
+    serviceSetNotFound: () => 'This Service Set no longer exists. It may have been deleted in another window.',
     badCommand: () => 'DevPanel did not understand the command. Reload the page.',
     internal: () =>
       'Something went wrong inside DevPanel. Try again; if it happens again, open "Details" and show the text to a developer.',
     connectionLost: () => 'Lost connection to DevPanel, so the command was not carried out. Try again in a few seconds.',
+    serviceSetStartIncomplete: (p) =>
+      `The Service Set "${p.name}" did not start completely.` +
+      (p.notRunning.length
+        ? ` Not running: ${serviceList(p.notRunning)}. The list of Services shows why; a taken port offers its choice there.`
+        : '') +
+      (p.notFound.length
+        ? ` Not found: ${serviceList(p.notFound)}. They were removed from their Repo's config, or their Repo from DevPanel.`
+        : ''),
     uiLanguageNotFollowed: () =>
       "DevPanel's language was changed, but this tab cannot switch to it: the browser does not let websites save data. " +
       'Allow websites to save data in the browser settings, then reload the page.',

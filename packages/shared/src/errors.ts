@@ -79,6 +79,8 @@ export interface ErrorParams {
   serviceSetNameTaken: { name: string };
   /** `createServiceSet`: no Services were chosen. */
   serviceSetEmpty: Record<string, never>;
+  /** `startServiceSet`: no Service Set has this id (deleted meanwhile). */
+  serviceSetNotFound: Record<string, never>;
   /** A malformed or unknown command reached the Server. */
   badCommand: Record<string, never>;
   /** Anything unexpected. */

@@ -10,8 +10,13 @@ import { z } from 'zod';
 import {
   DevPanelError,
   type ServiceRef,
+  type ServiceSetEntryView,
+  type ServiceSetStartReportEntry,
+  type ServiceSetStartReportedEvent,
+  type ServiceSetStartResult,
   type ServiceSetsChangedEvent,
   type ServiceSetView,
+  type ServiceStatus,
 } from '@devpanel/shared';
 import { readJsonFile } from './json-file.js';
 
@@ -36,6 +41,7 @@ type StoredEntry = z.infer<typeof entrySchema>;
 
 export interface ServiceSetEvents {
   serviceSetsChanged: [ServiceSetsChangedEvent];
+  serviceSetStartReported: [ServiceSetStartReportedEvent];
 }
 
 /** Current names of a Service of the Workspace. */
@@ -48,7 +54,13 @@ export interface FoundService {
 export interface ServiceSetHost {
   /** The Service `ref` names right now, or undefined when it is not found. */
   findService(ref: ServiceRef): FoundService | undefined;
-  emit(event: 'serviceSetsChanged', payload: ServiceSetsChangedEvent): boolean;
+  /** The Status of a found Service. */
+  status(ref: ServiceRef): ServiceStatus;
+  /** The normal Start path (dependencies, port checks, Orphans); resolves once spawned. */
+  startService(ref: ServiceRef): Promise<void>;
+  /** Waits until the Service leaves `starting`; resolves with its Status then. */
+  settledStatus(ref: ServiceRef): Promise<ServiceStatus>;
+  emit<E extends keyof ServiceSetEvents>(event: E, ...payload: ServiceSetEvents[E]): boolean;
 }
 
 /** Reads the Service Sets file; a missing, unreadable or invalid file means no Service Sets. */
@@ -103,6 +115,43 @@ export class ServiceSets {
     });
   }
 
+  /**
+   * Starts every found Service of the Set that is not `running` or `starting`, all at once, and
+   * waits until each started one settles.
+   */
+  async start(id: string): Promise<ServiceSetStartResult> {
+    const set = this.sets.find((s) => s.id === id);
+    if (!set) throw new DevPanelError('serviceSetNotFound', {}, `No Service Set has the id "${id}"`);
+    const outcomes = await Promise.all(set.services.map((entry) => this.startEntry(entry)));
+    const notRunning = set.services.filter((_, i) => outcomes[i] === 'notRunning');
+    if (notRunning.length) {
+      this.host.emit('serviceSetStartReported', {
+        id: set.id,
+        name: set.name,
+        notFound: [],
+        notRunning: notRunning.map((entry) => reportEntry(this.entryView(entry))),
+      });
+    }
+    return { notFound: [], notRunning: notRunning.map(refOf) };
+  }
+
+  /** Starts one entry unless it is not found or already up; never rejects. */
+  private async startEntry(entry: StoredEntry): Promise<'running' | 'notRunning' | 'skipped'> {
+    const ref = refOf(entry);
+    // Not found: skipped (ticket 04 reports these as notFound).
+    if (!this.host.findService(ref)) return 'skipped';
+    const status = this.host.status(ref);
+    if (status === 'running' || status === 'starting') return 'running';
+    try {
+      await this.host.startService(ref);
+      return (await this.host.settledStatus(ref)) === 'running' ? 'running' : 'notRunning';
+    } catch {
+      // A refused start (or a Repo removed meanwhile): the Service shows why on its own (Status,
+      // port-conflict choice); the Set only reports it.
+      return 'notRunning';
+    }
+  }
+
   /** Runs changes one at a time, so each one validates against the list the previous one saved. */
   private serialized<T>(change: () => Promise<T>): Promise<T> {
     const result = this.queue.then(change);
@@ -149,18 +198,25 @@ export class ServiceSets {
   }
 
   private view(set: StoredServiceSet): ServiceSetView {
+    return { id: set.id, name: set.name, services: set.services.map((entry) => this.entryView(entry)) };
+  }
+
+  /** Found entries show the current names, not-found ones the stored names. */
+  private entryView(entry: StoredEntry): ServiceSetEntryView {
+    const found = this.host.findService(refOf(entry));
     return {
-      id: set.id,
-      name: set.name,
-      services: set.services.map(({ repoId, serviceId, repoName, serviceName }) => {
-        const found = this.host.findService({ repoId, serviceId });
-        return {
-          ref: { repoId, serviceId },
-          repoName: found?.repoName ?? repoName,
-          serviceName: found?.serviceName ?? serviceName,
-          found: found !== undefined,
-        };
-      }),
+      ref: refOf(entry),
+      repoName: found?.repoName ?? entry.repoName,
+      serviceName: found?.serviceName ?? entry.serviceName,
+      found: found !== undefined,
     };
   }
+}
+
+function refOf({ repoId, serviceId }: StoredEntry): ServiceRef {
+  return { repoId, serviceId };
+}
+
+function reportEntry({ ref, repoName, serviceName }: ServiceSetEntryView): ServiceSetStartReportEntry {
+  return { ref, repoName, serviceName };
 }

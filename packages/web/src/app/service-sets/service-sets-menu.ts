@@ -4,7 +4,7 @@ import { STRINGS } from '../ui-strings';
 import { ServiceSetDialog } from './service-set-dialog';
 
 /**
- * The "Service Sets" menu in the header: one entry per Service Set and "New Service Set…", which
+ * The "Service Sets" menu in the header: one entry per Service Set (a click starts it) and "New Service Set…", which
  * opens the Service Set dialog. Keyboard: arrows move between entries, Escape closes.
  */
 @Component({
@@ -35,7 +35,7 @@ import { ServiceSetDialog } from './service-set-dialog';
         (keydown.arrowup)="$event.preventDefault(); moveFocus(-1)"
       >
         @for (set of backend.serviceSets(); track set.id) {
-          <button type="button" role="menuitem" class="service-set" [attr.data-service-set-id]="set.id">{{ set.name }}</button>
+          <button type="button" role="menuitem" class="service-set" [attr.data-service-set-id]="set.id" (click)="start(set.id)">{{ set.name }}</button>
         } @empty {
           <div class="none" role="none">{{ strings.serviceSets.none }}</div>
         }
@@ -89,6 +89,11 @@ export class ServiceSetsMenu {
     if (!items.length) return;
     const current = items.indexOf(document.activeElement as HTMLElement);
     items[(current + step + items.length) % items.length]!.focus();
+  }
+
+  protected start(id: string): void {
+    this.closeMenu(true);
+    this.backend.startServiceSet(id);
   }
 
   protected openNewDialog(): void {

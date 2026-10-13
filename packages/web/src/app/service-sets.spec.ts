@@ -120,6 +120,84 @@ describe('Service Sets menu', () => {
   });
 });
 
+describe('Starting a Service Set', () => {
+  function errorsText(): string {
+    return page.querySelector('.errors')?.textContent ?? '';
+  }
+
+  it('clicking a Service Set starts it and closes the menu; success shows nothing', async () => {
+    await transport.connectWith({ repos: [billing], serviceSets: [aSet('x', 'Project X')] });
+    await fixture.whenStable();
+
+    buttonIn(await openMenu(), 'Project X').click();
+    await fixture.whenStable();
+
+    const sent = transport.lastCommand('startServiceSet');
+    expect(sent.payload).toEqual({ id: 'x' });
+    expect(menu()).toBeNull();
+    await transport.reply(sent, { notFound: [], notRunning: [] });
+    await fixture.whenStable();
+    expect(errorsText()).toBe('');
+  });
+
+  it('shows one plain-language message from the start report, naming the Services that did not start, once', async () => {
+    await transport.connectWith({ repos: [billing, shop], serviceSets: [aSet('x', 'Project X')] });
+    await fixture.whenStable();
+    buttonIn(await openMenu(), 'Project X').click();
+    await fixture.whenStable();
+    const api = { repoId: 'b1', serviceId: 'api' };
+    const web = { repoId: 's1', serviceId: 'web' };
+
+    transport.emit('serviceSetStartReported', {
+      id: 'x',
+      name: 'Project X',
+      notFound: [],
+      notRunning: [
+        { ref: api, repoName: 'Billing', serviceName: 'API' },
+        { ref: web, repoName: 'Shop', serviceName: 'Web' },
+      ],
+    });
+    await transport.reply(transport.lastCommand('startServiceSet'), { notFound: [], notRunning: [api, web] });
+    await fixture.whenStable();
+
+    expect(page.querySelectorAll('.errors dp-error-message')).toHaveLength(1);
+    expect(errorsText()).toContain(
+      'The Service Set "Project X" did not start completely. Not running: API in Repo Billing, Web in Repo Shop.',
+    );
+  });
+
+  it('names Services that were not found', async () => {
+    await transport.connectWith({ repos: [billing] });
+    await fixture.whenStable();
+
+    transport.emit('serviceSetStartReported', {
+      id: 'x',
+      name: 'Project X',
+      notFound: [{ ref: { repoId: 'gone', serviceId: 'db' }, repoName: 'Old', serviceName: 'DB' }],
+      notRunning: [],
+    });
+    await fixture.whenStable();
+
+    expect(errorsText()).toContain('Not found: DB in Repo Old.');
+  });
+
+  it('a Service Set deleted meanwhile is explained in plain language', async () => {
+    await transport.connectWith({ repos: [billing], serviceSets: [aSet('x', 'Project X')] });
+    await fixture.whenStable();
+    buttonIn(await openMenu(), 'Project X').click();
+    await fixture.whenStable();
+
+    await transport.fail(transport.lastCommand('startServiceSet'), {
+      code: 'serviceSetNotFound',
+      params: {},
+      details: 'No Service Set has the id "x"',
+    });
+    await fixture.whenStable();
+
+    expect(errorsText()).toContain('This Service Set no longer exists.');
+  });
+});
+
 describe('New Service Set dialog', () => {
   it('lists every Service grouped by Repo, labelled with Repo and Service, with running ones pre-checked', async () => {
     await transport.connectWith({ repos: [billing, shop] });

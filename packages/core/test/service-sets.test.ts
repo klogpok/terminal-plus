@@ -1,16 +1,22 @@
+import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DevPanelError } from '@devpanel/shared';
-import { SERVICE_SETS_FILE } from '../src/index.js';
-import { Harness, fixtureCommand } from './harness.js';
+import { SERVICE_SETS_FILE, type DevPanelCore } from '../src/index.js';
+import { Harness, fixtureCommand, freePort, waitForStatus } from './harness.js';
+
+const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
 let h: Harness;
+const children: ChildProcess[] = [];
 beforeEach(() => {
   h = new Harness();
 });
 afterEach(async () => {
   await h.dispose();
+  for (const child of children.splice(0)) if (child.exitCode === null) child.kill();
 });
 
 function idle(id: string, name?: string) {
@@ -150,6 +156,122 @@ describe('createServiceSet', () => {
     expect((await h.createCore()).snapshot().serviceSets.map((s) => s.name)).toEqual(['Project X']);
   });
 });
+
+describe('startServiceSet', () => {
+  it("starts only the Set's Services that are not running, leaves every other Service alone, and reports nothing when all run", async () => {
+    const { core, billing, shop } = await setup();
+    await core.startService(billing, 'worker');
+    await waitForStatus(core, billing, 'worker', 'running');
+    const set = await core.createServiceSet({
+      name: 'Project X',
+      services: [
+        { repoId: billing, serviceId: 'api' },
+        { repoId: billing, serviceId: 'worker' },
+      ],
+    });
+    const statuses = recordStatuses(core);
+    const reports: unknown[] = [];
+    core.on('serviceSetStartReported', (e) => reports.push(e));
+
+    const result = await core.startServiceSet(set.id);
+
+    expect(result).toEqual({ notFound: [], notRunning: [] });
+    expect(statusOf(core, billing, 'api')).toBe('running');
+    expect(statusOf(core, shop, 'web')).toBe('stopped');
+    expect(statuses).toEqual(['api:starting', 'api:running']);
+    expect(reports).toEqual([]);
+  });
+
+  it('starts the dependencies of its Services, as Start does', async () => {
+    h.addRepo({ name: 'billing', config: { services: [idle('db'), { ...idle('api'), dependsOn: ['db'] }] } });
+    const core = await h.createCore();
+    const billing = core.listRepos()[0]!.id;
+    const set = await core.createServiceSet({ name: 'API', services: [{ repoId: billing, serviceId: 'api' }] });
+
+    expect(await core.startServiceSet(set.id)).toEqual({ notFound: [], notRunning: [] });
+    expect(statusOf(core, billing, 'db')).toBe('running');
+    expect(statusOf(core, billing, 'api')).toBe('running');
+  });
+
+  it('reports a Service that crashes and one whose port is taken, and still starts the rest', async () => {
+    const port = await freePort();
+    await spawnListener(port);
+    h.addRepo({
+      name: 'billing',
+      config: {
+        services: [
+          { id: 'api', name: 'Billing API', command: fixtureCommand('exit-after.mjs', 100, 3) },
+          { id: 'web', port, command: fixtureCommand('listen.mjs', port) },
+          idle('worker'),
+        ],
+      },
+    });
+    const core = await h.createCore();
+    const billing = core.listRepos()[0]!.id;
+    const refs = ['api', 'web', 'worker'].map((serviceId) => ({ repoId: billing, serviceId }));
+    const set = await core.createServiceSet({ name: 'Project X', services: refs });
+    const reports: unknown[] = [];
+    core.on('serviceSetStartReported', (e) => reports.push(e));
+
+    const result = await core.startServiceSet(set.id);
+
+    expect(result).toEqual({ notFound: [], notRunning: [refs[0], refs[1]] });
+    expect(statusOf(core, billing, 'api')).toBe('crashed');
+    expect(statusOf(core, billing, 'web')).toBe('stopped');
+    expect(statusOf(core, billing, 'worker')).toBe('running');
+    expect(reports).toEqual([
+      {
+        id: set.id,
+        name: 'Project X',
+        notFound: [],
+        notRunning: [
+          { ref: refs[0], repoName: 'billing', serviceName: 'Billing API' },
+          { ref: refs[1], repoName: 'billing', serviceName: 'web' },
+        ],
+      },
+    ]);
+  });
+
+  it('skips an entry whose Service is not found and starts the rest', async () => {
+    const { core, billing } = await setup();
+    const set = await core.createServiceSet({
+      name: 'Project X',
+      services: [
+        { repoId: billing, serviceId: 'gone' },
+        { repoId: billing, serviceId: 'api' },
+      ],
+    });
+
+    const result = await core.startServiceSet(set.id);
+
+    expect(result.notRunning).toEqual([]);
+    expect(statusOf(core, billing, 'api')).toBe('running');
+  });
+
+  it('refuses a Service Set that does not exist', async () => {
+    const { core } = await setup();
+
+    expect(await codeOf(core.startServiceSet('no-such-set'))).toBe('serviceSetNotFound');
+  });
+});
+
+/** Spawns a `node listen.mjs <port>` outside DevPanel (owned by this test) and waits until it listens. */
+async function spawnListener(port: number): Promise<void> {
+  const child = spawn(process.execPath, [path.join(FIXTURES, 'listen.mjs'), String(port), 'any'], { stdio: 'pipe' });
+  children.push(child);
+  await new Promise<void>((resolve) => child.stdout!.once('data', () => resolve()));
+}
+
+/** Records `<serviceId>:<status>` for every status change, in order. */
+function recordStatuses(core: DevPanelCore): string[] {
+  const log: string[] = [];
+  core.on('statusChanged', (e) => log.push(`${e.serviceId}:${e.status}`));
+  return log;
+}
+
+function statusOf(core: DevPanelCore, repoId: string, serviceId: string): string | undefined {
+  return core.listRepos().find((r) => r.id === repoId)?.services.find((s) => s.id === serviceId)?.status;
+}
 
 async function errorOf(promise: Promise<unknown>): Promise<DevPanelError> {
   try {

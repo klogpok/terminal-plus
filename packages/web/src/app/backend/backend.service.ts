@@ -13,6 +13,8 @@ import type {
   ServerMessage,
   ServiceConfig,
   ServiceRef,
+  ServiceSetStartReportEntry,
+  ServiceSetStartReportedEvent,
   ServiceSetView,
   ServiceStatus,
   ServiceView,
@@ -214,6 +216,14 @@ export class BackendService {
   async deleteServiceSet(id: string): Promise<void> {
     await this.command('deleteServiceSet', { id });
     this.serviceSetsState.update((sets) => sets.filter((s) => s.id !== id));
+  }
+
+  /**
+   * Starts a Service Set. What did not start is shown from `serviceSetStartReported` (which also
+   * covers starts from the tray), not from the result, so it is shown once.
+   */
+  startServiceSet(id: string): void {
+    this.run('startServiceSet', { id });
   }
 
   /** Removes a Service from the Repo's Local Config (the Server stops it first when it runs). */
@@ -465,7 +475,20 @@ export class BackendService {
       case 'serviceSetsChanged':
         this.serviceSetsState.set(event.payload.serviceSets);
         break;
+      case 'serviceSetStartReported':
+        this.showServiceSetStartReport(event.payload);
+        break;
     }
+  }
+
+  private showServiceSetStartReport({ id, name, notFound, notRunning }: ServiceSetStartReportedEvent): void {
+    const refs = (entries: ServiceSetStartReportEntry[]) =>
+      entries.map((e) => `${e.ref.repoId}/${e.ref.serviceId}`).join(', ') || 'none';
+    this.showError({
+      code: 'serviceSetStartIncomplete',
+      params: { name, notFound, notRunning },
+      details: `Service Set "${id}": not found: ${refs(notFound)}; not running: ${refs(notRunning)}`,
+    });
   }
 
   /**

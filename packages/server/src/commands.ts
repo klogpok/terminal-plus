@@ -181,6 +181,10 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: z.object({ id: z.string().min(1) }),
     run: async (core, p) => (await core.deleteServiceSet(p.id), null),
   },
+  startServiceSet: {
+    payload: z.object({ id: z.string().min(1).max(100) }),
+    run: (core, p) => core.startServiceSet(p.id),
+  },
   openTerminal: { payload: repoRef, run: (core, p) => core.openTerminal(p.repoId) },
   openClaude: { payload: repoRef, run: (core, p) => core.openClaude(p.repoId) },
   closeSession: {

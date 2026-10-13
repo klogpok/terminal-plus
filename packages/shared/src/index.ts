@@ -250,6 +250,32 @@ export interface ServiceSetView {
   services: ServiceSetEntryView[];
 }
 
+/** What `startServiceSet` could not bring to `running` (both empty: every Service runs). */
+export interface ServiceSetStartResult {
+  /** Entries whose Service is not found (skipped). */
+  notFound: ServiceRef[];
+  /** Started (or already `unhealthy`/`stopping`) Services that did not reach `running`. */
+  notRunning: ServiceRef[];
+}
+
+/** An entry of a Service Set named in a start report. */
+export interface ServiceSetStartReportEntry {
+  ref: ServiceRef;
+  repoName: string;
+  serviceName: string;
+}
+
+/**
+ * A Service Set start finished with Services not found or not running (wherever it was started
+ * from: panel or tray). Every window shows it as one message.
+ */
+export interface ServiceSetStartReportedEvent {
+  id: string;
+  name: string;
+  notFound: ServiceSetStartReportEntry[];
+  notRunning: ServiceSetStartReportEntry[];
+}
+
 /** The full list of Service Sets, after each change. */
 export interface ServiceSetsChangedEvent {
   serviceSets: ServiceSetView[];
@@ -378,6 +404,7 @@ export interface Events {
   sessionOutput: SessionOutputEvent;
   uiLanguageChanged: UiLanguageChangedEvent;
   serviceSetsChanged: ServiceSetsChangedEvent;
+  serviceSetStartReported: ServiceSetStartReportedEvent;
 }
 
 export type EventType = keyof Events;
@@ -482,6 +509,13 @@ export interface Commands {
   updateServiceSet: { payload: { id: string; name: string; services: ServiceRef[] }; result: ServiceSetView };
   /** Deletes a Service Set and emits `serviceSetsChanged`. Fails with `serviceSetNotFound`. */
   deleteServiceSet: { payload: { id: string }; result: null };
+  /**
+   * Starts every Service of the Service Set that is not `running` or `starting`, in parallel, the
+   * way Start does (dependencies, port checks, Orphans); stops nothing. Resolves once each started
+   * Service reached `running` or ended up otherwise; when some did not, also emits
+   * `serviceSetStartReported`. Fails with `serviceSetNotFound`.
+   */
+  startServiceSet: { payload: { id: string }; result: ServiceSetStartResult };
 }
 
 export type CommandType = keyof Commands;

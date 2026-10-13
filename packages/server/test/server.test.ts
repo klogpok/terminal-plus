@@ -380,6 +380,19 @@ describe('DevPanel Server', () => {
     });
   });
 
+  it('starts a Service Set by id and refuses an unknown one in plain words', async () => {
+    const client = new Client(await connect());
+
+    expect(await client.send('startServiceSet', { id: 7 } as never)).toMatchObject({
+      ok: false,
+      error: { code: 'badCommand' },
+    });
+    expect(await client.send('startServiceSet', { id: 'no-such-set' })).toMatchObject({
+      ok: false,
+      error: { code: 'serviceSetNotFound' },
+    });
+  });
+
   it('rejects connections from a foreign Origin', async () => {
     await expect(connect({ origin: 'https://evil.example' })).rejects.toThrow('HTTP 403');
     await expect(connect({ origin: 'http://127.0.0.1:1' })).rejects.toThrow('HTTP 403');

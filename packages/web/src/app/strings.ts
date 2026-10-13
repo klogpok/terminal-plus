@@ -8,6 +8,7 @@ import type {
   PortConflict,
   PortOwner,
   PortOwnerKind,
+  ServiceSetStartReportEntry,
   ServiceStatus,
   SessionKind,
 } from '@devpanel/shared';
@@ -35,6 +36,11 @@ function describePortOwner(owner: PortOwner): string {
 
 function sessionKindName(kind: SessionKind): string {
   return kind === 'claude' ? 'Claude Code' : 'терминала';
+}
+
+/** "API в репо Billing, Web в репо Shop" (a Service Set start report). */
+function serviceList(entries: ServiceSetStartReportEntry[]): string {
+  return entries.map((e) => `${e.serviceName} в репо ${e.repoName}`).join(', ');
 }
 
 /** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */
@@ -374,6 +380,14 @@ export const RU_STRINGS: UiStrings = {
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',
+    serviceSetStartIncomplete: (p) =>
+      `Набор «${p.name}» запустился не полностью.` +
+      (p.notRunning.length
+        ? ` Не работают: ${serviceList(p.notRunning)}. Причина видна в списке сервисов; там же выбор, если порт занят.`
+        : '') +
+      (p.notFound.length
+        ? ` Не найдены: ${serviceList(p.notFound)}. Их убрали из конфига репо или убрали сам репо из DevPanel.`
+        : ''),
     uiLanguageNotFollowed: () =>
       'Язык DevPanel изменился, но эта вкладка не может на него переключиться: браузер не даёт сайтам сохранять данные. ' +
       'Разрешите сохранение данных сайтов в настройках браузера и обновите страницу.',

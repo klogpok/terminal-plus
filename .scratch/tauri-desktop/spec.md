@@ -1,6 +1,6 @@
 # Spec: Desktop app on Tauri with a Node sidecar
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 
@@ -128,7 +128,7 @@ Electron is removed completely. Existing Electron installations are not migrated
 
 # Спецификация: десктопное приложение на Tauri с Node-sidecar
 
-Status: ready-for-agent
+Status: resolved
 
 ## Постановка проблемы
 

@@ -12,7 +12,10 @@ export interface SpawnOptions {
 
 /** A Service process running in a pty. */
 export interface ServiceProcess {
+  /** PID of the pty root (cmd.exe); 0 until it has started (node-pty starts it asynchronously). */
   readonly pid: number;
+  /** Resolves once `pid` is known, or once the process has exited without ever starting. */
+  readonly started: Promise<void>;
   /** Resolves with the exit code once the process has exited. */
   readonly exited: Promise<number>;
   onData(listener: (data: string) => void): void;
@@ -32,6 +35,8 @@ const BATCH_PROMPT = /(\(Y\/N\)|\[Y\(да\)\/N\(нет\)\])\?\s*$/i;
 const ANSI = /\u001b\][^\u0007]*\u0007|\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b[@-_]/g;
 /** How long to wait for the pty exit event after the tree was killed. */
 const EXIT_AFTER_KILL_MS = 5_000;
+/** node-pty has no event for "started"; its `pid` is polled this often until it is known. */
+const PID_POLL_MS = 10;
 
 /** `taskkill /T /F` on a PID: kills the process and all its descendants. Never rejects. */
 export function killTree(pid: number): Promise<void> {
@@ -76,8 +81,19 @@ export function spawnService(options: SpawnOptions): ServiceProcess {
     });
   });
 
+  const started = new Promise<void>((resolve) => {
+    const check = () => {
+      if (term.pid > 0 || hasExited) resolve();
+      else setTimeout(check, PID_POLL_MS);
+    };
+    check();
+  });
+
   return {
-    pid: term.pid,
+    get pid() {
+      return term.pid;
+    },
+    started,
     exited,
     onData(listener) {
       term.onData(listener);
@@ -89,6 +105,8 @@ export function spawnService(options: SpawnOptions): ServiceProcess {
       if (!hasExited) term.resize(cols, rows);
     },
     async stop(gracefulMs) {
+      // Before the start there is no PID to kill the tree by.
+      await started;
       if (!hasExited) {
         stopRequested = true;
         term.write(CTRL_C);

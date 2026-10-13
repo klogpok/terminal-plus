@@ -2,7 +2,7 @@
 // node-pty, so `require('node-pty')` resolves next to sidecar.cjs. Needs `dist/sidecar.cjs` (the
 // `build` script). Run with `node` (type stripping).
 //
-// node-pty 1.1.0 is an N-API addon and loads `prebuilds/<platform>-<arch>` (lib/utils.js), so only
+// node-pty 1.2.0-beta.15 is an N-API addon and loads `prebuilds/<platform>-<arch>` (lib/utils.js), so only
 // its compiled JS and the win32-x64 prebuilds go in: no sources, no other platforms, no rebuild.
 // The prebuilds' *.pdb debug symbols are 28 of their 30 MB and are dropped too.
 import { cpSync, mkdirSync, realpathSync, rmSync } from 'node:fs';

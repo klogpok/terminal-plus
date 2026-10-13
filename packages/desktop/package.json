@@ -15,7 +15,7 @@
     "dist": "node scripts/fetch-node.ts && node scripts/stage-sidecar.ts && tauri build -c src-tauri/tauri.dist.conf.json"
   },
   "dependencies": {
-    "node-pty": "1.1.0"
+    "node-pty": "1.2.0-beta.15"
   },
   "devDependencies": {
     "@devpanel/core": "workspace:*",

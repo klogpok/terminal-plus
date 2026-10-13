@@ -525,6 +525,19 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     return this.serviceSets.create(options);
   }
 
+  /**
+   * Renames a Service Set and replaces its Services (its id stays), then emits `serviceSetsChanged`.
+   * Same refusals as `createServiceSet` (its own name allowed), plus `serviceSetNotFound`.
+   */
+  updateServiceSet(options: { id: string; name: string; services: ServiceRef[] }): Promise<ServiceSetView> {
+    return this.serviceSets.update(options);
+  }
+
+  /** Deletes a Service Set and emits `serviceSetsChanged`. Fails with `serviceSetNotFound`. */
+  deleteServiceSet(id: string): Promise<void> {
+    return this.serviceSets.delete(id);
+  }
+
   /** The Service `ref` names, unless its Repo is not in the Workspace or it is not in the config. */
   private findService({ repoId, serviceId }: ServiceRef): FoundService | undefined {
     const repo = this.repos.get(repoId);

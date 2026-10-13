@@ -342,6 +342,44 @@ describe('DevPanel Server', () => {
     expect(event.payload).toMatchObject({ serviceSets: [{ name: 'Project X' }] });
   });
 
+  it('updates and deletes a Service Set, tells every client, and refuses an unknown one', async () => {
+    const tab1 = new Client(await connect());
+    const tab2 = new Client(await connect());
+    const snapshot = (await tab1.send('getSnapshot', {})) as { result: { repos: { id: string }[] } };
+    const api = { repoId: snapshot.result.repos[0]!.id, serviceId: 'api' };
+    const created = (await tab1.send('createServiceSet', { name: 'Project X', services: [api] })) as {
+      result: { id: string };
+    };
+    const { id } = created.result;
+
+    expect(await tab1.send('updateServiceSet', { id, name: 'Y' } as never)).toMatchObject({
+      ok: false,
+      error: { code: 'badCommand' },
+    });
+    expect(await tab1.send('updateServiceSet', { id, name: 'Project Y', services: [api] })).toMatchObject({
+      ok: true,
+      result: { id, name: 'Project Y' },
+    });
+    await tab2.waitFor(
+      (m): m is EventMessage =>
+        m.kind === 'event' &&
+        m.type === 'serviceSetsChanged' &&
+        (m.payload as { serviceSets: { name: string }[] }).serviceSets[0]?.name === 'Project Y',
+    );
+
+    expect(await tab1.send('deleteServiceSet', { id })).toMatchObject({ ok: true, result: null });
+    await tab2.waitFor(
+      (m): m is EventMessage =>
+        m.kind === 'event' &&
+        m.type === 'serviceSetsChanged' &&
+        (m.payload as { serviceSets: unknown[] }).serviceSets.length === 0,
+    );
+    expect(await tab1.send('deleteServiceSet', { id })).toMatchObject({
+      ok: false,
+      error: { code: 'serviceSetNotFound' },
+    });
+  });
+
   it('rejects connections from a foreign Origin', async () => {
     await expect(connect({ origin: 'https://evil.example' })).rejects.toThrow('HTTP 403');
     await expect(connect({ origin: 'http://127.0.0.1:1' })).rejects.toThrow('HTTP 403');

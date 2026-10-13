@@ -199,6 +199,13 @@ export const EN_STRINGS = {
     serviceLabel: (repoName: string, serviceName: string) => `${serviceName} in Repo ${repoName}`,
     save: 'Save',
     cancel: 'Cancel',
+    /** Accessible name of the edit action next to a Set in the menu. */
+    edit: (name: string) => `Edit ${name}`,
+    editTitle: 'Edit Service Set',
+    delete: 'Delete',
+    deleteConfirm: (name: string) => `Delete the Service Set "${name}"? This cannot be undone.`,
+    deleteYes: 'Yes, delete',
+    deleteNo: 'Keep it',
   },
 
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
@@ -365,6 +372,7 @@ export const EN_STRINGS = {
     serviceSetNameEmpty: () => 'Enter a name for the Service Set.',
     serviceSetNameTaken: (p) => `A Service Set named "${p.name}" already exists. Choose another name.`,
     serviceSetEmpty: () => 'Check at least one Service.',
+    serviceSetNotFound: () => 'This Service Set no longer exists. It may have been deleted in another window.',
     badCommand: () => 'DevPanel did not understand the command. Reload the page.',
     internal: () =>
       'Something went wrong inside DevPanel. Try again; if it happens again, open "Details" and show the text to a developer.',

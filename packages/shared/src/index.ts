@@ -475,6 +475,13 @@ export interface Commands {
    * `serviceSetEmpty` (no Services).
    */
   createServiceSet: { payload: { name: string; services: ServiceRef[] }; result: ServiceSetView };
+  /**
+   * Renames a Service Set and replaces its Services (its id stays), then emits `serviceSetsChanged`.
+   * Same refusals as `createServiceSet` (its own name is allowed), plus `serviceSetNotFound`.
+   */
+  updateServiceSet: { payload: { id: string; name: string; services: ServiceRef[] }; result: ServiceSetView };
+  /** Deletes a Service Set and emits `serviceSetsChanged`. Fails with `serviceSetNotFound`. */
+  deleteServiceSet: { payload: { id: string }; result: null };
 }
 
 export type CommandType = keyof Commands;

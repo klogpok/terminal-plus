@@ -203,6 +203,13 @@ export const RU_STRINGS: UiStrings = {
     serviceLabel: (repoName: string, serviceName: string) => `${serviceName} в репо ${repoName}`,
     save: 'Сохранить',
     cancel: 'Отмена',
+    /** Accessible name of the edit action next to a Set in the menu. */
+    edit: (name: string) => `Изменить «${name}»`,
+    editTitle: 'Изменить набор',
+    delete: 'Удалить',
+    deleteConfirm: (name: string) => `Удалить набор «${name}»? Это нельзя отменить.`,
+    deleteYes: 'Да, удалить',
+    deleteNo: 'Оставить',
   },
 
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
@@ -363,6 +370,7 @@ export const RU_STRINGS: UiStrings = {
     serviceSetNameEmpty: () => 'Введите имя набора.',
     serviceSetNameTaken: (p) => `Набор с именем «${p.name}» уже есть. Выберите другое имя.`,
     serviceSetEmpty: () => 'Отметьте хотя бы один сервис.',
+    serviceSetNotFound: () => 'Этого набора больше нет. Возможно, его удалили в другом окне.',
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',

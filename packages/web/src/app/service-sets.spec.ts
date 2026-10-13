@@ -219,3 +219,149 @@ describe('New Service Set dialog', () => {
     expect(transport.commands('createServiceSet')).toEqual([]);
   });
 });
+
+describe('Edit Service Set dialog', () => {
+  /** Project X = Billing Worker + Shop Web (Billing API runs but is not in the Set). */
+  const projectX: ServiceSetView = {
+    id: 'x',
+    name: 'Project X',
+    services: [
+      { ref: { repoId: 'b1', serviceId: 'worker' }, repoName: 'Billing', serviceName: 'Worker', found: true },
+      { ref: { repoId: 's1', serviceId: 'web' }, repoName: 'Shop', serviceName: 'Web', found: true },
+    ],
+  };
+
+  async function openEditDialog(name: string): Promise<HTMLElement> {
+    buttonIn(await openMenu(), `Edit ${name}`).click();
+    await fixture.whenStable();
+    return dialog()!;
+  }
+
+  beforeEach(async () => {
+    await transport.connectWith({ repos: [billing, shop], serviceSets: [projectX, aSet('s', 'Support')] });
+    await fixture.whenStable();
+  });
+
+  it('opens from an edit action next to each Set, filled with its name and its Services', async () => {
+    const opened = await openMenu();
+    expect([...opened.querySelectorAll('[role=menuitem]')].map((e) => e.getAttribute('aria-label') ?? e.textContent?.trim())).toEqual([
+      'Project X',
+      'Edit Project X',
+      'Support',
+      'Edit Support',
+      'New Service Set…',
+    ]);
+
+    buttonIn(opened, 'Edit Project X').click();
+    await fixture.whenStable();
+    const form = dialog()!;
+
+    expect(form.querySelector('.title')?.textContent?.trim()).toBe('Edit Service Set');
+    expect(field(form, 'Name').value).toBe('Project X');
+    expect(checked(form)).toEqual(['Worker in Repo Billing', 'Web in Repo Shop']);
+    expect(menu()).toBeNull();
+  });
+
+  it('saves the new name and Services under the same id, then closes; the menu shows the change', async () => {
+    const form = await openEditDialog('Project X');
+
+    type(field(form, 'Name'), 'Project Y');
+    field(form, 'Web in Repo Shop').click();
+    await fixture.whenStable();
+    buttonIn(form, 'Save').click();
+    await fixture.whenStable();
+
+    const command = transport.lastCommand('updateServiceSet');
+    expect(command.payload).toEqual({ id: 'x', name: 'Project Y', services: [{ repoId: 'b1', serviceId: 'worker' }] });
+    expect(transport.commands('createServiceSet')).toEqual([]);
+    await transport.reply(command, { ...projectX, name: 'Project Y' });
+    await fixture.whenStable();
+
+    expect(dialog()).toBeNull();
+    expect([...(await openMenu()).querySelectorAll('[data-service-set-id]')].map((e) => e.textContent?.trim())).toEqual([
+      'Project Y',
+      'Support',
+    ]);
+  });
+
+  it('keeps an entry that is not found when saving', async () => {
+    const gone = { ref: { repoId: 'old', serviceId: 'db' }, repoName: 'Old', serviceName: 'DB', found: false };
+    transport.emit('serviceSetsChanged', { serviceSets: [{ ...projectX, services: [...projectX.services, gone] }] });
+    await fixture.whenStable();
+    const form = await openEditDialog('Project X');
+
+    buttonIn(form, 'Save').click();
+    await fixture.whenStable();
+
+    expect(transport.lastCommand('updateServiceSet').payload.services).toEqual([
+      { repoId: 'b1', serviceId: 'worker' },
+      { repoId: 's1', serviceId: 'web' },
+      { repoId: 'old', serviceId: 'db' },
+    ]);
+  });
+
+  it('shows a refused name next to the name field', async () => {
+    const form = await openEditDialog('Project X');
+
+    type(field(form, 'Name'), 'support');
+    buttonIn(form, 'Save').click();
+    await transport.fail(transport.lastCommand('updateServiceSet'), {
+      code: 'serviceSetNameTaken',
+      params: { name: 'support' },
+      details: 'A Service Set named "support" already exists',
+    });
+    await fixture.whenStable();
+
+    expect(form.querySelector('[data-field-error="name"]')?.textContent).toContain('A Service Set named "support" already exists.');
+    expect(dialog()).not.toBeNull();
+  });
+
+  it('says so when the Set no longer exists', async () => {
+    const form = await openEditDialog('Project X');
+
+    buttonIn(form, 'Save').click();
+    await transport.fail(transport.lastCommand('updateServiceSet'), {
+      code: 'serviceSetNotFound',
+      params: {},
+      details: 'Service Set x not found',
+    });
+    await fixture.whenStable();
+
+    expect(form.textContent).toContain('This Service Set no longer exists.');
+    expect(dialog()).not.toBeNull();
+  });
+
+  it('deletes the Set only after confirmation', async () => {
+    const form = await openEditDialog('Project X');
+
+    buttonIn(form, 'Delete').click();
+    await fixture.whenStable();
+    expect(form.textContent).toContain('Delete the Service Set "Project X"?');
+    expect(transport.commands('deleteServiceSet')).toEqual([]);
+    buttonIn(form, 'Keep it').click();
+    await fixture.whenStable();
+    expect(form.textContent).not.toContain('Delete the Service Set "Project X"?');
+
+    buttonIn(form, 'Delete').click();
+    await fixture.whenStable();
+    buttonIn(form, 'Yes, delete').click();
+    await fixture.whenStable();
+
+    const command = transport.lastCommand('deleteServiceSet');
+    expect(command.payload).toEqual({ id: 'x' });
+    await transport.reply(command, null);
+    await fixture.whenStable();
+
+    expect(dialog()).toBeNull();
+    expect([...(await openMenu()).querySelectorAll('[data-service-set-id]')].map((e) => e.textContent?.trim())).toEqual([
+      'Support',
+    ]);
+  });
+
+  it('has no Delete button for a new Set', async () => {
+    const form = await openNewDialog();
+
+    expect([...form.querySelectorAll('button')].map((b) => b.textContent?.trim())).not.toContain('Delete');
+    expect(form.querySelector('.title')?.textContent?.trim()).toBe('New Service Set');
+  });
+});

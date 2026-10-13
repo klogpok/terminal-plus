@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import type { ServiceSetView } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
 import { STRINGS } from '../ui-strings';
 import { ServiceSetDialog } from './service-set-dialog';
 
 /**
- * The "Service Sets" menu in the header: one entry per Service Set and "New Service Set…", which
- * opens the Service Set dialog. Keyboard: arrows move between entries, Escape closes.
+ * The "Service Sets" menu in the header: one entry per Service Set with an edit action next to it,
+ * and "New Service Set…"; both open the Service Set dialog. Keyboard: arrows move between entries,
+ * Escape closes.
  */
 @Component({
   selector: 'dp-service-sets-menu',
@@ -35,7 +37,17 @@ import { ServiceSetDialog } from './service-set-dialog';
         (keydown.arrowup)="$event.preventDefault(); moveFocus(-1)"
       >
         @for (set of backend.serviceSets(); track set.id) {
-          <button type="button" role="menuitem" class="service-set" [attr.data-service-set-id]="set.id">{{ set.name }}</button>
+          <div class="row" role="none">
+            <button type="button" role="menuitem" class="service-set" [attr.data-service-set-id]="set.id">{{ set.name }}</button>
+            <button
+              type="button"
+              role="menuitem"
+              class="edit"
+              [attr.aria-label]="strings.serviceSets.edit(set.name)"
+              [title]="strings.serviceSets.edit(set.name)"
+              (click)="openEditDialog(set)"
+            ><span aria-hidden="true">✎</span></button>
+          </div>
         } @empty {
           <div class="none" role="none">{{ strings.serviceSets.none }}</div>
         }
@@ -44,7 +56,7 @@ import { ServiceSetDialog } from './service-set-dialog';
       </div>
     }
     @if (dialogOpen()) {
-      <dp-service-set-dialog (closed)="closeDialog()" />
+      <dp-service-set-dialog [serviceSet]="editing()" (closed)="closeDialog()" />
     }
   `,
   styles: `
@@ -55,6 +67,10 @@ import { ServiceSetDialog } from './service-set-dialog';
     .service-sets-menu button { text-align: left; border: 0; border-radius: 4px; background: transparent; color: var(--fg); cursor: pointer; font-size: 13px; padding: 6px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .service-sets-menu button:hover, .service-sets-menu button:focus-visible { background: var(--bg); outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
     .none { color: var(--muted); font-size: 12px; padding: 6px 10px; }
+    .row { display: flex; align-items: stretch; gap: 2px; }
+    .row .service-set { flex: 1; min-width: 0; }
+    .service-sets-menu .row .edit { flex: none; padding: 6px 8px; color: var(--muted); }
+    .service-sets-menu .row .edit:hover, .service-sets-menu .row .edit:focus-visible { color: var(--fg); }
     .separator { height: 1px; margin: 4px 0; background: var(--border); }
   `,
 })
@@ -68,6 +84,8 @@ export class ServiceSetsMenu {
 
   protected readonly menuOpen = signal(false);
   protected readonly dialogOpen = signal(false);
+  /** The Set the dialog edits; undefined for a new Set. */
+  protected readonly editing = signal<ServiceSetView | undefined>(undefined);
 
   protected toggleMenu(): void {
     if (this.menuOpen()) {
@@ -92,6 +110,13 @@ export class ServiceSetsMenu {
   }
 
   protected openNewDialog(): void {
+    this.editing.set(undefined);
+    this.menuOpen.set(false);
+    this.dialogOpen.set(true);
+  }
+
+  protected openEditDialog(set: ServiceSetView): void {
+    this.editing.set(set);
     this.menuOpen.set(false);
     this.dialogOpen.set(true);
   }

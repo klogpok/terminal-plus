@@ -5,11 +5,14 @@ import {
   afterNextRender,
   computed,
   inject,
+  input,
+  linkedSignal,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
-import type { ServiceRef, ServiceStatus } from '@devpanel/shared';
+import type { ServiceRef, ServiceSetView, ServiceStatus } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
 import { ErrorMessage } from '../error-message/error-message';
 import { repoColor } from '../repo-color';
@@ -44,8 +47,9 @@ function placeOf(error: UiErrorInfo): RejectionPlace {
 }
 
 /**
- * The Service Set dialog (new Set): a name and every Service of every Repo with a checkbox, grouped
- * by Repo. The Server checks the values; its refusals are shown next to the field at fault.
+ * The Service Set dialog, for a new Set or one being edited: a name and every Service of every Repo
+ * with a checkbox, grouped by Repo; an edited Set can also be deleted (after confirming). The
+ * Server checks the values; its refusals are shown next to the field at fault.
  */
 @Component({
   selector: 'dp-service-set-dialog',
@@ -60,7 +64,9 @@ function placeOf(error: UiErrorInfo): RejectionPlace {
       (submit)="$event.preventDefault(); submit()"
       (keydown.escape)="closed.emit()"
     >
-      <div class="title" id="service-set-dialog-title">{{ strings.serviceSets.newTitle }}</div>
+      <div class="title" id="service-set-dialog-title">
+        {{ serviceSet() ? strings.serviceSets.editTitle : strings.serviceSets.newTitle }}
+      </div>
       <label>
         <span>{{ strings.serviceSets.nameLabel }}</span>
         <input
@@ -103,10 +109,23 @@ function placeOf(error: UiErrorInfo): RejectionPlace {
           <dp-error-message [message]="r.message" [details]="r.details" />
         }
       }
-      <span class="form-actions">
-        <button type="submit" [disabled]="busy()">{{ strings.serviceSets.save }}</button>
-        <button type="button" (click)="closed.emit()">{{ strings.serviceSets.cancel }}</button>
-      </span>
+      @if (confirmingDelete() && serviceSet(); as set) {
+        <div class="delete-confirm" role="alert">
+          <span>{{ strings.serviceSets.deleteConfirm(set.name) }}</span>
+          <span class="form-actions">
+            <button type="button" class="danger" [disabled]="busy()" (click)="delete(set)">{{ strings.serviceSets.deleteYes }}</button>
+            <button type="button" (click)="confirmingDelete.set(false)">{{ strings.serviceSets.deleteNo }}</button>
+          </span>
+        </div>
+      } @else {
+        <span class="form-actions">
+          <button type="submit" [disabled]="busy()">{{ strings.serviceSets.save }}</button>
+          <button type="button" (click)="closed.emit()">{{ strings.serviceSets.cancel }}</button>
+          @if (serviceSet()) {
+            <button type="button" class="danger delete" (click)="confirmingDelete.set(true)">{{ strings.serviceSets.delete }}</button>
+          }
+        </span>
+      }
     </form>
   `,
   styles: `
@@ -126,17 +145,23 @@ function placeOf(error: UiErrorInfo): RejectionPlace {
     .form-actions button { border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; padding: 3px 10px; }
     .form-actions button[type=submit] { border-color: var(--accent); }
     .form-actions button:disabled { opacity: 0.4; cursor: default; }
+    .form-actions .delete { margin-left: auto; }
+    .form-actions button.danger { border-color: var(--error-border); }
+    .delete-confirm { display: flex; flex-direction: column; gap: 6px; }
   `,
 })
 export class ServiceSetDialog {
+  /** The Set being edited; undefined for a new Set. */
+  readonly serviceSet = input<ServiceSetView>();
   readonly closed = output();
   private readonly backend = inject(BackendService);
   protected readonly strings = STRINGS;
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
 
-  protected readonly name = signal('');
+  protected readonly name = linkedSignal(() => this.serviceSet()?.name ?? '');
   protected readonly busy = signal(false);
   protected readonly rejection = signal<Rejection | undefined>(undefined);
+  protected readonly confirmingDelete = signal(false);
 
   /** Every Service of every Repo, in list order, grouped by Repo. */
   protected readonly repos = computed(() =>
@@ -156,14 +181,33 @@ export class ServiceSetDialog {
       })),
   );
 
-  /** Checked Services (keys of their refs); a new Set starts with the running ones. */
-  protected readonly selected = signal<ReadonlySet<string>>(
-    new Set(
-      this.backend
-        .repos()
-        .flatMap((repo) => repo.services.filter((s) => RUNNING.has(s.status)).map((s) => keyOf({ repoId: repo.id, serviceId: s.id }))),
-    ),
-  );
+  /**
+   * Entries of the edited Set that are not in the list above (not found right now). They are not
+   * shown yet and stay in the Set when it is saved.
+   */
+  private readonly missing = computed(() => {
+    const listed = new Set(this.repos().flatMap((repo) => repo.services.map((s) => s.key)));
+    return (this.serviceSet()?.services ?? []).map((e) => ({ ref: e.ref, key: keyOf(e.ref) })).filter((e) => !listed.has(e.key));
+  });
+
+  /**
+   * Checked Services (keys of their refs): an edited Set starts with its own entries, a new one with
+   * the running Services. Reset only when the edited Set changes, not when a status does.
+   */
+  protected readonly selected = linkedSignal<ReadonlySet<string>>(() => {
+    const set = this.serviceSet();
+    if (set) return new Set(set.services.map((e) => keyOf(e.ref)));
+    return untracked(
+      () =>
+        new Set(
+          this.backend
+            .repos()
+            .flatMap((repo) =>
+              repo.services.filter((s) => RUNNING.has(s.status)).map((s) => keyOf({ repoId: repo.id, serviceId: s.id })),
+            ),
+        ),
+    );
+  });
 
   constructor() {
     afterNextRender(() => this.nameInput().nativeElement.focus());
@@ -186,13 +230,29 @@ export class ServiceSetDialog {
     if (this.busy()) return;
     this.busy.set(true);
     this.rejection.set(undefined);
-    // In list order; Services gone from the list meanwhile are dropped.
-    const services = this.repos()
-      .flatMap((repo) => repo.services)
+    // In list order, then the edited Set's entries that are not found; Services gone from the list
+    // meanwhile are dropped from a new Set.
+    const services = [...this.repos().flatMap((repo) => repo.services), ...this.missing()]
       .filter((s) => this.selected().has(s.key))
       .map((s) => s.ref);
+    const set = this.serviceSet();
+    await this.attempt(() =>
+      set ? this.backend.updateServiceSet(set.id, this.name(), services) : this.backend.createServiceSet(this.name(), services),
+    );
+  }
+
+  protected async delete(set: ServiceSetView): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.rejection.set(undefined);
+    this.confirmingDelete.set(false);
+    await this.attempt(() => this.backend.deleteServiceSet(set.id));
+  }
+
+  /** Runs `change`, then closes; a refusal keeps the dialog open and is shown. */
+  private async attempt(change: () => Promise<unknown>): Promise<void> {
     try {
-      await this.backend.createServiceSet(this.name(), services);
+      await change();
       this.closed.emit();
     } catch (e) {
       const error = e as UiErrorInfo;

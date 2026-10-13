@@ -202,6 +202,20 @@ export class BackendService {
     return set;
   }
 
+  /** Renames a Service Set and replaces its Services; rejects with `UiErrorInfo` for the dialog to show. */
+  async updateServiceSet(id: string, name: string, services: ServiceRef[]): Promise<ServiceSetView> {
+    const set = await this.command('updateServiceSet', { id, name, services });
+    // `serviceSetsChanged` brings the same list; replacing it now shows it without waiting.
+    this.serviceSetsState.update((sets) => sets.map((s) => (s.id === set.id ? set : s)));
+    return set;
+  }
+
+  /** Deletes a Service Set; rejects with `UiErrorInfo` (e.g. `serviceSetNotFound`) for the dialog to show. */
+  async deleteServiceSet(id: string): Promise<void> {
+    await this.command('deleteServiceSet', { id });
+    this.serviceSetsState.update((sets) => sets.filter((s) => s.id !== id));
+  }
+
   /** Removes a Service from the Repo's Local Config (the Server stops it first when it runs). */
   removeLocalService(repoId: string, serviceId: string): void {
     this.run('removeLocalService', { repoId, serviceId });

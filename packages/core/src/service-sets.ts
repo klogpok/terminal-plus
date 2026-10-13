@@ -103,6 +103,32 @@ export class ServiceSets {
     });
   }
 
+  update(options: { id: string; name: string; services: ServiceRef[] }): Promise<ServiceSetView> {
+    return this.serialized(async () => {
+      const current = this.require(options.id);
+      const name = this.requireValidName(options.name, current.id);
+      const services = this.entries(options.services, current.services);
+      const set: StoredServiceSet = { id: current.id, name, services };
+      await this.save(this.sets.map((s) => (s === current ? set : s)));
+      this.changed();
+      return this.view(set);
+    });
+  }
+
+  delete(id: string): Promise<void> {
+    return this.serialized(async () => {
+      const current = this.require(id);
+      await this.save(this.sets.filter((s) => s !== current));
+      this.changed();
+    });
+  }
+
+  private require(id: string): StoredServiceSet {
+    const set = this.sets.find((s) => s.id === id);
+    if (!set) throw new DevPanelError('serviceSetNotFound', {}, `Service Set ${id} not found`);
+    return set;
+  }
+
   /** Runs changes one at a time, so each one validates against the list the previous one saved. */
   private serialized<T>(change: () => Promise<T>): Promise<T> {
     const result = this.queue.then(change);
@@ -110,25 +136,31 @@ export class ServiceSets {
     return result;
   }
 
-  private requireValidName(raw: string): string {
+  /** The trimmed name, unless it is empty or another Set (not `ownId`) has it, ignoring case. */
+  private requireValidName(raw: string, ownId?: string): string {
     const name = raw.trim();
     if (!name) throw new DevPanelError('serviceSetNameEmpty', {}, 'The Service Set name is empty');
     const lower = name.toLowerCase();
-    if (this.sets.some((s) => s.name.toLowerCase() === lower)) {
+    if (this.sets.some((s) => s.id !== ownId && s.name.toLowerCase() === lower)) {
       throw new DevPanelError('serviceSetNameTaken', { name }, `A Service Set named "${name}" already exists`);
     }
     return name;
   }
 
-  /** Stored entries for `refs` (duplicates dropped), named after their Services when found. */
-  private entries(refs: ServiceRef[]): StoredEntry[] {
+  /**
+   * Stored entries for `refs` (duplicates dropped), named after their Services when found, else
+   * after the matching `previous` entry (the names the Set remembered), else after the ids.
+   */
+  private entries(refs: ServiceRef[], previous: StoredEntry[] = []): StoredEntry[] {
     const seen = new Set<string>();
     const entries: StoredEntry[] = [];
     for (const { repoId, serviceId } of refs) {
       const key = JSON.stringify([repoId, serviceId]);
       if (seen.has(key)) continue;
       seen.add(key);
-      const found = this.host.findService({ repoId, serviceId });
+      const found =
+        this.host.findService({ repoId, serviceId }) ??
+        previous.find((e) => e.repoId === repoId && e.serviceId === serviceId);
       entries.push({ repoId, serviceId, repoName: found?.repoName ?? repoId, serviceName: found?.serviceName ?? serviceId });
     }
     if (!entries.length) throw new DevPanelError('serviceSetEmpty', {}, 'A Service Set needs at least one Service');

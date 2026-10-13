@@ -151,6 +151,127 @@ describe('createServiceSet', () => {
   });
 });
 
+describe('updateServiceSet', () => {
+  it('renames a Service Set and replaces its Services, keeping its id, across a Server restart', async () => {
+    const { core, billing, shop } = await setup();
+    const created = await core.createServiceSet({ name: 'Project X', services: [{ repoId: billing, serviceId: 'api' }] });
+
+    const updated = await core.updateServiceSet({
+      id: created.id,
+      name: ' Project Y ',
+      services: [{ repoId: shop, serviceId: 'web' }],
+    });
+
+    const expected = {
+      id: created.id,
+      name: 'Project Y',
+      services: [{ ref: { repoId: shop, serviceId: 'web' }, repoName: 'shop', serviceName: 'web', found: true }],
+    };
+    expect(updated).toEqual(expected);
+    expect(core.snapshot().serviceSets).toEqual([expected]);
+    expect((await h.createCore()).snapshot().serviceSets).toEqual([expected]);
+  });
+
+  it('tells every client the new list', async () => {
+    const { core, billing } = await setup();
+    const created = await core.createServiceSet({ name: 'Project X', services: [{ repoId: billing, serviceId: 'api' }] });
+    const events: unknown[] = [];
+    core.on('serviceSetsChanged', (e) => events.push(e));
+
+    const updated = await core.updateServiceSet({ id: created.id, name: 'Project Y', services: [{ repoId: billing, serviceId: 'api' }] });
+
+    expect(events).toEqual([{ serviceSets: [updated] }]);
+  });
+
+  it('allows its own name, in another case', async () => {
+    const { core, billing } = await setup();
+    const created = await core.createServiceSet({ name: 'Project X', services: [{ repoId: billing, serviceId: 'api' }] });
+
+    const updated = await core.updateServiceSet({ id: created.id, name: 'PROJECT X', services: [{ repoId: billing, serviceId: 'worker' }] });
+
+    expect(updated.name).toBe('PROJECT X');
+  });
+
+  it('refuses an empty name, a name another Service Set has, and no Services, changing nothing', async () => {
+    const { core, billing } = await setup();
+    const api = [{ repoId: billing, serviceId: 'api' }];
+    const x = await core.createServiceSet({ name: 'Project X', services: api });
+    await core.createServiceSet({ name: 'Support', services: api });
+    const before = core.snapshot().serviceSets;
+    const events: unknown[] = [];
+    core.on('serviceSetsChanged', (e) => events.push(e));
+
+    expect(await codeOf(core.updateServiceSet({ id: x.id, name: ' ', services: api }))).toBe('serviceSetNameEmpty');
+    expect(await errorOf(core.updateServiceSet({ id: x.id, name: 'support ', services: api }))).toMatchObject({
+      code: 'serviceSetNameTaken',
+      params: { name: 'support' },
+    });
+    expect(await codeOf(core.updateServiceSet({ id: x.id, name: 'Project Y', services: [] }))).toBe('serviceSetEmpty');
+
+    expect(core.snapshot().serviceSets).toEqual(before);
+    expect(events).toEqual([]);
+  });
+
+  it('refuses an unknown Service Set', async () => {
+    const { core, billing } = await setup();
+
+    const code = await codeOf(core.updateServiceSet({ id: 'nope', name: 'X', services: [{ repoId: billing, serviceId: 'api' }] }));
+
+    expect(code).toBe('serviceSetNotFound');
+    expect(core.snapshot().serviceSets).toEqual([]);
+  });
+
+  it('keeps the remembered names of an entry that is not found when the Set is saved again', async () => {
+    const { core, billing } = await setup();
+    const api = { repoId: billing, serviceId: 'api' };
+    const created = await core.createServiceSet({ name: 'Project X', services: [api] });
+    await core.removeRepo(billing);
+
+    const updated = await core.updateServiceSet({ id: created.id, name: 'Project Y', services: [api] });
+
+    expect(updated.services).toEqual([{ ref: api, repoName: 'billing', serviceName: 'Billing API', found: false }]);
+  });
+});
+
+describe('deleteServiceSet', () => {
+  it('deletes a Service Set, tells every client, and it stays deleted across a Server restart', async () => {
+    const { core, billing, shop } = await setup();
+    const x = await core.createServiceSet({ name: 'Project X', services: [{ repoId: billing, serviceId: 'api' }] });
+    const support = await core.createServiceSet({ name: 'Support', services: [{ repoId: shop, serviceId: 'web' }] });
+    const events: unknown[] = [];
+    core.on('serviceSetsChanged', (e) => events.push(e));
+
+    await core.deleteServiceSet(x.id);
+
+    expect(core.snapshot().serviceSets).toEqual([support]);
+    expect(events).toEqual([{ serviceSets: [support] }]);
+    expect((await h.createCore()).snapshot().serviceSets).toEqual([support]);
+  });
+
+  it('frees the name for a new Service Set', async () => {
+    const { core, billing } = await setup();
+    const services = [{ repoId: billing, serviceId: 'api' }];
+    const x = await core.createServiceSet({ name: 'Project X', services });
+
+    await core.deleteServiceSet(x.id);
+
+    expect((await core.createServiceSet({ name: 'Project X', services })).name).toBe('Project X');
+  });
+
+  it('refuses an unknown Service Set, also when it was just deleted', async () => {
+    const { core, billing } = await setup();
+    const x = await core.createServiceSet({ name: 'Project X', services: [{ repoId: billing, serviceId: 'api' }] });
+
+    const results = await Promise.allSettled([core.deleteServiceSet(x.id), core.deleteServiceSet(x.id)]);
+
+    expect(results[0].status).toBe('fulfilled');
+    expect(results[1]).toMatchObject({ status: 'rejected', reason: { code: 'serviceSetNotFound' } });
+    expect(await codeOf(core.updateServiceSet({ id: x.id, name: 'X', services: [{ repoId: billing, serviceId: 'api' }] }))).toBe(
+      'serviceSetNotFound',
+    );
+  });
+});
+
 async function errorOf(promise: Promise<unknown>): Promise<DevPanelError> {
   try {
     await promise;

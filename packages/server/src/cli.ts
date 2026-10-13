@@ -7,10 +7,9 @@
  * - DEVPANEL_PORT: port (default 7777)
  * - DEVPANEL_DEV_ORIGINS: comma-separated extra allowed Origins, e.g. http://localhost:4200 for `ng serve`
  */
-import os from 'node:os';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_PORT } from '@devpanel/shared';
+import { appDataDirFrom } from './app-data.js';
 import { onExitSignals } from './exit-signals.js';
 import { startDevPanel, type RunningDevPanel } from './start.js';
 
@@ -24,7 +23,7 @@ export interface CliSettings {
 
 export function cliSettings(env: NodeJS.ProcessEnv = process.env): CliSettings {
   return {
-    appDataDir: env.DEVPANEL_APP_DATA ?? path.join(env.APPDATA ?? os.homedir(), 'DevPanel'),
+    appDataDir: appDataDirFrom(env),
     port: env.DEVPANEL_PORT ? Number(env.DEVPANEL_PORT) : DEFAULT_PORT,
     extraOrigins: (env.DEVPANEL_DEV_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     webRoot: fileURLToPath(new URL('../../web/dist/browser', import.meta.url)),

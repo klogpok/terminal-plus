@@ -8,7 +8,7 @@ const CYRILLIC_MESSAGE =
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/release/**', '**/.angular/**'],
+    ignores: ['**/node_modules/**', '**/dist/**', '**/target/**', '**/release/**', '**/.angular/**'],
   },
   {
     files: ['**/*.ts'],
@@ -22,7 +22,7 @@ export default tseslint.config(
     },
   },
   {
-    // core is host-agnostic: no HTTP server, no Electron, no dependency on the packages that host it.
+    // core is host-agnostic: no HTTP server, no desktop shell, no dependency on the packages that host it.
     files: ['packages/core/**/*.ts'],
     rules: {
       'no-restricted-imports': [
@@ -30,7 +30,6 @@ export default tseslint.config(
         {
           paths: [
             { name: 'fastify', message: 'core must not depend on the HTTP host (server).' },
-            { name: 'electron', message: 'core must not depend on the desktop host.' },
             { name: '@devpanel/server', message: 'core must not depend on the packages that host it.' },
             { name: '@devpanel/desktop', message: 'core must not depend on the packages that host it.' },
             { name: '@devpanel/web', message: 'core must not depend on the UI.' },

@@ -4,11 +4,9 @@ packages:
 # (and falls back to node-gyp, which needs VS build tools), so it is not needed.
 # The Angular toolchain packages below ship platform binaries/prebuilds as optional
 # dependencies; their install scripts only verify or rebuild them, so they are not needed either.
-# electron-winstaller (pulled in by electron-builder) is the Squirrel target; DevPanel ships NSIS.
 allowBuilds:
   node-pty: false
   '@parcel/watcher': false
   esbuild: false
   lmdb: false
   msgpackr-extract: false
-  electron-winstaller: false

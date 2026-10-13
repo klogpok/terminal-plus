@@ -3,16 +3,16 @@
   "productName": "DevPanel",
   "version": "0.1.0",
   "private": true,
-  "description": "DevPanel desktop app (Electron)",
+  "description": "DevPanel desktop app (Tauri shell + Node sidecar)",
   "author": "DevPanel",
   "type": "module",
-  "main": "dist/main.cjs",
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "tsc -p tsconfig.test.json && node scripts/bundle.mjs && vitest run",
-    "start": "node scripts/start.mjs",
-    "dist": "electron-builder --win nsis"
+    "start": "node scripts/bundle.mjs && tauri dev",
+    "tauri": "tauri",
+    "dist": "node scripts/fetch-node.ts && node scripts/stage-sidecar.ts && tauri build -c src-tauri/tauri.dist.conf.json"
   },
   "dependencies": {
     "node-pty": "1.2.0-beta.15"
@@ -21,11 +21,11 @@
     "@devpanel/core": "workspace:*",
     "@devpanel/server": "workspace:*",
     "@devpanel/shared": "workspace:*",
+    "@tauri-apps/cli": "2.12.2",
     "@types/ws": "^8.18.2",
-    "electron": "~44.6.0",
-    "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
     "vitest": "^4.1.11",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
   }
 }

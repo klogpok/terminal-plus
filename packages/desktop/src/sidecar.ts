@@ -56,6 +56,9 @@ const main = async () => {
         stopAllRepos: () => devPanel.core.stopAllRepos(),
         uiLanguage: () => devPanel.core.uiLanguage,
         onUiLanguageChanged: (listener) => devPanel.core.on('uiLanguageChanged', (e) => listener(e.language)),
+        serviceSets: () => devPanel.core.snapshot().serviceSets,
+        onServiceSetsChanged: (listener) => devPanel.core.on('serviceSetsChanged', (e) => listener(e.serviceSets)),
+        startServiceSet: (id) => devPanel.core.startServiceSet(id),
       };
     },
   });

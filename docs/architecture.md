@@ -64,6 +64,7 @@ Output replay ordering: `getServiceOutput` / `getSessionOutput` handlers are syn
 - **Process listing** uses PowerShell `Get-CimInstance Win32_Process` (~0.4 s): `wmic` is gone and `tasklist` has no parent PIDs. A listener belongs to our Service only through its ancestor chain (the pty root is `cmd.exe`).
 - **ConPTY**: when the process owning the pseudo console dies hard, the console's processes die within ~3 s. Orphans are therefore only descendants that left the console, which is why the PID file records whole trees.
 - **cmd batch prompt**: Ctrl+C in a `.cmd` shim (`pnpm.cmd`) makes cmd ask "Terminate batch job (Y/N)?" (localized) and wait; `process.ts` answers `Y`. Spawning goes through one command-line string (`/d /s /c "<cmd>"`), not an args array, which libuv would quote wrongly for cmd.
+- **node-pty version**: 1.1.0 crashes the Node process that owns a pty (access violation, no `exit` event) now and then when Ctrl+C is written to it, which is how every Service stop starts; 1.2.0-beta.15 does not. In the beta `spawn()` returns before the process exists: `pid` is 0 until it has started, so `ServiceProcess.started` gates the PID file, the liveness period and the tree kill.
 - **ConPTY output** is full of ANSI/OSC sequences and wraps at `cols`; strip ANSI (`stripAnsi`) and keep asserted lines short. Node children never see ConPTY resizes.
 - **`fs.watch`** fires several events per write on Windows; wait for a matching `configChanged`, not the first one.
 - **Playwright MCP** writes `.playwright-mcp/` into the main checkout (gitignored).

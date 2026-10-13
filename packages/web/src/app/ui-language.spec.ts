@@ -8,7 +8,10 @@ let transport: FakeTransport;
 let fixture: ComponentFixture<App>;
 let reload: ReturnType<typeof vi.fn>;
 
-/** Loads the UI Language the way main.ts does at page load, then renders the app. */
+/**
+ * Loads the UI Language the way main.ts does at page load, renders the app and opens Settings,
+ * where the UI Language switch lives.
+ */
 async function openDevPanel(snapshot: TestSnapshot = { repos: [] }): Promise<HTMLElement> {
   loadUiLanguage();
   transport = new FakeTransport();
@@ -23,7 +26,10 @@ async function openDevPanel(snapshot: TestSnapshot = { repos: [] }): Promise<HTM
   fixture = TestBed.createComponent(App);
   await transport.connectWith(snapshot);
   await fixture.whenStable();
-  return fixture.nativeElement as HTMLElement;
+  const page = fixture.nativeElement as HTMLElement;
+  page.querySelector<HTMLButtonElement>('.settings-button')!.click();
+  await fixture.whenStable();
+  return page;
 }
 
 function languageButton(page: HTMLElement, language: string): HTMLButtonElement {

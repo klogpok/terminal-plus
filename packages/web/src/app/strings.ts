@@ -200,13 +200,18 @@ export const RU_STRINGS: UiStrings = {
     done: 'DevPanel выключен. Эту вкладку можно закрыть. Чтобы начать снова, запустите DevPanel ярлыком на рабочем столе.',
   },
 
-  /** The UI Language switch in the header; each language is named in its own language. */
+  /** The gear button in the header and the Settings panel it opens. */
+  settings: {
+    label: 'Настройки',
+  },
+
+  /** The UI Language switch in Settings; each language is named in its own language. */
   uiLanguage: {
     label: 'Язык',
     names: { en: 'English', ru: 'Русский' },
   },
 
-  /** The Theme switch in the header (per browser). */
+  /** The Theme switch in Settings (per browser). */
   theme: {
     label: 'Тема',
     names: { system: 'Как в системе', light: 'Светлая тема', dark: 'Тёмная тема' },

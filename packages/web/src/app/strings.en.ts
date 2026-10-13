@@ -196,14 +196,19 @@ export const EN_STRINGS = {
     done: 'DevPanel is off. You can close this tab. To start again, use the DevPanel desktop shortcut.',
   },
 
-  /** The UI Language switch in the header; each language is named in its own language. */
+  /** The gear button in the header and the Settings panel it opens. */
+  settings: {
+    label: 'Settings',
+  },
+
+  /** The UI Language switch in Settings; each language is named in its own language. */
   uiLanguage: {
     label: 'Language',
     // eslint-disable-next-line no-restricted-syntax -- each language is named in its own language
     names: { en: 'English', ru: 'Русский' },
   },
 
-  /** The Theme switch in the header (per browser). */
+  /** The Theme switch in Settings (per browser). */
   theme: {
     label: 'Theme',
     names: { system: 'System theme', light: 'Light theme', dark: 'Dark theme' },

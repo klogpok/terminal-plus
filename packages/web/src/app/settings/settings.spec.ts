@@ -115,6 +115,34 @@ describe('Settings button', () => {
     expect(document.activeElement).toBe(gear(page));
   });
 
+  it('is operated from the keyboard alone', async () => {
+    const page = await openDevPanel();
+    // Enter and Space press a focused native button; jsdom does not turn keys into presses, so
+    // the test checks the controls are native and focusable, and presses them with click().
+    gear(page).focus();
+    expect(document.activeElement).toBe(gear(page));
+    expect(gear(page).tagName).toBe('BUTTON');
+
+    gear(page).click();
+    await fixture.whenStable();
+    const controls = [...page.querySelectorAll<HTMLElement>('.settings-panel button, .settings-panel input')];
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) {
+      expect(['BUTTON', 'INPUT']).toContain(control.tagName);
+      expect(control.tabIndex).toBeGreaterThanOrEqual(0);
+    }
+    const checkbox = page.querySelector<HTMLInputElement>('[data-setting="openTabOnStart"]')!;
+    checkbox.focus();
+    expect(document.activeElement).toBe(checkbox);
+
+    checkbox.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await fixture.whenStable();
+
+    expect(settingsOpen(page)).toBe(false);
+    expect(gear(page).getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(gear(page));
+  });
+
   it('stays open on a click inside and closes on a click outside', async () => {
     const page = await openDevPanel();
     await openSettings(page);

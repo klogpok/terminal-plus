@@ -4,6 +4,7 @@ import { BackendService } from './backend/backend.service';
 import { ErrorMessage } from './error-message/error-message';
 import { RepoList } from './repo-list/repo-list';
 import { Settings } from './settings/settings';
+import { StartingServiceTabOpener } from './terminal/starting-service-tab-opener';
 import { TerminalTabStrip } from './terminal/terminal-tab-strip';
 import { STRINGS } from './ui-strings';
 
@@ -26,6 +27,12 @@ const LEFT_WIDTH_STEP = 16;
 export class App {
   protected readonly backend = inject(BackendService);
   protected readonly strings = STRINGS;
+
+  constructor() {
+    // Follows Service starts from app start on, whatever is on screen.
+    inject(StartingServiceTabOpener);
+  }
+
   /** The "Exit DevPanel" confirmation is open. */
   protected readonly confirmingExit = signal(false);
   /** "Stop everything in all Repos" is enabled while any Service has a live process. */

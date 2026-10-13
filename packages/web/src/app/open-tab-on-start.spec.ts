@@ -8,6 +8,7 @@ import { FakeTerminalView } from './terminal/fake-terminal-view';
 import { TERMINAL_VIEW_FACTORY } from './terminal/terminal-view';
 
 const SETTING_KEY = 'devpanel.openTabOnStart';
+const TABS_KEY = 'devpanel.terminalTabs';
 
 let transport: FakeTransport;
 let fixture: ComponentFixture<App>;
@@ -147,6 +148,33 @@ describe('opening the terminal tab when a Service starts', () => {
 
     expect(tabs()).toEqual(['Billing / API', 'Shop / DB']);
     expect(shownTab()).toBe('Shop / DB');
+  });
+
+  it('leaves the remembered tab choice alone when the starting Service already has its tab', async () => {
+    const remembered = { tabs: [{ repoId: 'b1', serviceId: 'api' }], active: 'gone/svc' };
+    localStorage.setItem(TABS_KEY, JSON.stringify(remembered));
+    await loadPage();
+    await turnOn();
+
+    await setStatus('b1', 'api', 'starting');
+
+    expect(shownTab()).toBe('Billing / API');
+    expect(JSON.parse(localStorage.getItem(TABS_KEY)!)).toEqual(remembered);
+  });
+
+  it('leaves the remembered tab choice alone when a tab is added behind a shown Service tab', async () => {
+    localStorage.setItem(
+      TABS_KEY,
+      JSON.stringify({ tabs: [{ repoId: 'b1', serviceId: 'api' }], active: 'gone/svc' }),
+    );
+    await loadPage();
+    await turnOn();
+
+    await setStatus('s1', 'db', 'starting');
+
+    expect(tabs()).toEqual(['Billing / API', 'Shop / DB']);
+    expect(shownTab()).toBe('Billing / API');
+    expect(JSON.parse(localStorage.getItem(TABS_KEY)!).active).toBe('gone/svc');
   });
 
   it('opens no tab for statuses other than starting', async () => {

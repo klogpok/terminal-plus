@@ -1,9 +1,6 @@
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 
-/**
- * Per-browser choice to open a Service's terminal tab when it starts, remembered in localStorage
- * like the Theme. A missing or unknown value, or unavailable storage, means off.
- */
+/** localStorage key of the open-tab-on-start choice; holds `'true'` or `'false'`. */
 const OPEN_TAB_ON_START_KEY = 'devpanel.openTabOnStart';
 
 function storedChoice(): boolean {
@@ -14,9 +11,13 @@ function storedChoice(): boolean {
   }
 }
 
-/** The setting of this page; a change made in another tab of the same browser follows here at once. */
+/**
+ * Per-browser choice to open a Service's terminal tab when it starts, remembered in localStorage
+ * like the Theme. A missing or unknown value, or unavailable storage, means off. A change made in
+ * another tab of the same browser follows here at once.
+ */
 @Injectable({ providedIn: 'root' })
-export class OpenTabOnStart {
+export class OpenTabOnStartSetting {
   private readonly current = signal(storedChoice());
   readonly enabled = this.current.asReadonly();
 

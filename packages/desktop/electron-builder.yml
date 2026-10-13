@@ -23,7 +23,7 @@ compression: maximum
 extraResources:
   - from: ../web/dist/browser
     to: web
-# node-pty 1.1.0 is an N-API addon: its prebuilt win32 binaries load under Electron's ABI as is,
+# node-pty 1.2.0-beta.15 is an N-API addon: its prebuilt win32 binaries load under Electron's ABI as is,
 # so no @electron/rebuild (which would need VS build tools).
 npmRebuild: false
 # Native binaries and winpty-agent.exe/conpty must be real files, not inside app.asar.

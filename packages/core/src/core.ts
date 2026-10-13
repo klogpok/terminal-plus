@@ -716,7 +716,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       );
     }
     service.process = proc;
-    const runId = this.recorder.track(proc.pid, {
+    const runId = this.recorder.track(proc, {
       repoId: repo.id,
       repoName: repo.name,
       owner: { kind: 'service', serviceId, serviceName: service.name },
@@ -726,7 +726,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const readiness = watchReadiness({
       criteria: definition,
       timings: this.timings,
-      isAlive: () => service.process === proc && isProcessAlive(proc.pid),
+      isAlive: () => service.process === proc && proc.pid > 0 && isProcessAlive(proc.pid),
+      started: proc.started,
       onReady: () => this.onReadinessChange(repo, service, 'running'),
       onUnhealthy: () => this.onReadinessChange(repo, service, 'unhealthy'),
     });

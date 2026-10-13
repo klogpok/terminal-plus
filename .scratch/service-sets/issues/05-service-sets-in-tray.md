@@ -4,14 +4,14 @@
 
 **Blocked by:** 02 (Start a Service Set from the panel).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `RunningServer` exposes the Service Sets list, a change listener and `startServiceSet`; the sidecar wires them to the core.
-- [ ] Tray items have stable ids derived from the Set id; the menu is rebuilt on `serviceSetsChanged` as it is on `uiLanguageChanged`; any new tray text is in `HOST_STRINGS` for both UI Languages.
-- [ ] Clicking an item calls `startServiceSet`; the window is shown on a non-empty result or a rejection, and not on success.
-- [ ] No change to the Rust shell is needed (tray items already travel as id + label); the shared protocol fixture still passes on both sides.
-- [ ] Desktop tests with fake `DesktopHost` / `RunningServer` cover listing, rebuilding, starting, and showing the window only on failure.
-- [ ] `pnpm check` passes.
+- [x] `RunningServer` exposes the Service Sets list, a change listener and `startServiceSet`; the sidecar wires them to the core.
+- [x] Tray items have stable ids derived from the Set id; the menu is rebuilt on `serviceSetsChanged` as it is on `uiLanguageChanged`; any new tray text is in `HOST_STRINGS` for both UI Languages.
+- [x] Clicking an item calls `startServiceSet`; the window is shown on a non-empty result or a rejection, and not on success.
+- [x] No change to the Rust shell is needed (tray items already travel as id + label); the shared protocol fixture still passes on both sides.
+- [x] Desktop tests with fake `DesktopHost` / `RunningServer` cover listing, rebuilding, starting, and showing the window only on failure.
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -21,11 +21,11 @@
 
 **Заблокирован:** 02 (Запустить Набор из панели).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] `RunningServer` отдаёт список Наборов, подписку на его изменения и `startServiceSet`. Sidecar связывает их с core.
-- [ ] У пунктов трея стабильные id, выведенные из id Набора. Меню перестраивается по `serviceSetsChanged`, как сейчас по `uiLanguageChanged`. Любой новый текст трея лежит в `HOST_STRINGS` для обоих Языков интерфейса.
-- [ ] Клик по пункту вызывает `startServiceSet`. Окно показывается при непустом результате или отказе и не показывается при успехе.
-- [ ] Rust-оболочку менять не нужно (пункты трея уже передаются как id + подпись). Общая фикстура протокола по-прежнему проходит с обеих сторон.
-- [ ] Тесты десктопа с фейками `DesktopHost` / `RunningServer` покрывают показ списка, перестройку меню, запуск и показ окна только при неудаче.
-- [ ] `pnpm check` проходит.
+- [x] `RunningServer` отдаёт список Наборов, подписку на его изменения и `startServiceSet`. Sidecar связывает их с core.
+- [x] У пунктов трея стабильные id, выведенные из id Набора. Меню перестраивается по `serviceSetsChanged`, как сейчас по `uiLanguageChanged`. Любой новый текст трея лежит в `HOST_STRINGS` для обоих Языков интерфейса.
+- [x] Клик по пункту вызывает `startServiceSet`. Окно показывается при непустом результате или отказе и не показывается при успехе.
+- [x] Rust-оболочку менять не нужно (пункты трея уже передаются как id + подпись). Общая фикстура протокола по-прежнему проходит с обеих сторон.
+- [x] Тесты десктопа с фейками `DesktopHost` / `RunningServer` покрывают показ списка, перестройку меню, запуск и показ окна только при неудаче.
+- [x] `pnpm check` проходит.

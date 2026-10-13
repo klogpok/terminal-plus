@@ -225,6 +225,34 @@ export interface Snapshot {
   orphans?: Orphan[];
   /** The stored UI Language; a tab that loaded another string set switches to it. */
   uiLanguage: UiLanguage;
+  /** The Service Sets of this machine, in creation order. */
+  serviceSets: ServiceSetView[];
+}
+
+/** One Service of a Service Set. */
+export interface ServiceSetEntryView {
+  ref: ServiceRef;
+  /** The Repo name last seen for `ref` (kept while the Service is not found). */
+  repoName: string;
+  /** The Service name last seen for `ref` (kept while the Service is not found). */
+  serviceName: string;
+  /** Whether `ref` names a Service of the Workspace right now. */
+  found: boolean;
+}
+
+/**
+ * Service Set: a named list of Services from any Repos of the Workspace, stored only on this
+ * machine (never in a Repo). The id stays fixed when the Set is renamed.
+ */
+export interface ServiceSetView {
+  id: string;
+  name: string;
+  services: ServiceSetEntryView[];
+}
+
+/** The full list of Service Sets, after each change. */
+export interface ServiceSetsChangedEvent {
+  serviceSets: ServiceSetView[];
 }
 
 /** The current list of Orphans: found on Server start, then after each kill (empty = none left). */
@@ -349,6 +377,7 @@ export interface Events {
   /** Live Session output. A tab first fetches `getSessionOutput` (same ordering rule as `log`). */
   sessionOutput: SessionOutputEvent;
   uiLanguageChanged: UiLanguageChangedEvent;
+  serviceSetsChanged: ServiceSetsChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -440,6 +469,12 @@ export interface Commands {
    * value again does nothing. Fails with `uiLanguageNotSaved` when the file cannot be written.
    */
   setUiLanguage: { payload: { language: UiLanguage }; result: null };
+  /**
+   * Creates a Service Set (stored in the app data folder) and emits `serviceSetsChanged`. The name
+   * is trimmed. Fails with `serviceSetNameEmpty`, `serviceSetNameTaken` (ignoring case) or
+   * `serviceSetEmpty` (no Services).
+   */
+  createServiceSet: { payload: { name: string; services: ServiceRef[] }; result: ServiceSetView };
 }
 
 export type CommandType = keyof Commands;

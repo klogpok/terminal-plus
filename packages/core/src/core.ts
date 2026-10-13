@@ -21,6 +21,8 @@ import {
   type ReposReorderedEvent,
   type RepoView,
   type ServiceConfig,
+  type ServiceRef,
+  type ServiceSetView,
   type ServiceStatus,
   type SessionView,
   type Snapshot,
@@ -56,6 +58,7 @@ import { OutputTail } from './output-tail.js';
 import { watchReadiness } from './readiness.js';
 import { Sessions, type SessionEvents } from './sessions.js';
 import { PortConflicts } from './port-conflicts.js';
+import { ServiceSets, type FoundService, type ServiceSetEvents } from './service-sets.js';
 import { ServiceState, type InstallRun, type Launch, type RepoState } from './state.js';
 import {
   DEFAULT_ENVIRONMENT,
@@ -117,7 +120,7 @@ export const REPO_COLORS = [
   '#f97316',
 ];
 
-export interface CoreEvents extends SessionEvents {
+export interface CoreEvents extends SessionEvents, ServiceSetEvents {
   statusChanged: [StatusChangedEvent];
   log: [LogEvent];
   exit: [ExitEvent];
@@ -194,6 +197,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private repos = new Map<string, RepoState>();
   private readonly sessions: Sessions;
   private readonly ports: PortConflicts;
+  private readonly serviceSets: ServiceSets;
   private refreshTimer: NodeJS.Timeout | undefined;
   private readonly environment: Environment;
   private readonly pidFile: PidFile;
@@ -226,6 +230,13 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       },
       this.timings.portFreeTimeoutMs,
     );
+    this.serviceSets = new ServiceSets(
+      {
+        findService: (ref) => this.findService(ref),
+        emit: (event, payload) => this.emit(event, payload),
+      },
+      this.appDataDir,
+    );
   }
 
   /**
@@ -243,6 +254,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       repos.set(repo.id, repo);
     }
     this.repos = repos;
+    await this.serviceSets.load();
     this.watchLocalConfigs();
     for (const repo of repos.values()) this.watchRepo(repo);
     this.startRepoRefresh();
@@ -501,7 +513,24 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       sessions: this.listSessions(),
       ...(orphans.length && { orphans }),
       uiLanguage: this.storedUiLanguage,
+      serviceSets: this.serviceSets.list(),
     };
+  }
+
+  /**
+   * Creates a Service Set and emits `serviceSetsChanged`. Fails with `serviceSetNameEmpty`,
+   * `serviceSetNameTaken` or `serviceSetEmpty`.
+   */
+  createServiceSet(options: { name: string; services: ServiceRef[] }): Promise<ServiceSetView> {
+    return this.serviceSets.create(options);
+  }
+
+  /** The Service `ref` names, unless its Repo is not in the Workspace or it is not in the config. */
+  private findService({ repoId, serviceId }: ServiceRef): FoundService | undefined {
+    const repo = this.repos.get(repoId);
+    const service = repo?.services.get(serviceId);
+    if (!repo || !service || service.removed) return undefined;
+    return { repoName: repo.name, serviceName: service.name };
   }
 
   /** The stored UI Language (what `snapshot().uiLanguage` reports), without building a snapshot. */

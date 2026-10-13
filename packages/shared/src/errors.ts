@@ -73,6 +73,12 @@ export interface ErrorParams {
   shellFailed: Record<string, never>;
   /** `setUiLanguage`: the UI Language file in the app data folder could not be written. */
   uiLanguageNotSaved: Record<string, never>;
+  /** `createServiceSet`: the name is empty (after trimming). */
+  serviceSetNameEmpty: Record<string, never>;
+  /** `createServiceSet`: another Service Set already has this name (ignoring case). */
+  serviceSetNameTaken: { name: string };
+  /** `createServiceSet`: no Services were chosen. */
+  serviceSetEmpty: Record<string, never>;
   /** A malformed or unknown command reached the Server. */
   badCommand: Record<string, never>;
   /** Anything unexpected. */

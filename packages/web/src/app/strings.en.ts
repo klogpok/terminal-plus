@@ -186,6 +186,21 @@ export const EN_STRINGS = {
     stopAllRepos: 'Stop everything in all Repos',
   },
 
+  /** Service Sets: the header menu and the Service Set dialog. */
+  serviceSets: {
+    menu: 'Service Sets',
+    none: 'No Service Sets yet.',
+    create: 'New Service Set…',
+    newTitle: 'New Service Set',
+    nameLabel: 'Name',
+    servicesLabel: 'Services',
+    noServices: 'No Repo has Services yet.',
+    /** Accessible name of a Service checkbox, e.g. "API in Repo Billing". */
+    serviceLabel: (repoName: string, serviceName: string) => `${serviceName} in Repo ${repoName}`,
+    save: 'Save',
+    cancel: 'Cancel',
+  },
+
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
   exit: {
     button: 'Exit DevPanel',
@@ -347,6 +362,9 @@ export const EN_STRINGS = {
     serviceHasNoUrl: (p) => `The ${p.serviceName} Service in the ${p.repoName} Repo has no address for the browser.`,
     shellFailed: () => 'Could not open the window. Try again.',
     uiLanguageNotSaved: () => 'Could not save the language choice, so DevPanel stays in the current language. Try again.',
+    serviceSetNameEmpty: () => 'Enter a name for the Service Set.',
+    serviceSetNameTaken: (p) => `A Service Set named "${p.name}" already exists. Choose another name.`,
+    serviceSetEmpty: () => 'Check at least one Service.',
     badCommand: () => 'DevPanel did not understand the command. Reload the page.',
     internal: () =>
       'Something went wrong inside DevPanel. Try again; if it happens again, open "Details" and show the text to a developer.',

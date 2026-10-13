@@ -190,6 +190,21 @@ export const RU_STRINGS: UiStrings = {
     stopAllRepos: 'Остановить всё во всех репо',
   },
 
+  /** Service Sets: the header menu and the Service Set dialog. */
+  serviceSets: {
+    menu: 'Наборы',
+    none: 'Наборов пока нет.',
+    create: 'Новый набор…',
+    newTitle: 'Новый набор',
+    nameLabel: 'Имя',
+    servicesLabel: 'Сервисы',
+    noServices: 'Ни в одном репо пока нет сервисов.',
+    /** Accessible name of a Service checkbox, e.g. "API в репо Billing". */
+    serviceLabel: (repoName: string, serviceName: string) => `${serviceName} в репо ${repoName}`,
+    save: 'Сохранить',
+    cancel: 'Отмена',
+  },
+
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
   exit: {
     button: 'Выйти из DevPanel',
@@ -345,6 +360,9 @@ export const RU_STRINGS: UiStrings = {
     serviceHasNoUrl: (p) => `У сервиса ${p.serviceName} из репо ${p.repoName} не указан адрес для браузера.`,
     shellFailed: () => 'Не удалось открыть окно Windows. Попробуйте ещё раз.',
     uiLanguageNotSaved: () => 'Не удалось сохранить выбор языка, поэтому DevPanel остаётся на текущем языке. Попробуйте ещё раз.',
+    serviceSetNameEmpty: () => 'Введите имя набора.',
+    serviceSetNameTaken: (p) => `Набор с именем «${p.name}» уже есть. Выберите другое имя.`,
+    serviceSetEmpty: () => 'Отметьте хотя бы один сервис.',
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',

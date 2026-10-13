@@ -164,6 +164,11 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: z.object({ language: z.enum(UI_LANGUAGES) }),
     run: async (core, p) => (await core.setUiLanguage(p.language), null),
   },
+  // Only the shape: core refuses an empty name or no Services with codes the UI words plainly.
+  createServiceSet: {
+    payload: z.object({ name: z.string().max(100), services: z.array(serviceRef).max(1000) }),
+    run: (core, p) => core.createServiceSet(p),
+  },
   openTerminal: { payload: repoRef, run: (core, p) => core.openTerminal(p.repoId) },
   openClaude: { payload: repoRef, run: (core, p) => core.openClaude(p.repoId) },
   closeSession: {

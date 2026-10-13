@@ -12,6 +12,8 @@ import type {
   RepoView,
   ServerMessage,
   ServiceConfig,
+  ServiceRef,
+  ServiceSetView,
   ServiceStatus,
   ServiceView,
   SessionKind,
@@ -80,6 +82,9 @@ export class BackendService {
   private readonly orphansState = signal<Orphan[]>([]);
   /** Processes left over from a previous run of the Server, not killed yet. */
   readonly orphans = this.orphansState.asReadonly();
+  private readonly serviceSetsState = signal<ServiceSetView[]>([]);
+  /** The Service Sets of the Server's machine, in creation order. */
+  readonly serviceSets = this.serviceSetsState.asReadonly();
   private readonly exitState = signal<ExitState>('none');
   /** "Exit DevPanel" progress in this tab. */
   readonly exit = this.exitState.asReadonly();
@@ -187,6 +192,14 @@ export class BackendService {
   /** Adds a Service to the Repo's Local Config; rejects with `UiErrorInfo` for the form to show. */
   async addLocalService(repoId: string, service: NewService): Promise<void> {
     await this.command('addLocalService', { repoId, service });
+  }
+
+  /** Creates a Service Set; rejects with `UiErrorInfo` (e.g. `serviceSetNameTaken`) for the dialog to show. */
+  async createServiceSet(name: string, services: ServiceRef[]): Promise<ServiceSetView> {
+    const set = await this.command('createServiceSet', { name, services });
+    // `serviceSetsChanged` brings the same list; adding it now shows it without waiting.
+    this.serviceSetsState.update((sets) => (sets.some((s) => s.id === set.id) ? sets : [...sets, set]));
+    return set;
   }
 
   /** Removes a Service from the Repo's Local Config (the Server stops it first when it runs). */
@@ -327,6 +340,7 @@ export class BackendService {
         this.reposState.set(snapshot.repos);
         this.sessionsState.set(snapshot.sessions);
         this.orphansState.set(snapshot.orphans ?? []);
+        this.serviceSetsState.set(snapshot.serviceSets);
         this.followUiLanguage(snapshot.uiLanguage);
       },
       (error: UiErrorInfo) => this.showError(error),
@@ -433,6 +447,9 @@ export class BackendService {
         break;
       case 'uiLanguageChanged':
         this.followUiLanguage(event.payload.language);
+        break;
+      case 'serviceSetsChanged':
+        this.serviceSetsState.set(event.payload.serviceSets);
         break;
     }
   }

@@ -31,6 +31,7 @@ export const FORWARDED_EVENTS = [
   'sessionClosed',
   'sessionOutput',
   'uiLanguageChanged',
+  'serviceSetsChanged',
 ] as const satisfies readonly (EventType & keyof CoreEvents)[];
 
 // Compile-time check: what `core` emits for a forwarded event fits the `shared` event payload.
@@ -52,6 +53,7 @@ const forwardedEventsMatch: CheckForwarded = {
   sessionClosed: true,
   sessionOutput: true,
   uiLanguageChanged: true,
+  serviceSetsChanged: true,
 };
 void forwardedEventsMatch;
 

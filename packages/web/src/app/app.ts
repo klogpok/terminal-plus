@@ -3,6 +3,7 @@ import { UI_LANGUAGES, type ServiceStatus, type UiLanguage } from '@devpanel/sha
 import { BackendService } from './backend/backend.service';
 import { ErrorMessage } from './error-message/error-message';
 import { RepoList } from './repo-list/repo-list';
+import { ServiceSetsMenu } from './service-sets/service-sets-menu';
 import { TerminalTabStrip } from './terminal/terminal-tab-strip';
 import { THEMES, ThemeService, type Theme } from './theme';
 import { STRINGS, loadedUiLanguage } from './ui-strings';
@@ -18,7 +19,7 @@ const LEFT_WIDTH_STEP = 16;
 
 @Component({
   selector: 'dp-root',
-  imports: [RepoList, ErrorMessage, TerminalTabStrip],
+  imports: [RepoList, ErrorMessage, ServiceSetsMenu, TerminalTabStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.css',

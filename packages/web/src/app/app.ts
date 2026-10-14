@@ -3,6 +3,7 @@ import type { ServiceStatus } from '@devpanel/shared';
 import { BackendService } from './backend/backend.service';
 import { ErrorMessage } from './error-message/error-message';
 import { RepoList } from './repo-list/repo-list';
+import { ServiceSetsMenu } from './service-sets/service-sets-menu';
 import { Settings } from './settings/settings';
 import { StartingServiceTabOpener } from './terminal/starting-service-tab-opener';
 import { TerminalTabStrip } from './terminal/terminal-tab-strip';
@@ -19,7 +20,7 @@ const LEFT_WIDTH_STEP = 16;
 
 @Component({
   selector: 'dp-root',
-  imports: [RepoList, ErrorMessage, Settings, TerminalTabStrip],
+  imports: [RepoList, ErrorMessage, ServiceSetsMenu, Settings, TerminalTabStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.css',

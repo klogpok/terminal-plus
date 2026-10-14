@@ -6,7 +6,7 @@
  * transport as the web version (ADR-0002, ADR-0003); the window just loads the Server's URL with
  * the Access Key in the fragment, so the `web` build runs unchanged.
  */
-import { errorDetails, HOST_STRINGS, type UiLanguage } from '@devpanel/shared';
+import { errorDetails, HOST_STRINGS, type ServiceSetStartResult, type ServiceSetView, type UiLanguage } from '@devpanel/shared';
 import { isAddressInUse, portBlocker, portBlockerMessage, type PortProbe } from '@devpanel/server';
 
 /**
@@ -32,6 +32,12 @@ export interface RunningServer {
   uiLanguage(): UiLanguage;
   /** Calls `listener` after each UI Language change (`uiLanguageChanged`). */
   onUiLanguageChanged(listener: (language: UiLanguage) => void): void;
+  /** The Service Sets, in creation order. */
+  serviceSets(): ServiceSetView[];
+  /** Calls `listener` after each change of the Service Sets (`serviceSetsChanged`). */
+  onServiceSetsChanged(listener: (sets: ServiceSetView[]) => void): void;
+  /** Starts a Service Set (`Commands.startServiceSet`); rejects with `serviceSetNotFound` for an unknown id. */
+  startServiceSet(id: string): Promise<ServiceSetStartResult>;
 }
 
 export interface QuitEvent {
@@ -159,6 +165,39 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
   });
 
   const tray = host.createTray();
+  /**
+   * Starts a Set without opening the window; shows it only when something went wrong. The web
+   * explains an incomplete start itself (`serviceSetStartReported`); a failed start is explained here.
+   */
+  const startServiceSet = (set: ServiceSetView) => {
+    server.startServiceSet(set.id).then(
+      ({ notFound, notRunning }) => {
+        if (notFound.length > 0 || notRunning.length > 0) window.show();
+      },
+      (error: unknown) => {
+        window.show();
+        // In the UI Language current when it failed, not when the menu was built.
+        const now = server.uiLanguage();
+        const { serviceSetStartFailedTitle, serviceSetStartFailed } = HOST_STRINGS[now].desktop;
+        void host.showError({
+          title: serviceSetStartFailedTitle,
+          message: serviceSetStartFailed(set.name),
+          details: errorDetails(error),
+          language: now,
+        });
+      },
+    );
+  };
+  /** One item per Service Set, set apart by separators; nothing at all when there are none. */
+  const serviceSetItems = (): TrayMenuItem[] => {
+    const sets = server.serviceSets();
+    if (sets.length === 0) return [];
+    return [
+      { id: 'separator-sets-before', label: '', type: 'separator' },
+      ...sets.map((set) => ({ id: `serviceSet:${set.id}`, label: trayLabel(set.name), click: () => startServiceSet(set) })),
+      { id: 'separator-sets-after', label: '', type: 'separator' },
+    ];
+  };
   /** Builds the tooltip and menu in the current UI Language. */
   const renderMenu = () => {
     const language = server.uiLanguage();
@@ -166,6 +205,7 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
     tray.setToolTip(strings.tooltip);
     tray.setMenu([
       { id: 'show', label: strings.show, click: () => window.show() },
+      ...serviceSetItems(),
       {
         id: 'stopAllRepos',
         label: strings.stopAllRepos,
@@ -203,8 +243,14 @@ export async function runDesktop(options: DesktopOptions): Promise<DesktopResult
     publishCrashTexts();
   });
   host.onAutostartChanged(renderMenu);
+  server.onServiceSetsChanged(renderMenu);
   tray.onClick(() => window.show());
   return 'running';
+}
+
+/** A user-entered text as a tray label: Windows menus read `&` as a mnemonic marker, `&&` is a literal `&`. */
+function trayLabel(text: string): string {
+  return text.replaceAll('&', '&&');
 }
 
 /** Explains in plain language why the Server did not start; technical details only when unexpected. */

@@ -4,13 +4,13 @@
 
 **Blocked by:** 02 (Start a Service Set from the panel), 03 (Edit and delete a Service Set).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Core: each entry's `found` reflects the current Workspace and configs; `serviceSetsChanged` is emitted when a Workspace or config change flips any entry; saving not-found entries is allowed.
-- [ ] Core: `startServiceSet` skips not-found entries and lists them in `notFound`.
-- [ ] Web: the start message names not-found Services; the dialog lists not-found entries (announced as "not found") with checkboxes; unchecking and saving drops them.
-- [ ] Core harness tests: removed Service and removed Repo become not found and land in `notFound`; re-adding the Repo at the same path makes the entry found again; the event fires on each flip. Web specs through `FakeTransport`.
-- [ ] `pnpm check` passes.
+- [x] Core: each entry's `found` reflects the current Workspace and configs; `serviceSetsChanged` is emitted when a Workspace or config change flips any entry; saving not-found entries is allowed.
+- [x] Core: `startServiceSet` skips not-found entries and lists them in `notFound`.
+- [x] Web: the start message names not-found Services; the dialog lists not-found entries (announced as "not found") with checkboxes; unchecking and saving drops them.
+- [x] Core harness tests: removed Service and removed Repo become not found and land in `notFound`; re-adding the Repo at the same path makes the entry found again; the event fires on each flip. Web specs through `FakeTransport`.
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -20,10 +20,10 @@
 
 **Заблокирован:** 02 (Запустить Набор из панели), 03 (Править и удалять Набор).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Core: `found` у каждой записи соответствует текущему Workspace и конфигам. `serviceSetsChanged` отправляется, когда изменение Workspace или конфига меняет `found` у какой-либо записи. Сохранять не найденные записи разрешено.
-- [ ] Core: `startServiceSet` пропускает не найденные записи и перечисляет их в `notFound`.
-- [ ] Web: сообщение о запуске называет не найденные Сервисы. Диалог показывает не найденные записи (озвучиваются как «не найден») с галочками. Снятие галочки и сохранение убирает их.
-- [ ] Тесты через harness core: удалённый Сервис и удалённый Репо становятся не найденными и попадают в `notFound`; повторное добавление Репо по тому же пути снова делает запись найденной; событие приходит при каждом изменении. Спеки web через `FakeTransport`.
-- [ ] `pnpm check` проходит.
+- [x] Core: `found` у каждой записи соответствует текущему Workspace и конфигам. `serviceSetsChanged` отправляется, когда изменение Workspace или конфига меняет `found` у какой-либо записи. Сохранять не найденные записи разрешено.
+- [x] Core: `startServiceSet` пропускает не найденные записи и перечисляет их в `notFound`.
+- [x] Web: сообщение о запуске называет не найденные Сервисы. Диалог показывает не найденные записи (озвучиваются как «не найден») с галочками. Снятие галочки и сохранение убирает их.
+- [x] Тесты через harness core: удалённый Сервис и удалённый Репо становятся не найденными и попадают в `notFound`; повторное добавление Репо по тому же пути снова делает запись найденной; событие приходит при каждом изменении. Спеки web через `FakeTransport`.
+- [x] `pnpm check` проходит.

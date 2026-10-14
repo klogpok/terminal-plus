@@ -10,8 +10,9 @@ import type {
 } from '@devpanel/shared';
 import type { BackendTransport, TransportListener } from './backend-transport';
 
-/** A snapshot for tests; `sessions` defaults to none, `uiLanguage` to English. */
-export type TestSnapshot = Omit<Snapshot, 'sessions' | 'uiLanguage'> & Partial<Pick<Snapshot, 'sessions' | 'uiLanguage'>>;
+/** A snapshot for tests; `sessions` and `serviceSets` default to none, `uiLanguage` to English. */
+export type TestSnapshot = Omit<Snapshot, 'sessions' | 'uiLanguage' | 'serviceSets'> &
+  Partial<Pick<Snapshot, 'sessions' | 'uiLanguage' | 'serviceSets'>>;
 
 /** Lets promise callbacks triggered by a reply run (`await` it before asserting). */
 function settle(): Promise<void> {
@@ -66,7 +67,7 @@ export class FakeTransport implements BackendTransport {
 
   /** Answers the latest `getSnapshot` command. */
   replySnapshot(snapshot: TestSnapshot): Promise<void> {
-    return this.reply(this.lastCommand('getSnapshot'), { sessions: [], uiLanguage: 'en', ...snapshot });
+    return this.reply(this.lastCommand('getSnapshot'), { sessions: [], uiLanguage: 'en', serviceSets: [], ...snapshot });
   }
 
   /** Opens the connection and answers the snapshot request the client sends on open. */

@@ -314,6 +314,85 @@ describe('DevPanel Server', () => {
     expect(await tab2.send('getSnapshot', {})).toMatchObject({ result: { uiLanguage: 'ru' } });
   });
 
+  it('creates a Service Set, tells every client, and leaves the plain-language refusals to core', async () => {
+    const tab1 = new Client(await connect());
+    const tab2 = new Client(await connect());
+    const snapshot = (await tab1.send('getSnapshot', {})) as { result: { repos: { id: string }[] } };
+    const api = { repoId: snapshot.result.repos[0]!.id, serviceId: 'api' };
+
+    expect(await tab1.send('createServiceSet', { name: 'X', services: 'api' } as never)).toMatchObject({
+      ok: false,
+      error: { code: 'badCommand' },
+    });
+    expect(await tab1.send('createServiceSet', { name: '', services: [api] })).toMatchObject({
+      ok: false,
+      error: { code: 'serviceSetNameEmpty' },
+    });
+    expect(await tab1.send('createServiceSet', { name: 'Project X', services: [] })).toMatchObject({
+      ok: false,
+      error: { code: 'serviceSetEmpty' },
+    });
+    expect(await tab1.send('createServiceSet', { name: 'Project X', services: [api] })).toMatchObject({
+      ok: true,
+      result: { name: 'Project X', services: [{ ref: api, found: true }] },
+    });
+    const event = await tab2.waitFor(
+      (m): m is EventMessage => m.kind === 'event' && m.type === 'serviceSetsChanged',
+    );
+    expect(event.payload).toMatchObject({ serviceSets: [{ name: 'Project X' }] });
+  });
+
+  it('updates and deletes a Service Set, tells every client, and refuses an unknown one', async () => {
+    const tab1 = new Client(await connect());
+    const tab2 = new Client(await connect());
+    const snapshot = (await tab1.send('getSnapshot', {})) as { result: { repos: { id: string }[] } };
+    const api = { repoId: snapshot.result.repos[0]!.id, serviceId: 'api' };
+    const created = (await tab1.send('createServiceSet', { name: 'Project X', services: [api] })) as {
+      result: { id: string };
+    };
+    const { id } = created.result;
+
+    expect(await tab1.send('updateServiceSet', { id, name: 'Y' } as never)).toMatchObject({
+      ok: false,
+      error: { code: 'badCommand' },
+    });
+    expect(await tab1.send('updateServiceSet', { id, name: 'Project Y', services: [api] })).toMatchObject({
+      ok: true,
+      result: { id, name: 'Project Y' },
+    });
+    await tab2.waitFor(
+      (m): m is EventMessage =>
+        m.kind === 'event' &&
+        m.type === 'serviceSetsChanged' &&
+        (m.payload as { serviceSets: { name: string }[] }).serviceSets[0]?.name === 'Project Y',
+    );
+
+    expect(await tab1.send('deleteServiceSet', { id })).toMatchObject({ ok: true, result: null });
+    await tab2.waitFor(
+      (m): m is EventMessage =>
+        m.kind === 'event' &&
+        m.type === 'serviceSetsChanged' &&
+        (m.payload as { serviceSets: unknown[] }).serviceSets.length === 0,
+    );
+    expect(await tab1.send('deleteServiceSet', { id })).toMatchObject({
+      ok: false,
+      error: { code: 'serviceSetNotFound' },
+    });
+  });
+
+  it('starts a Service Set by id and refuses an unknown one in plain words', async () => {
+    const client = new Client(await connect());
+
+    expect(await client.send('startServiceSet', { id: 7 } as never)).toMatchObject({
+      ok: false,
+      error: { code: 'badCommand' },
+    });
+    expect(await client.send('startServiceSet', { id: 'no-such-set' })).toMatchObject({
+      ok: false,
+      error: { code: 'serviceSetNotFound' },
+    });
+  });
+
   it('rejects connections from a foreign Origin', async () => {
     await expect(connect({ origin: 'https://evil.example' })).rejects.toThrow('HTTP 403');
     await expect(connect({ origin: 'http://127.0.0.1:1' })).rejects.toThrow('HTTP 403');

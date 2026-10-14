@@ -4,7 +4,15 @@
  * set directly; they read `STRINGS` from `ui-strings.ts`. Plain language for a non-programmer,
  * with the glossary's English terms (Repo, Service, Session, Workspace, Orphan, Repo Config).
  */
-import type { Orphan, PortConflict, PortOwner, PortOwnerKind, ServiceStatus, SessionKind } from '@devpanel/shared';
+import type {
+  Orphan,
+  PortConflict,
+  PortOwner,
+  PortOwnerKind,
+  ServiceSetStartReportEntry,
+  ServiceStatus,
+  SessionKind,
+} from '@devpanel/shared';
 import type { AllErrorParams, UiErrorCode } from './ui-errors';
 
 /**
@@ -28,6 +36,11 @@ function describePortOwner(owner: PortOwner): string {
 
 function sessionKindName(kind: SessionKind): string {
   return kind === 'claude' ? 'Claude Code' : 'terminal';
+}
+
+/** "API in Repo Billing, Web in Repo Shop" (a Service Set start report). */
+function serviceList(entries: ServiceSetStartReportEntry[]): string {
+  return entries.map((e) => EN_STRINGS.serviceSets.serviceLabel(e.repoName, e.serviceName)).join(', ');
 }
 
 /** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */
@@ -184,6 +197,34 @@ export const EN_STRINGS = {
     /** Accessible name of a Repo header button, e.g. "Start all in Repo Billing". */
     repoAction: (action: string, repoName: string) => `${action} in Repo ${repoName}`,
     stopAllRepos: 'Stop everything in all Repos',
+  },
+
+  /** Service Sets: the header menu and the Service Set dialog. */
+  serviceSets: {
+    menu: 'Service Sets',
+    none: 'No Service Sets yet.',
+    create: 'New Service Set…',
+    newTitle: 'New Service Set',
+    nameLabel: 'Name',
+    servicesLabel: 'Services',
+    noServices: 'No Repo has Services yet.',
+    /** Accessible name of a Service checkbox, e.g. "API in Repo Billing". */
+    serviceLabel: (repoName: string, serviceName: string) => `${serviceName} in Repo ${repoName}`,
+    /** Entries of the Set whose Service is gone from its config, or whose Repo is gone. */
+    notFoundTitle: 'Not found',
+    notFoundHint:
+      "These Services were removed from their Repo's config, or their Repo from DevPanel. Starting the Set skips them. Uncheck them to remove them from the Set.",
+    /** Accessible name of a not-found entry's checkbox, e.g. "DB in Repo Old, not found". */
+    notFoundLabel: (repoName: string, serviceName: string) => `${serviceName} in Repo ${repoName}, not found`,
+    save: 'Save',
+    cancel: 'Cancel',
+    /** Accessible name of the edit action next to a Set in the menu. */
+    edit: (name: string) => `Edit ${name}`,
+    editTitle: 'Edit Service Set',
+    delete: 'Delete',
+    deleteConfirm: (name: string) => `Delete the Service Set "${name}"? This cannot be undone.`,
+    deleteYes: 'Yes, delete',
+    deleteNo: 'Keep it',
   },
 
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
@@ -358,10 +399,22 @@ export const EN_STRINGS = {
     serviceHasNoUrl: (p) => `The ${p.serviceName} Service in the ${p.repoName} Repo has no address for the browser.`,
     shellFailed: () => 'Could not open the window. Try again.',
     uiLanguageNotSaved: () => 'Could not save the language choice, so DevPanel stays in the current language. Try again.',
+    serviceSetNameEmpty: () => 'Enter a name for the Service Set.',
+    serviceSetNameTaken: (p) => `A Service Set named "${p.name}" already exists. Choose another name.`,
+    serviceSetEmpty: () => 'Check at least one Service.',
+    serviceSetNotFound: () => 'This Service Set no longer exists. It may have been deleted in another window.',
     badCommand: () => 'DevPanel did not understand the command. Reload the page.',
     internal: () =>
       'Something went wrong inside DevPanel. Try again; if it happens again, open "Details" and show the text to a developer.',
     connectionLost: () => 'Lost connection to DevPanel, so the command was not carried out. Try again in a few seconds.',
+    serviceSetStartIncomplete: (p) =>
+      `The Service Set "${p.name}" did not start completely.` +
+      (p.notRunning.length
+        ? ` Not running: ${serviceList(p.notRunning)}. The list of Services shows why; a taken port offers its choice there.`
+        : '') +
+      (p.notFound.length
+        ? ` Not found: ${serviceList(p.notFound)}. They were removed from their Repo's config, or their Repo from DevPanel.`
+        : ''),
     uiLanguageNotFollowed: () =>
       "DevPanel's language was changed, but this tab cannot switch to it: the browser does not let websites save data. " +
       'Allow websites to save data in the browser settings, then reload the page.',

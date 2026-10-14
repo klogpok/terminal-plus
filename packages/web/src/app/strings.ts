@@ -8,6 +8,7 @@ import type {
   PortConflict,
   PortOwner,
   PortOwnerKind,
+  ServiceSetStartReportEntry,
   ServiceStatus,
   SessionKind,
 } from '@devpanel/shared';
@@ -35,6 +36,11 @@ function describePortOwner(owner: PortOwner): string {
 
 function sessionKindName(kind: SessionKind): string {
   return kind === 'claude' ? 'Claude Code' : 'терминала';
+}
+
+/** "API в репо Billing, Web в репо Shop" (a Service Set start report). */
+function serviceList(entries: ServiceSetStartReportEntry[]): string {
+  return entries.map((e) => RU_STRINGS.serviceSets.serviceLabel(e.repoName, e.serviceName)).join(', ');
 }
 
 /** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */
@@ -188,6 +194,34 @@ export const RU_STRINGS: UiStrings = {
     /** Accessible name of a Repo header button, e.g. "Запустить всё в репо Billing". */
     repoAction: (action: string, repoName: string) => `${action} в репо ${repoName}`,
     stopAllRepos: 'Остановить всё во всех репо',
+  },
+
+  /** Service Sets: the header menu and the Service Set dialog. */
+  serviceSets: {
+    menu: 'Наборы',
+    none: 'Наборов пока нет.',
+    create: 'Новый набор…',
+    newTitle: 'Новый набор',
+    nameLabel: 'Имя',
+    servicesLabel: 'Сервисы',
+    noServices: 'Ни в одном репо пока нет сервисов.',
+    /** Accessible name of a Service checkbox, e.g. "API в репо Billing". */
+    serviceLabel: (repoName: string, serviceName: string) => `${serviceName} в репо ${repoName}`,
+    /** Entries of the Set whose Service is gone from its config, or whose Repo is gone. */
+    notFoundTitle: 'Не найдены',
+    notFoundHint:
+      'Эти сервисы убрали из конфига их репо или убрали сам репо из DevPanel. При запуске набора они пропускаются. Снимите галочку, чтобы убрать их из набора.',
+    /** Accessible name of a not-found entry's checkbox, e.g. "DB в репо Old, не найден". */
+    notFoundLabel: (repoName: string, serviceName: string) => `${serviceName} в репо ${repoName}, не найден`,
+    save: 'Сохранить',
+    cancel: 'Отмена',
+    /** Accessible name of the edit action next to a Set in the menu. */
+    edit: (name: string) => `Изменить «${name}»`,
+    editTitle: 'Изменить набор',
+    delete: 'Удалить',
+    deleteConfirm: (name: string) => `Удалить набор «${name}»? Это нельзя отменить.`,
+    deleteYes: 'Да, удалить',
+    deleteNo: 'Оставить',
   },
 
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
@@ -356,9 +390,21 @@ export const RU_STRINGS: UiStrings = {
     serviceHasNoUrl: (p) => `У сервиса ${p.serviceName} из репо ${p.repoName} не указан адрес для браузера.`,
     shellFailed: () => 'Не удалось открыть окно Windows. Попробуйте ещё раз.',
     uiLanguageNotSaved: () => 'Не удалось сохранить выбор языка, поэтому DevPanel остаётся на текущем языке. Попробуйте ещё раз.',
+    serviceSetNameEmpty: () => 'Введите имя набора.',
+    serviceSetNameTaken: (p) => `Набор с именем «${p.name}» уже есть. Выберите другое имя.`,
+    serviceSetEmpty: () => 'Отметьте хотя бы один сервис.',
+    serviceSetNotFound: () => 'Этого набора больше нет. Возможно, его удалили в другом окне.',
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',
+    serviceSetStartIncomplete: (p) =>
+      `Набор «${p.name}» запустился не полностью.` +
+      (p.notRunning.length
+        ? ` Не работают: ${serviceList(p.notRunning)}. Причина видна в списке сервисов; там же выбор, если порт занят.`
+        : '') +
+      (p.notFound.length
+        ? ` Не найдены: ${serviceList(p.notFound)}. Их убрали из конфига репо или убрали сам репо из DevPanel.`
+        : ''),
     uiLanguageNotFollowed: () =>
       'Язык DevPanel изменился, но эта вкладка не может на него переключиться: браузер не даёт сайтам сохранять данные. ' +
       'Разрешите сохранение данных сайтов в настройках браузера и обновите страницу.',

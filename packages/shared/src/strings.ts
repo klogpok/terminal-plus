@@ -52,6 +52,11 @@ const EN_HOST_STRINGS = {
     unexpected: 'Something went wrong while starting. Press "Details" and show the text to a developer.',
     stopAllFailedTitle: 'Could not stop everything',
     stopAllFailed: 'Some Services could not be stopped. Press "Details" and show the text to a developer.',
+    /** A Service Set started from the tray could not be started at all (for example, deleted meanwhile). */
+    serviceSetStartFailedTitle: 'Could not start the Service Set',
+    serviceSetStartFailed: (name: string) =>
+      `The Service Set "${name}" could not be started. It may have been deleted in the window. ` +
+      'If it is still there, press "Details" and show the text to a developer.',
     /** The dialog the desktop shell shows if the DevPanel Server stops unexpectedly, before it closes. */
     crashedTitle: 'DevPanel stopped',
     crashed: 'DevPanel stopped unexpectedly and will close. Start it again from the Start menu.',
@@ -100,6 +105,10 @@ const RU_HOST_STRINGS: HostStrings = {
     unexpected: 'Что-то пошло не так при запуске. Нажмите «Подробности» и покажите текст разработчику.',
     stopAllFailedTitle: 'Не удалось остановить всё',
     stopAllFailed: 'Не все сервисы удалось остановить. Нажмите «Подробности» и покажите текст разработчику.',
+    serviceSetStartFailedTitle: 'Не удалось запустить набор',
+    serviceSetStartFailed: (name: string) =>
+      `Набор «${name}» не удалось запустить. Возможно, его удалили в окне DevPanel. ` +
+      'Если он на месте, нажмите «Подробности» и покажите текст разработчику.',
     crashedTitle: 'DevPanel остановился',
     crashed: 'DevPanel неожиданно остановился и будет закрыт. Запустите его снова из меню «Пуск».',
     ok: 'OK',

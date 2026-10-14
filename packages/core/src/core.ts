@@ -21,6 +21,9 @@ import {
   type ReposReorderedEvent,
   type RepoView,
   type ServiceConfig,
+  type ServiceRef,
+  type ServiceSetStartResult,
+  type ServiceSetView,
   type ServiceStatus,
   type SessionView,
   type Snapshot,
@@ -56,6 +59,7 @@ import { OutputTail } from './output-tail.js';
 import { watchReadiness } from './readiness.js';
 import { Sessions, type SessionEvents } from './sessions.js';
 import { PortConflicts } from './port-conflicts.js';
+import { ServiceSets, type FoundService, type ServiceSetEvents } from './service-sets.js';
 import { ServiceState, type InstallRun, type Launch, type RepoState } from './state.js';
 import {
   DEFAULT_ENVIRONMENT,
@@ -117,7 +121,7 @@ export const REPO_COLORS = [
   '#f97316',
 ];
 
-export interface CoreEvents extends SessionEvents {
+export interface CoreEvents extends SessionEvents, ServiceSetEvents {
   statusChanged: [StatusChangedEvent];
   log: [LogEvent];
   exit: [ExitEvent];
@@ -194,6 +198,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private repos = new Map<string, RepoState>();
   private readonly sessions: Sessions;
   private readonly ports: PortConflicts;
+  private readonly serviceSets: ServiceSets;
   private refreshTimer: NodeJS.Timeout | undefined;
   private readonly environment: Environment;
   private readonly pidFile: PidFile;
@@ -209,6 +214,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   constructor(options: CoreOptions) {
     super();
+    // Each Service waited on (a Service Set start, a dependency) adds a `statusChanged` listener.
+    this.setMaxListeners(0);
     this.appDataDir = options.appDataDir;
     this.shell = options.shell ?? windowsShell;
     this.timings = { ...DEFAULT_TIMINGS, ...options.timings };
@@ -226,6 +233,20 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       },
       this.timings.portFreeTimeoutMs,
     );
+    this.serviceSets = new ServiceSets(
+      {
+        findService: (ref) => this.findService(ref),
+        status: ({ repoId, serviceId }) => this.getService(this.getRepo(repoId), serviceId).status,
+        startService: ({ repoId, serviceId }) => this.startService(repoId, serviceId),
+        settledStatus: ({ repoId, serviceId }) =>
+          this.settledStatus(this.getService(this.getRepo(repoId), serviceId), new AbortController().signal),
+        emit: this.emit.bind(this),
+      },
+      this.appDataDir,
+    );
+    // Adding, removing or relocating a Repo and reloading a config can make entries found or not.
+    this.on('repoChanged', () => this.serviceSets.workspaceChanged());
+    this.on('configChanged', () => this.serviceSets.workspaceChanged());
   }
 
   /**
@@ -243,6 +264,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       repos.set(repo.id, repo);
     }
     this.repos = repos;
+    await this.serviceSets.load();
     this.watchLocalConfigs();
     for (const repo of repos.values()) this.watchRepo(repo);
     this.startRepoRefresh();
@@ -400,6 +422,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     this.repos = new Map([...this.repos].map(([id, r]) => (id === repoId ? [moved.id, moved] : [id, r])));
     this.watchRepo(moved);
     await this.saveWorkspace();
+    // Service Set entries follow the Repo first, so `repoChanged` does not show them as not found.
+    await this.serviceSets.moveRepo(repoId, moved.id);
     const view = this.repoView(moved);
     this.emit('repoChanged', { repoId, repo: view });
     // Finished Sessions (still shown in their tabs) follow the Repo to its new id.
@@ -501,7 +525,50 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       sessions: this.listSessions(),
       ...(orphans.length && { orphans }),
       uiLanguage: this.storedUiLanguage,
+      serviceSets: this.listServiceSets(),
     };
+  }
+
+  /** Every Service Set, in creation order (without building a snapshot). */
+  listServiceSets(): ServiceSetView[] {
+    return this.serviceSets.list();
+  }
+
+  /**
+   * Creates a Service Set and emits `serviceSetsChanged`. Fails with `serviceSetNameEmpty`,
+   * `serviceSetNameTaken` or `serviceSetEmpty`.
+   */
+  createServiceSet(options: { name: string; services: ServiceRef[] }): Promise<ServiceSetView> {
+    return this.serviceSets.create(options);
+  }
+
+  /**
+   * Renames a Service Set and replaces its Services (its id stays), then emits `serviceSetsChanged`.
+   * Same refusals as `createServiceSet` (its own name allowed), plus `serviceSetNotFound`.
+   */
+  updateServiceSet(options: { id: string; name: string; services: ServiceRef[] }): Promise<ServiceSetView> {
+    return this.serviceSets.update(options);
+  }
+
+  /** Deletes a Service Set and emits `serviceSetsChanged`. Fails with `serviceSetNotFound`. */
+  deleteServiceSet(id: string): Promise<void> {
+    return this.serviceSets.delete(id);
+  }
+
+  /**
+   * Starts every Service of the Service Set that is not `running` or `starting` (see
+   * `Commands.startServiceSet`). Fails with `serviceSetNotFound`.
+   */
+  startServiceSet(id: string): Promise<ServiceSetStartResult> {
+    return this.serviceSets.start(id);
+  }
+
+  /** The Service `ref` names, unless its Repo is not in the Workspace or it is not in the config. */
+  private findService({ repoId, serviceId }: ServiceRef): FoundService | undefined {
+    const repo = this.repos.get(repoId);
+    const service = repo?.services.get(serviceId);
+    if (!repo || !service || service.removed) return undefined;
+    return { repoName: repo.name, serviceName: service.name };
   }
 
   /** The stored UI Language (what `snapshot().uiLanguage` reports), without building a snapshot. */

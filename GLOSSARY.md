@@ -86,6 +86,14 @@ _Avoid_: locale, location, region
 The look of the DevPanel UI: as in the system (default), light or dark. Unlike the UI Language, each browser (and the desktop app) has its own. The terminal is always dark and does not depend on the Theme.
 _Avoid_: skin, color scheme
 
+**Settings** (RU: Настройки):
+The panel behind the gear button in the DevPanel header that holds the UI preferences: the UI Language, the Theme and Open Tab on Start. Apart from the UI Language, each browser (and the desktop app) has its own. Not to be confused with the Repo Config, which describes a Repo's Services and goes into the Repo.
+_Avoid_: preferences, options, repo settings
+
+**Open Tab on Start** (RU: Открывать вкладку при запуске):
+A setting in Settings, off by default: while it is on, a Service that starts gets its terminal tab, without changing the shown tab (with no tab shown, the new one is shown). Like the Theme, each browser (and the desktop app) has its own.
+_Avoid_: auto-open, follow starts
+
 **Access Key** (RU: Ключ доступа):
 A random secret the DevPanel Server creates on start. Without it a client cannot connect to the Server.
 _Avoid_: session token, password
@@ -177,6 +185,14 @@ _Avoid_: локаль, локация, регион
 **Тема (Theme)**:
 Оформление интерфейса DevPanel: как в системе (по умолчанию), светлое или тёмное. В отличие от Языка интерфейса, у каждого браузера (и у десктопного приложения) она своя. Терминал всегда тёмный и от Темы не зависит.
 _Avoid_: скин, цветовая схема
+
+**Настройки (Settings)**:
+Панель за кнопкой-шестерёнкой в шапке DevPanel с настройками интерфейса: Язык интерфейса, Тема и «Открывать вкладку при запуске». Кроме Языка интерфейса, у каждого браузера (и у десктопного приложения) они свои. Не путать с Конфигом репо, который описывает Сервисы Репо и попадает в Репо.
+_Avoid_: предпочтения, опции, настройки репо
+
+**Открывать вкладку при запуске (Open Tab on Start)**:
+Настройка в Настройках, по умолчанию выключена: пока она включена, у запускающегося Сервиса открывается вкладка терминала, а показанная вкладка не меняется (если не показана ни одна, показывается новая). Как и Тема, у каждого браузера (и у десктопного приложения) она своя.
+_Avoid_: автооткрытие, следить за запусками
 
 **Запуск вместе с Windows (Start with Windows)**:
 Настройка десктопного приложения DevPanel: при входе пользователя в Windows оно запускается само и остаётся в трее, без окна. Пользователь включает и выключает её в меню трея (выключить её можно и во вкладке «Автозагрузка» диспетчера задач).

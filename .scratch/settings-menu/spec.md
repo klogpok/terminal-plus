@@ -1,6 +1,6 @@
 # Spec: Settings menu and opening a Service's terminal tab on start
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 
@@ -75,7 +75,7 @@ A "Settings" button (gear icon) in the header opens a small Settings panel. It h
 
 # Спецификация: меню «Настройки» и открытие вкладки терминала Сервиса при запуске
 
-Status: ready-for-agent
+Status: resolved
 
 ## Постановка проблемы
 

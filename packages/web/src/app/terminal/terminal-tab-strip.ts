@@ -17,7 +17,7 @@ import { InstallOutput } from '../install-output/install-output';
 import { repoColor } from '../repo-color';
 import { STRINGS } from '../ui-strings';
 import { ServiceTerminal, type TerminalRef } from './service-terminal';
-import { TerminalTabs, installTabKey, sessionTabKey, tabKey } from './terminal-tabs.service';
+import { TerminalTabs, installTabKey, sessionTabKey, shownTabKey, tabKey } from './terminal-tabs.service';
 
 interface TabBase {
   key: string;
@@ -88,11 +88,12 @@ export class TerminalTabStrip {
   });
 
   /** The shown tab: the selected one, or the first open one. */
-  protected readonly activeKey = computed(() => {
-    const tabs = this.openTabs();
-    const active = this.tabs.active();
-    return tabs.some((t) => t.key === active) ? active : (tabs[0]?.key ?? null);
-  });
+  protected readonly activeKey = computed(() =>
+    shownTabKey(
+      this.openTabs().map((t) => t.key),
+      this.tabs.active(),
+    ),
+  );
 
   constructor() {
     // A newly started install (from this or another browser tab) comes to the front.

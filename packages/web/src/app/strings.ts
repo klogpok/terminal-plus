@@ -200,16 +200,27 @@ export const RU_STRINGS: UiStrings = {
     done: 'DevPanel выключен. Эту вкладку можно закрыть. Чтобы начать снова, запустите DevPanel ярлыком на рабочем столе.',
   },
 
-  /** The UI Language switch in the header; each language is named in its own language. */
+  /** The gear button in the header and the Settings panel it opens. */
+  settings: {
+    label: 'Настройки',
+  },
+
+  /** The UI Language switch in Settings; each language is named in its own language. */
   uiLanguage: {
     label: 'Язык',
     names: { en: 'English', ru: 'Русский' },
   },
 
-  /** The Theme switch in the header (per browser). */
+  /** The Theme switch in Settings (per browser). */
   theme: {
     label: 'Тема',
     names: { system: 'Как в системе', light: 'Светлая тема', dark: 'Тёмная тема' },
+  },
+
+  /** The Settings checkbox that opens a Service's terminal tab when it starts (per browser). */
+  openTabOnStart: {
+    label: 'Открывать вкладку терминала при запуске Сервиса',
+    hint: 'Как бы Сервис ни запустили. Вкладка, на которую вы смотрите, остаётся на экране.',
   },
 
   /** Processes left over from a previous run (after a crash or a forced shutdown). */

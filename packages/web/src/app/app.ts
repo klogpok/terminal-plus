@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { UI_LANGUAGES, type ServiceStatus, type UiLanguage } from '@devpanel/shared';
+import type { ServiceStatus } from '@devpanel/shared';
 import { BackendService } from './backend/backend.service';
 import { ErrorMessage } from './error-message/error-message';
 import { RepoList } from './repo-list/repo-list';
+import { Settings } from './settings/settings';
+import { StartingServiceTabOpener } from './terminal/starting-service-tab-opener';
 import { TerminalTabStrip } from './terminal/terminal-tab-strip';
-import { THEMES, ThemeService, type Theme } from './theme';
-import { STRINGS, loadedUiLanguage } from './ui-strings';
+import { STRINGS } from './ui-strings';
 
 const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy']);
 const LEFT_WIDTH_KEY = 'devpanel.leftWidth';
@@ -18,7 +19,7 @@ const LEFT_WIDTH_STEP = 16;
 
 @Component({
   selector: 'dp-root',
-  imports: [RepoList, ErrorMessage, TerminalTabStrip],
+  imports: [RepoList, ErrorMessage, Settings, TerminalTabStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -26,13 +27,12 @@ const LEFT_WIDTH_STEP = 16;
 export class App {
   protected readonly backend = inject(BackendService);
   protected readonly strings = STRINGS;
-  /** The UI Languages offered by the header switch, and the one this page is shown in. */
-  protected readonly uiLanguages = UI_LANGUAGES;
-  protected readonly activeUiLanguage = loadedUiLanguage();
-  /** The Themes offered by the header switch; the icon stands for each, its name is the tooltip. */
-  protected readonly themes = THEMES;
-  protected readonly themeIcons: Record<Theme, string> = { system: '◐', light: '☀', dark: '☾' };
-  protected readonly theme = inject(ThemeService);
+
+  constructor() {
+    // Follows Service starts from app start on, whatever is on screen.
+    inject(StartingServiceTabOpener);
+  }
+
   /** The "Exit DevPanel" confirmation is open. */
   protected readonly confirmingExit = signal(false);
   /** "Stop everything in all Repos" is enabled while any Service has a live process. */
@@ -51,11 +51,6 @@ export class App {
   protected exit(): void {
     this.confirmingExit.set(false);
     this.backend.exitDevPanel();
-  }
-
-  /** Asks the Server to switch every tab to `language`; the tabs reload on `uiLanguageChanged`. */
-  protected chooseUiLanguage(language: UiLanguage): void {
-    if (language !== this.activeUiLanguage) this.backend.setUiLanguage(language);
   }
 
   protected setLeftWidth(width: number): void {

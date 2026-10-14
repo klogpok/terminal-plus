@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Settings button holding UI Language and Theme).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Settings shows the checkbox with a label and hint in the current UI Language; it is off by default and when storage is unavailable or holds an unknown value.
 - [ ] The choice survives a page reload and follows a `storage` change from another tab of the same browser.
@@ -21,7 +21,7 @@
 
 **Заблокирован:** 01 (Кнопка «Настройки» с Языком интерфейса и Темой).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [ ] Настройки показывают галочку с подписью и подсказкой на текущем Языке интерфейса. Она выключена по умолчанию, а также когда хранилище недоступно или содержит неизвестное значение.
 - [ ] Выбор переживает перезагрузку страницы и следует за изменением `storage` из другой вкладки того же браузера.

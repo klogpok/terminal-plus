@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import type { ServiceRef } from '@devpanel/shared';
+import type { RepoView, ServiceRef } from '@devpanel/shared';
 
 const STORAGE_KEY = 'devpanel.terminalTabs';
 
@@ -24,6 +24,31 @@ export function sessionTabKey(sessionId: string): string {
 }
 
 /**
+ * Keys of the tabs on screen, in strip order: the open Service tabs whose Service exists in the
+ * current state, then the Sessions, then the `pnpm install` runs.
+ */
+export function openTabKeys(
+  refs: readonly ServiceRef[],
+  repos: readonly RepoView[],
+  sessions: readonly { id: string }[],
+  installs: readonly { repoId: string }[],
+): string[] {
+  const services = refs.filter((ref) =>
+    repos.some((r) => r.id === ref.repoId && r.services.some((s) => s.id === ref.serviceId)),
+  );
+  return [
+    ...services.map(tabKey),
+    ...sessions.map((s) => sessionTabKey(s.id)),
+    ...installs.map((i) => installTabKey(i.repoId)),
+  ];
+}
+
+/** The shown tab among `openKeys`: the selected one, or the first. */
+export function shownTabKey(openKeys: readonly string[], active: string | null): string | null {
+  return active !== null && openKeys.includes(active) ? active : (openKeys[0] ?? null);
+}
+
+/**
  * Which Service terminal tabs are open in this browser tab, and which one is shown. Remembered in
  * localStorage so a page reload reopens them (a per-viewer convenience; the output itself lives on
  * the Server).
@@ -40,12 +65,31 @@ export class TerminalTabs {
 
   /** Opens the Service's tab (or shows it if already open). */
   open(ref: ServiceRef): void {
+    this.add(ref);
+    this.selectKey(tabKey(ref));
+  }
+
+  /**
+   * Adds the Service's tab behind `shown` (the tab on screen, or null for none), which stays on
+   * screen; with none shown, the added tab is shown. An open tab is left as it is, and so is the
+   * remembered choice unless the added tab would otherwise take the place of `shown`: a new Service
+   * tab goes before the Session and install tabs, so one of those shown in place of a hidden
+   * choice is pinned.
+   */
+  addBehind(ref: ServiceRef, shown: string | null): void {
+    const shownIsServiceTab = this.tabsState().some((t) => tabKey(t) === shown);
+    if (!this.add(ref)) return;
+    if (shown === null) this.selectKey(tabKey(ref));
+    else if (shown !== this.activeState() && !shownIsServiceTab) this.selectKey(shown);
+  }
+
+  /** Adds the Service's tab without showing it; false when it was already open. */
+  private add(ref: ServiceRef): boolean {
     const key = tabKey(ref);
-    if (!this.tabsState().some((t) => tabKey(t) === key)) {
-      this.tabsState.update((tabs) => [...tabs, { repoId: ref.repoId, serviceId: ref.serviceId }]);
-    }
-    this.activeState.set(key);
+    if (this.tabsState().some((t) => tabKey(t) === key)) return false;
+    this.tabsState.update((tabs) => [...tabs, { repoId: ref.repoId, serviceId: ref.serviceId }]);
     this.save();
+    return true;
   }
 
   /** Shows the tab with this key (`tabKey` or `installTabKey`). */

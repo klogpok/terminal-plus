@@ -44,51 +44,6 @@
 .orphans button:hover {
   border-color: var(--accent);
 }
-.ui-language,
-.theme-switch {
-  display: flex;
-}
-.ui-language button,
-.theme-switch button {
-  height: 26px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 0 8px;
-}
-.ui-language button:first-child,
-.theme-switch button:first-child {
-  border-radius: 4px 0 0 4px;
-}
-.ui-language button:last-child,
-.theme-switch button:last-child {
-  border-radius: 0 4px 4px 0;
-}
-.ui-language button + button,
-.theme-switch button + button {
-  border-left: none;
-}
-.ui-language button[aria-pressed="true"],
-.theme-switch button[aria-pressed="true"] {
-  color: var(--fg);
-  font-weight: 600;
-  cursor: default;
-}
-.ui-language button[aria-pressed="false"]:hover,
-.theme-switch button[aria-pressed="false"]:hover {
-  color: var(--fg);
-  border-color: var(--accent);
-}
-.theme-switch button {
-  min-width: 28px;
-  font-size: 14px;
-  line-height: 1;
-}
-.theme-switch button[aria-pressed="true"] {
-  background: var(--border);
-}
 button.danger {
   border-color: var(--error-border);
 }

@@ -12,7 +12,7 @@ These override or extend `.scratch/service-sets/spec.md`. Risks referenced are f
 
 Defaults chosen by the orchestrator (no user decision needed):
 
-5. **Corrupt Sets file** — fall back to no Service Sets, log it, do not crash the Server (like the UI Language file).
+5. **Corrupt Sets file** — fall back to no Service Sets, log it, do not crash the Server (like the UI Language file). Changed by the user on 2026-10-14 after review: the next save first renames the unreadable or invalid file to `service-sets.json.bak`, so the old Sets are not lost.
 6. **Already `unhealthy` or `stopping`** entries at start time: `startService` does nothing for them, so they count as `notRunning`. A Service removed from the config but still listed as running (`removed`) counts as `notFound` (ticket 04).
 7. **A taken port** rejects `startService` with `portTaken`; that rejection counts as `notRunning`, and the usual port-conflict prompt still appears in the panel.
 8. **Tray**: escape `&` as `&&` in Set labels; with no Sets, the tray menu must be exactly as today (no extra separator), so `sidecar.e2e.test.ts` stays green.

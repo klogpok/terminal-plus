@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -148,13 +148,17 @@ describe('createServiceSet', () => {
     expect(filesUnder(path.join(h.root, 'repos'))).toEqual(before);
   });
 
-  it('starts with no Service Sets when the stored file is garbled, and saves over it', async () => {
-    writeFileSync(path.join(h.appDataDir, SERVICE_SETS_FILE), '{ "serviceSets": [ { "id": 3 } ] }');
+  it('starts with no Service Sets when the stored file is garbled, and keeps it as .bak on the next save', async () => {
+    const file = path.join(h.appDataDir, SERVICE_SETS_FILE);
+    const garbled = '{ "serviceSets": [ { "id": 3 } ] }';
+    writeFileSync(file, garbled);
     const { core, billing } = await setup();
 
     expect(core.snapshot().serviceSets).toEqual([]);
     await core.createServiceSet({ name: 'Project X', services: [{ repoId: billing, serviceId: 'api' }] });
-    expect((await h.createCore()).snapshot().serviceSets.map((s) => s.name)).toEqual(['Project X']);
+    await core.createServiceSet({ name: 'Support', services: [{ repoId: billing, serviceId: 'worker' }] });
+    expect(readFileSync(`${file}.bak`, 'utf8')).toBe(garbled);
+    expect((await h.createCore()).snapshot().serviceSets.map((s) => s.name)).toEqual(['Project X', 'Support']);
   });
 });
 
@@ -425,6 +429,45 @@ describe('Services of a Service Set that are not found', () => {
     expect(changes).toEqual([[false], [true]]);
     expect(await core.startServiceSet(set.id)).toEqual({ notFound: [], notRunning: [] });
     expect(statusOf(core, billing, 'api')).toBe('running');
+  });
+
+  it('a Service renamed and then removed is named as last seen, also after a Server restart', async () => {
+    const { core, billing, billingPath } = await setup();
+    const api = { repoId: billing, serviceId: 'api' };
+    await core.createServiceSet({ name: 'Project X', services: [api] });
+
+    let changed = nextServiceSetsChange(core);
+    writeConfig(billingPath, [idle('api', 'Payments API'), idle('worker')]);
+    await changed;
+    changed = nextServiceSetsChange(core);
+    writeConfig(billingPath, [idle('worker')]);
+    await changed;
+
+    const gone = [{ ref: api, repoName: 'billing', serviceName: 'Payments API', found: false }];
+    expect(core.snapshot().serviceSets[0]!.services).toEqual(gone);
+    expect((await h.createCore()).snapshot().serviceSets[0]!.services).toEqual(gone);
+  });
+
+  it('entries follow their Repo when it is relocated, also after a Server restart', async () => {
+    const { core, billing, shop } = await setup();
+    const set = await core.createServiceSet({
+      name: 'Project X',
+      services: [{ repoId: billing, serviceId: 'api' }, { repoId: shop, serviceId: 'web' }],
+    });
+    const changes = recordServiceSetChanges(core);
+    const newPath = h.makeFolder('moved/billing');
+    writeConfig(newPath, [idle('api', 'Billing API'), idle('worker')]);
+
+    const moved = await core.relocateRepo(billing, newPath);
+
+    const api = { repoId: moved!.id, serviceId: 'api' };
+    expect(changes).toEqual([[true, true]]);
+    expect(core.snapshot().serviceSets[0]!.services.map((s) => [s.ref, s.found])).toEqual([
+      [api, true],
+      [{ repoId: shop, serviceId: 'web' }, true],
+    ]);
+    expect(await core.startServiceSet(set.id)).toEqual({ notFound: [], notRunning: [] });
+    expect((await h.createCore()).snapshot().serviceSets[0]!.services[0]!.ref).toEqual(api);
   });
 
   it('stays quiet about Workspace changes that do not touch any Set', async () => {

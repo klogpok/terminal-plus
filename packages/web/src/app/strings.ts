@@ -40,7 +40,7 @@ function sessionKindName(kind: SessionKind): string {
 
 /** "API в репо Billing, Web в репо Shop" (a Service Set start report). */
 function serviceList(entries: ServiceSetStartReportEntry[]): string {
-  return entries.map((e) => `${e.serviceName} в репо ${e.repoName}`).join(', ');
+  return entries.map((e) => RU_STRINGS.serviceSets.serviceLabel(e.repoName, e.serviceName)).join(', ');
 }
 
 /** What happened to a dependency that did not become running (ends the `dependencyFailed` message). */

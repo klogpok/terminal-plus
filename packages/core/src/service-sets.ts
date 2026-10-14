@@ -63,23 +63,25 @@ export interface ServiceSetHost {
   emit<E extends keyof ServiceSetEvents>(event: E, ...payload: ServiceSetEvents[E]): boolean;
 }
 
-/** Reads the Service Sets file; a missing, unreadable or invalid file means no Service Sets. */
-async function readServiceSets(file: string): Promise<StoredServiceSet[]> {
+/**
+ * Reads the Service Sets file; a missing file means no Service Sets, an unreadable or invalid one
+ * means none either but is `damaged` (kept aside on the next save).
+ */
+async function readServiceSets(file: string): Promise<{ sets: StoredServiceSet[]; damaged: boolean }> {
   let json: unknown;
   try {
     json = await readJsonFile(file);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.warn(`Ignoring the unreadable Service Sets file ${file}: ${(err as Error).message}`);
-    }
-    return [];
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { sets: [], damaged: false };
+    console.warn(`Ignoring the unreadable Service Sets file ${file}: ${(err as Error).message}`);
+    return { sets: [], damaged: true };
   }
   const parsed = fileSchema.safeParse(json);
   if (!parsed.success) {
     console.warn(`Ignoring the invalid Service Sets file ${file}: ${parsed.error.message}`);
-    return [];
+    return { sets: [], damaged: true };
   }
-  return parsed.data.serviceSets;
+  return { sets: parsed.data.serviceSets, damaged: false };
 }
 
 export class ServiceSets {
@@ -87,6 +89,8 @@ export class ServiceSets {
   /** The list as last announced (loaded or sent in `serviceSetsChanged`), as JSON. */
   private announced = '[]';
   private readonly file: string;
+  /** The file was unreadable or invalid at load: the next save first renames it to `.bak`. */
+  private damaged = false;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
@@ -98,16 +102,35 @@ export class ServiceSets {
 
   /** Reads the stored Service Sets (emits nothing). */
   async load(): Promise<void> {
-    this.sets = await readServiceSets(this.file);
+    ({ sets: this.sets, damaged: this.damaged } = await readServiceSets(this.file));
     this.announced = JSON.stringify(this.list());
   }
 
   /**
-   * After a change to the Workspace or a config: emits `serviceSetsChanged` when the list now
-   * shows something else (an entry found or not found, a Service or Repo renamed).
+   * After a change to the Workspace or a config: stores the names of the entries found now (so a
+   * Service that goes away later is named as last seen), then emits `serviceSetsChanged` when the
+   * list shows something else (an entry found or not found, a Service or Repo renamed).
    */
   workspaceChanged(): void {
+    if (this.sets.some((set) => this.withSeenNames(set) !== set)) {
+      this.serialized(async () => {
+        const sets = this.sets.map((set) => this.withSeenNames(set));
+        if (sets.some((set, i) => set !== this.sets[i])) await this.save(sets);
+      }).catch((err: unknown) => {
+        console.warn(`Could not save the Service Sets file ${this.file}: ${(err as Error).message}`);
+      });
+    }
     if (JSON.stringify(this.list()) !== this.announced) this.changed();
+  }
+
+  /** After `relocateRepo`: entries of the Repo `oldId` follow it to `newId`. */
+  moveRepo(oldId: string, newId: string): Promise<void> {
+    return this.serialized(async () => {
+      if (!this.sets.some((set) => set.services.some((e) => e.repoId === oldId))) return;
+      const moved = (e: StoredEntry) => (e.repoId === oldId ? { ...e, repoId: newId } : e);
+      await this.save(this.sets.map((set) => ({ ...set, services: set.services.map(moved) })));
+      this.changed();
+    });
   }
 
   /** Every Service Set, in creation order. */
@@ -226,9 +249,25 @@ export class ServiceSets {
     return entries;
   }
 
+  /** `set` with the current names of its found entries; `set` itself when none changed. */
+  private withSeenNames(set: StoredServiceSet): StoredServiceSet {
+    let renamed = false;
+    const services = set.services.map((entry) => {
+      const found = this.host.findService(refOf(entry));
+      if (!found || (found.repoName === entry.repoName && found.serviceName === entry.serviceName)) return entry;
+      renamed = true;
+      return { ...entry, repoName: found.repoName, serviceName: found.serviceName };
+    });
+    return renamed ? { ...set, services } : set;
+  }
+
   /** Writes `sets` (temp file + rename), then makes them current. */
   private async save(sets: StoredServiceSet[]): Promise<void> {
     await mkdir(this.appDataDir, { recursive: true });
+    if (this.damaged) {
+      await rename(this.file, `${this.file}.bak`);
+      this.damaged = false;
+    }
     const temp = `${this.file}.tmp`;
     await writeFile(temp, `${JSON.stringify({ serviceSets: sets }, null, 2)}\n`, 'utf8');
     await rename(temp, this.file);

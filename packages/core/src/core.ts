@@ -214,6 +214,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   constructor(options: CoreOptions) {
     super();
+    // Each Service waited on (a Service Set start, a dependency) adds a `statusChanged` listener.
+    this.setMaxListeners(0);
     this.appDataDir = options.appDataDir;
     this.shell = options.shell ?? windowsShell;
     this.timings = { ...DEFAULT_TIMINGS, ...options.timings };
@@ -420,6 +422,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     this.repos = new Map([...this.repos].map(([id, r]) => (id === repoId ? [moved.id, moved] : [id, r])));
     this.watchRepo(moved);
     await this.saveWorkspace();
+    // Service Set entries follow the Repo first, so `repoChanged` does not show them as not found.
+    await this.serviceSets.moveRepo(repoId, moved.id);
     const view = this.repoView(moved);
     this.emit('repoChanged', { repoId, repo: view });
     // Finished Sessions (still shown in their tabs) follow the Repo to its new id.
@@ -521,8 +525,13 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       sessions: this.listSessions(),
       ...(orphans.length && { orphans }),
       uiLanguage: this.storedUiLanguage,
-      serviceSets: this.serviceSets.list(),
+      serviceSets: this.listServiceSets(),
     };
+  }
+
+  /** Every Service Set, in creation order (without building a snapshot). */
+  listServiceSets(): ServiceSetView[] {
+    return this.serviceSets.list();
   }
 
   /**

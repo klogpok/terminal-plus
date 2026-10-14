@@ -4,15 +4,15 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-**Likely cause (not confirmed):** the dependency `db` has no `readyPattern`, `healthUrl` or `port`. That means it becomes `running` if it is still alive `livenessMs` after its process has started (`readiness.ts`). `TEST_TIMINGS.livenessMs` is 300 ms. The fixture `exit-after.mjs 200 3` exits 200 ms after node itself is running, so it dies at "process started + node startup + 200 ms". The gap is only about 100 ms. If node starts quickly, or the exit is reported late (ConPTY, a busy machine, test files running in parallel), the liveness check still finds the process alive. `db` then becomes `running`, `api` starts, and no error is thrown. The `exited` case in the same `it.each` has the same race; it just hit it less often here.
+**Cause (confirmed 2026-10-14, 1 failure in 15 runs of the two cases):** the dependency `db` has no `readyPattern`, `healthUrl` or `port`. That means it becomes `running` if it is still alive `livenessMs` after its process has started (`readiness.ts`). `TEST_TIMINGS.livenessMs` is 300 ms. The fixture `exit-after.mjs 200 3` exits 200 ms after node itself is running, so it dies at "process started + node startup + 200 ms". The gap is only about 100 ms. If node starts quickly, or the exit is reported late (ConPTY, a busy machine, test files running in parallel), the liveness check still finds the process alive. `db` then becomes `running`, `api` starts, and no error is thrown. The `exited` case in the same `it.each` has the same race; it just hit it less often here.
 
-- [ ] Reproduce, or rule out, the race above, for example by running the file in a loop or with `livenessMs` lowered to 200, before you change anything.
-- [ ] Both `it.each` cases (`crashed`, `exited`) give the dependency's exit a wide margin before the liveness period ends: for example, pass `{ ...TEST_TIMINGS, livenessMs: 3000 }` to `setup`, or have the fixture exit at once. Keep what the test proves: the dependency ends `crashed`/`exited`, the dependent stays `stopped`, and the error names the dependency and its status.
-- [ ] If the cause turns out to be a product bug (for example, an exit that happened before the liveness period ended being ignored), fix it in `core` instead and add a test for it.
-- [ ] `depends-on.test.ts` passes 20 runs in a row: `pnpm --filter ./packages/core exec vitest run test/depends-on.test.ts`.
-- [ ] `pnpm check` passes.
+- [x] Reproduce, or rule out, the race above, for example by running the file in a loop or with `livenessMs` lowered to 200, before you change anything.
+- [x] Both `it.each` cases (`crashed`, `exited`) give the dependency's exit a wide margin before the liveness period ends: for example, pass `{ ...TEST_TIMINGS, livenessMs: 3000 }` to `setup`, or have the fixture exit at once. Keep what the test proves: the dependency ends `crashed`/`exited`, the dependent stays `stopped`, and the error names the dependency and its status.
+- [x] ~~If the cause turns out to be a product bug (for example, an exit that happened before the liveness period ended being ignored), fix it in `core` instead and add a test for it.~~ Not a product bug: a Service without criteria that is alive after `livenessMs` is `running` by design.
+- [x] `depends-on.test.ts` passes 20 runs in a row: `pnpm --filter ./packages/core exec vitest run test/depends-on.test.ts`.
+- [x] `pnpm check` passes.
 
 ## Русский перевод
 
@@ -22,12 +22,12 @@
 
 **Блокируется:** ничем
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-**Вероятная причина (не подтверждена):** у зависимости `db` нет ни `readyPattern`, ни `healthUrl`, ни `port`. Значит, она становится `running`, если ещё жива через `livenessMs` после запуска процесса (`readiness.ts`). `TEST_TIMINGS.livenessMs` = 300 мс. Фикстура `exit-after.mjs 200 3` завершается через 200 мс после того, как node уже запустился, то есть в момент «процесс запущен + старт node + 200 мс». Разрыв — всего около 100 мс. Если node стартует быстро или о выходе процесса сообщается с задержкой (ConPTY, загруженная машина, параллельные тестовые файлы), проверка живости ещё видит процесс живым. Тогда `db` становится `running`, `api` запускается, и ошибки нет. У случая `exited` в том же `it.each` такая же гонка; просто здесь он попадал на неё реже.
+**Причина (подтверждена 2026-10-14, 1 падение на 15 запусков двух случаев):** у зависимости `db` нет ни `readyPattern`, ни `healthUrl`, ни `port`. Значит, она становится `running`, если ещё жива через `livenessMs` после запуска процесса (`readiness.ts`). `TEST_TIMINGS.livenessMs` = 300 мс. Фикстура `exit-after.mjs 200 3` завершается через 200 мс после того, как node уже запустился, то есть в момент «процесс запущен + старт node + 200 мс». Разрыв — всего около 100 мс. Если node стартует быстро или о выходе процесса сообщается с задержкой (ConPTY, загруженная машина, параллельные тестовые файлы), проверка живости ещё видит процесс живым. Тогда `db` становится `running`, `api` запускается, и ошибки нет. У случая `exited` в том же `it.each` такая же гонка; просто здесь он попадал на неё реже.
 
-- [ ] Прежде чем что-то менять, воспроизвести гонку или исключить её: например, гонять файл в цикле или понизить `livenessMs` до 200.
-- [ ] В обоих случаях `it.each` (`crashed`, `exited`) выход зависимости происходит с большим запасом до конца периода живости: например, передать в `setup` `{ ...TEST_TIMINGS, livenessMs: 3000 }` или сделать так, чтобы фикстура завершалась сразу. Тест должен по-прежнему доказывать то же: зависимость заканчивает в `crashed`/`exited`, зависимый Сервис остаётся `stopped`, а ошибка называет зависимость и её статус.
-- [ ] Если причина окажется ошибкой продукта (например, выход, случившийся до конца периода живости, игнорируется), исправить её в `core` и добавить на неё тест.
-- [ ] `depends-on.test.ts` проходит 20 запусков подряд: `pnpm --filter ./packages/core exec vitest run test/depends-on.test.ts`.
-- [ ] `pnpm check` проходит.
+- [x] Прежде чем что-то менять, воспроизвести гонку или исключить её: например, гонять файл в цикле или понизить `livenessMs` до 200.
+- [x] В обоих случаях `it.each` (`crashed`, `exited`) выход зависимости происходит с большим запасом до конца периода живости: например, передать в `setup` `{ ...TEST_TIMINGS, livenessMs: 3000 }` или сделать так, чтобы фикстура завершалась сразу. Тест должен по-прежнему доказывать то же: зависимость заканчивает в `crashed`/`exited`, зависимый Сервис остаётся `stopped`, а ошибка называет зависимость и её статус.
+- [x] ~~Если причина окажется ошибкой продукта (например, выход, случившийся до конца периода живости, игнорируется), исправить её в `core` и добавить на неё тест.~~ Не ошибка продукта: Сервис без критериев, живой через `livenessMs`, по замыслу `running`.
+- [x] `depends-on.test.ts` проходит 20 запусков подряд: `pnpm --filter ./packages/core exec vitest run test/depends-on.test.ts`.
+- [x] `pnpm check` проходит.

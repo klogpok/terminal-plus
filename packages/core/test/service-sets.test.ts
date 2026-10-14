@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { stringify } from 'yaml';
 import { DevPanelError } from '@devpanel/shared';
 import { SERVICE_SETS_FILE, type DevPanelCore } from '../src/index.js';
-import { Harness, fixtureCommand, freePort, waitForStatus } from './harness.js';
+import { Harness, TEST_TIMINGS, fixtureCommand, freePort, waitForStatus } from './harness.js';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -328,7 +328,9 @@ describe('startServiceSet', () => {
         ],
       },
     });
-    const core = await h.createCore();
+    // api has no readiness criteria: its exit must land far inside the liveness period, or a slow
+    // node start lets it count as running first.
+    const core = await h.createCore({ ...TEST_TIMINGS, livenessMs: 3000 });
     const billing = core.listRepos()[0]!.id;
     const refs = ['api', 'web', 'worker'].map((serviceId) => ({ repoId: billing, serviceId }));
     const set = await core.createServiceSet({ name: 'Project X', services: refs });

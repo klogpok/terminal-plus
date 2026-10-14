@@ -208,7 +208,7 @@ export interface SessionView {
  */
 export type UiLanguage = (typeof UI_LANGUAGES)[number];
 
-/** Every UI Language, in the order the header switch offers them; English (the default) first. */
+/** Every UI Language, in the order the Settings switch offers them; English (the default) first. */
 export const UI_LANGUAGES = ['en', 'ru'] as const;
 
 /** Whether `value` names a UI Language (for stored or cached values, which may be anything). */

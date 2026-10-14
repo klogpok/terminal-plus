@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] The header shows a gear button labelled "Settings" (in the current UI Language) with its expanded state exposed to assistive tech; the language and Theme switches are no longer in the header itself.
 - [ ] Opening Settings shows the UI Language and Theme switches with their existing `data-*` hooks and `aria-pressed` behaviour.
@@ -21,7 +21,7 @@
 
 **Заблокирован:** Нет (можно начинать сразу).
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
 - [ ] В шапке есть кнопка-шестерёнка с подписью «Настройки» (на текущем Языке интерфейса), её раскрытое состояние доступно вспомогательным технологиям. Переключателей языка и Темы в самой шапке больше нет.
 - [ ] Открытые Настройки показывают переключатели Языка интерфейса и Темы с прежними `data-*`-хуками и поведением `aria-pressed`.

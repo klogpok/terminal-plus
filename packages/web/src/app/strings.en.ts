@@ -231,17 +231,28 @@ export const EN_STRINGS = {
     done: 'DevPanel is off. You can close this tab. To start again, use the DevPanel desktop shortcut.',
   },
 
-  /** The UI Language switch in the header; each language is named in its own language. */
+  /** The gear button in the header and the Settings panel it opens. */
+  settings: {
+    label: 'Settings',
+  },
+
+  /** The UI Language switch in Settings; each language is named in its own language. */
   uiLanguage: {
     label: 'Language',
     // eslint-disable-next-line no-restricted-syntax -- each language is named in its own language
     names: { en: 'English', ru: 'Русский' },
   },
 
-  /** The Theme switch in the header (per browser). */
+  /** The Theme switch in Settings (per browser). */
   theme: {
     label: 'Theme',
     names: { system: 'System theme', light: 'Light theme', dark: 'Dark theme' },
+  },
+
+  /** The Settings checkbox that opens a Service's terminal tab when it starts (per browser). */
+  openTabOnStart: {
+    label: 'Open the terminal tab when a Service starts',
+    hint: 'However the Service is started. The tab you are looking at stays on screen.',
   },
 
   /** Processes left over from a previous run (after a crash or a forced shutdown). */

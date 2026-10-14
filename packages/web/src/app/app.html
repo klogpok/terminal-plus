@@ -9,29 +9,7 @@
     [attr.aria-label]="strings.actions.stopAllRepos"
     (click)="backend.stopAllRepos()"
   ><span class="icon" aria-hidden="true">■</span>{{ strings.actions.stopAllRepos }}</button>
-  <div class="ui-language" role="group" [attr.aria-label]="strings.uiLanguage.label">
-    @for (language of uiLanguages; track language) {
-      <button
-        type="button"
-        [attr.data-ui-language]="language"
-        [attr.lang]="language"
-        [attr.aria-pressed]="language === activeUiLanguage"
-        (click)="chooseUiLanguage(language)"
-      >{{ strings.uiLanguage.names[language] }}</button>
-    }
-  </div>
-  <div class="theme-switch" role="group" [attr.aria-label]="strings.theme.label">
-    @for (choice of themes; track choice) {
-      <button
-        type="button"
-        [attr.data-theme-choice]="choice"
-        [attr.aria-pressed]="choice === theme.theme()"
-        [attr.aria-label]="strings.theme.names[choice]"
-        [title]="strings.theme.names[choice]"
-        (click)="theme.choose(choice)"
-      ><span aria-hidden="true">{{ themeIcons[choice] }}</span></button>
-    }
-  </div>
+  <dp-settings />
   <button
     type="button"
     class="exit-button"

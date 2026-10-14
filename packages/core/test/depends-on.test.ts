@@ -67,7 +67,10 @@ describe('dependsOn: starting a Service starts its dependencies first', () => {
     ['crashed', { id: 'db', command: fixtureCommand('exit-after.mjs', 200, 3) }],
     ['exited', { id: 'db', command: fixtureCommand('exit-after.mjs', 200, 0) }],
   ])('a dependency that ends up %s keeps the dependent stopped and names the dependency', async (status, db) => {
-    const { core, repoId } = await setup([db, readyAfter('api', 0, ['db'])]);
+    // db has no readiness criteria, so it counts as running once alive for livenessMs; its exit at
+    // ~200 ms after node starts must land far inside that period, or a slow node start lets it
+    // become running first.
+    const { core, repoId } = await setup([db, readyAfter('api', 0, ['db'])], { ...TEST_TIMINGS, livenessMs: 3000 });
 
     const error = await core.startService(repoId, 'api').then(
       () => undefined,

@@ -362,20 +362,69 @@ describe('Edit Service Set dialog', () => {
     ]);
   });
 
-  it('keeps an entry that is not found when saving', async () => {
+  describe('with an entry that is not found', () => {
     const gone = { ref: { repoId: 'old', serviceId: 'db' }, repoName: 'Old', serviceName: 'DB', found: false };
-    transport.emit('serviceSetsChanged', { serviceSets: [{ ...projectX, services: [...projectX.services, gone] }] });
-    await fixture.whenStable();
+
+    beforeEach(async () => {
+      transport.emit('serviceSetsChanged', { serviceSets: [{ ...projectX, services: [...projectX.services, gone] }] });
+      await fixture.whenStable();
+    });
+
+    it('lists it separately, checked, by its remembered names and announced as not found', async () => {
+      const form = await openEditDialog('Project X');
+
+      const notFound = form.querySelector<HTMLElement>('[data-not-found]')!;
+      expect(notFound.querySelector('legend')?.textContent?.trim()).toBe('Not found');
+      expect(notFound.textContent).toContain('DB in Repo Old');
+      expect(checked(notFound)).toEqual(['DB in Repo Old, not found']);
+      expect(checked(form)).toEqual(['Worker in Repo Billing', 'Web in Repo Shop', 'DB in Repo Old, not found']);
+    });
+
+    it('keeps it when saving', async () => {
+      const form = await openEditDialog('Project X');
+
+      buttonIn(form, 'Save').click();
+      await fixture.whenStable();
+
+      expect(transport.lastCommand('updateServiceSet').payload.services).toEqual([
+        { repoId: 'b1', serviceId: 'worker' },
+        { repoId: 's1', serviceId: 'web' },
+        { repoId: 'old', serviceId: 'db' },
+      ]);
+    });
+
+    it('drops it when unchecked and saved', async () => {
+      const form = await openEditDialog('Project X');
+
+      field(form, 'DB in Repo Old, not found').click();
+      await fixture.whenStable();
+      buttonIn(form, 'Save').click();
+      await fixture.whenStable();
+
+      expect(transport.lastCommand('updateServiceSet').payload.services).toEqual([
+        { repoId: 'b1', serviceId: 'worker' },
+        { repoId: 's1', serviceId: 'web' },
+      ]);
+    });
+
+    it('moves it into its Repo once the Server finds the Service again', async () => {
+      const form = await openEditDialog('Project X');
+
+      transport.emit('repoChanged', {
+        repoId: 'old',
+        repo: aRepo({ id: 'old', name: 'Old', services: [aService({ id: 'db', name: 'DB', status: 'stopped' })] }),
+      });
+      await fixture.whenStable();
+
+      expect(form.querySelector('[data-not-found]')).toBeNull();
+      expect(checked(form)).toEqual(['Worker in Repo Billing', 'Web in Repo Shop', 'DB in Repo Old']);
+    });
+  });
+
+  it('shows no not-found list when every entry is found', async () => {
     const form = await openEditDialog('Project X');
 
-    buttonIn(form, 'Save').click();
-    await fixture.whenStable();
-
-    expect(transport.lastCommand('updateServiceSet').payload.services).toEqual([
-      { repoId: 'b1', serviceId: 'worker' },
-      { repoId: 's1', serviceId: 'web' },
-      { repoId: 'old', serviceId: 'db' },
-    ]);
+    expect(form.querySelector('[data-not-found]')).toBeNull();
   });
 
   it('shows a refused name next to the name field', async () => {

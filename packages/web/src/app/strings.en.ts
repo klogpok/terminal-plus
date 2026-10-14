@@ -210,6 +210,12 @@ export const EN_STRINGS = {
     noServices: 'No Repo has Services yet.',
     /** Accessible name of a Service checkbox, e.g. "API in Repo Billing". */
     serviceLabel: (repoName: string, serviceName: string) => `${serviceName} in Repo ${repoName}`,
+    /** Entries of the Set whose Service is gone from its config, or whose Repo is gone. */
+    notFoundTitle: 'Not found',
+    notFoundHint:
+      "These Services were removed from their Repo's config, or their Repo from DevPanel. Starting the Set skips them. Uncheck them to remove them from the Set.",
+    /** Accessible name of a not-found entry's checkbox, e.g. "DB in Repo Old, not found". */
+    notFoundLabel: (repoName: string, serviceName: string) => `${serviceName} in Repo ${repoName}, not found`,
     save: 'Save',
     cancel: 'Cancel',
     /** Accessible name of the edit action next to a Set in the menu. */

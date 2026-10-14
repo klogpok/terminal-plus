@@ -1,6 +1,6 @@
 # Spec: Service Sets
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 
@@ -106,7 +106,7 @@ One click starts a Service Set, from a "Service Sets" menu at the top of the pan
 
 # Спецификация: Наборы
 
-Status: ready-for-agent
+Status: resolved
 
 ## Постановка проблемы
 

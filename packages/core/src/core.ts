@@ -242,6 +242,9 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       },
       this.appDataDir,
     );
+    // Adding, removing or relocating a Repo and reloading a config can make entries found or not.
+    this.on('repoChanged', () => this.serviceSets.workspaceChanged());
+    this.on('configChanged', () => this.serviceSets.workspaceChanged());
   }
 
   /**

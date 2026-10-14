@@ -100,6 +100,23 @@ function placeOf(error: UiErrorInfo): RejectionPlace {
         } @empty {
           <div class="muted">{{ strings.serviceSets.noServices }}</div>
         }
+        @if (missing().length) {
+          <fieldset class="not-found" data-not-found>
+            <legend>{{ strings.serviceSets.notFoundTitle }}</legend>
+            <div class="muted">{{ strings.serviceSets.notFoundHint }}</div>
+            @for (entry of missing(); track entry.key) {
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [attr.aria-label]="strings.serviceSets.notFoundLabel(entry.repoName, entry.serviceName)"
+                  [checked]="selected().has(entry.key)"
+                  (change)="toggle(entry.key)"
+                />
+                {{ strings.serviceSets.serviceLabel(entry.repoName, entry.serviceName) }}
+              </label>
+            }
+          </fieldset>
+        }
       </div>
       @if (errorAt('services'); as message) {
         <div class="field-error" role="alert" data-field-error="services">{{ message }}</div>
@@ -139,6 +156,7 @@ function placeOf(error: UiErrorInfo): RejectionPlace {
     .services { display: flex; flex-direction: column; gap: 8px; }
     fieldset { border: 0; border-left: 3px solid var(--border); margin: 0; padding: 0 0 0 8px; display: flex; flex-direction: column; gap: 2px; }
     legend { padding: 0; margin-bottom: 2px; font-weight: 600; }
+    fieldset.not-found { border-left-color: var(--error-border); }
     .muted { color: var(--muted); }
     .field-error { color: var(--error-border); font-size: 12px; }
     .form-actions { display: flex; gap: 6px; }
@@ -182,12 +200,14 @@ export class ServiceSetDialog {
   );
 
   /**
-   * Entries of the edited Set that are not in the list above (not found right now). They are not
-   * shown yet and stay in the Set when it is saved.
+   * Entries of the edited Set that are not in the list above (not found right now), named as the
+   * Set remembers them. Listed separately; they stay in the Set when saved unless unchecked.
    */
-  private readonly missing = computed(() => {
+  protected readonly missing = computed(() => {
     const listed = new Set(this.repos().flatMap((repo) => repo.services.map((s) => s.key)));
-    return (this.serviceSet()?.services ?? []).map((e) => ({ ref: e.ref, key: keyOf(e.ref) })).filter((e) => !listed.has(e.key));
+    return (this.serviceSet()?.services ?? [])
+      .map((e) => ({ ref: e.ref, key: keyOf(e.ref), repoName: e.repoName, serviceName: e.serviceName }))
+      .filter((e) => !listed.has(e.key));
   });
 
   /**

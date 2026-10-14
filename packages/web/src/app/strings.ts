@@ -207,6 +207,12 @@ export const RU_STRINGS: UiStrings = {
     noServices: 'Ни в одном репо пока нет сервисов.',
     /** Accessible name of a Service checkbox, e.g. "API в репо Billing". */
     serviceLabel: (repoName: string, serviceName: string) => `${serviceName} в репо ${repoName}`,
+    /** Entries of the Set whose Service is gone from its config, or whose Repo is gone. */
+    notFoundTitle: 'Не найдены',
+    notFoundHint:
+      'Эти сервисы убрали из конфига их репо или убрали сам репо из DevPanel. При запуске набора они пропускаются. Снимите галочку, чтобы убрать их из набора.',
+    /** Accessible name of a not-found entry's checkbox, e.g. "DB в репо Old, не найден". */
+    notFoundLabel: (repoName: string, serviceName: string) => `${serviceName} в репо ${repoName}, не найден`,
     save: 'Сохранить',
     cancel: 'Отмена',
     /** Accessible name of the edit action next to a Set in the menu. */

@@ -276,7 +276,10 @@ export interface ServiceSetStartReportedEvent {
   notRunning: ServiceSetStartReportEntry[];
 }
 
-/** The full list of Service Sets, after each change. */
+/**
+ * The full list of Service Sets, after each change: a create, update or delete, and a Workspace or
+ * config change that makes an entry found or not found (or renames its Service or Repo).
+ */
 export interface ServiceSetsChangedEvent {
   serviceSets: ServiceSetView[];
 }
@@ -511,9 +514,10 @@ export interface Commands {
   deleteServiceSet: { payload: { id: string }; result: null };
   /**
    * Starts every Service of the Service Set that is not `running` or `starting`, in parallel, the
-   * way Start does (dependencies, port checks, Orphans); stops nothing. Resolves once each started
-   * Service reached `running` or ended up otherwise; when some did not, also emits
-   * `serviceSetStartReported`. Fails with `serviceSetNotFound`.
+   * way Start does (dependencies, port checks, Orphans); skips entries that are not found; stops
+   * nothing. Resolves once each started Service reached `running` or ended up otherwise; when some
+   * did not or some were not found, also emits `serviceSetStartReported`. Fails with
+   * `serviceSetNotFound`.
    */
   startServiceSet: { payload: { id: string }; result: ServiceSetStartResult };
 }

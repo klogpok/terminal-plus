@@ -84,6 +84,8 @@ async function readServiceSets(file: string): Promise<StoredServiceSet[]> {
 
 export class ServiceSets {
   private sets: StoredServiceSet[] = [];
+  /** The list as last announced (loaded or sent in `serviceSetsChanged`), as JSON. */
+  private announced = '[]';
   private readonly file: string;
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -97,6 +99,15 @@ export class ServiceSets {
   /** Reads the stored Service Sets (emits nothing). */
   async load(): Promise<void> {
     this.sets = await readServiceSets(this.file);
+    this.announced = JSON.stringify(this.list());
+  }
+
+  /**
+   * After a change to the Workspace or a config: emits `serviceSetsChanged` when the list now
+   * shows something else (an entry found or not found, a Service or Repo renamed).
+   */
+  workspaceChanged(): void {
+    if (JSON.stringify(this.list()) !== this.announced) this.changed();
   }
 
   /** Every Service Set, in creation order. */
@@ -148,23 +159,23 @@ export class ServiceSets {
   async start(id: string): Promise<ServiceSetStartResult> {
     const set = this.require(id);
     const outcomes = await Promise.all(set.services.map((entry) => this.startEntry(entry)));
+    const notFound = set.services.filter((_, i) => outcomes[i] === 'notFound');
     const notRunning = set.services.filter((_, i) => outcomes[i] === 'notRunning');
-    if (notRunning.length) {
+    if (notFound.length || notRunning.length) {
       this.host.emit('serviceSetStartReported', {
         id: set.id,
         name: set.name,
-        notFound: [],
+        notFound: notFound.map((entry) => reportEntry(this.entryView(entry))),
         notRunning: notRunning.map((entry) => reportEntry(this.entryView(entry))),
       });
     }
-    return { notFound: [], notRunning: notRunning.map(refOf) };
+    return { notFound: notFound.map(refOf), notRunning: notRunning.map(refOf) };
   }
 
   /** Starts one entry unless it is not found or already up; never rejects. */
-  private async startEntry(entry: StoredEntry): Promise<'running' | 'notRunning' | 'skipped'> {
+  private async startEntry(entry: StoredEntry): Promise<'running' | 'notRunning' | 'notFound'> {
     const ref = refOf(entry);
-    // Not found: skipped (ticket 04 reports these as notFound).
-    if (!this.host.findService(ref)) return 'skipped';
+    if (!this.host.findService(ref)) return 'notFound';
     const status = this.host.status(ref);
     if (status === 'running' || status === 'starting') return 'running';
     try {
@@ -225,7 +236,9 @@ export class ServiceSets {
   }
 
   private changed(): void {
-    this.host.emit('serviceSetsChanged', { serviceSets: this.list() });
+    const serviceSets = this.list();
+    this.announced = JSON.stringify(serviceSets);
+    this.host.emit('serviceSetsChanged', { serviceSets });
   }
 
   private view(set: StoredServiceSet): ServiceSetView {

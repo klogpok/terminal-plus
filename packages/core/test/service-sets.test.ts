@@ -3,6 +3,7 @@ import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { stringify } from 'yaml';
 import { DevPanelError } from '@devpanel/shared';
 import { SERVICE_SETS_FILE, type DevPanelCore } from '../src/index.js';
 import { Harness, fixtureCommand, freePort, waitForStatus } from './harness.js';
@@ -25,11 +26,11 @@ function idle(id: string, name?: string) {
 
 /** Two Repos: billing (api "Billing API", worker) and shop (web). */
 async function setup() {
-  h.addRepo({ name: 'billing', config: { services: [idle('api', 'Billing API'), idle('worker')] } });
+  const billingPath = h.addRepo({ name: 'billing', config: { services: [idle('api', 'Billing API'), idle('worker')] } });
   h.addRepo({ name: 'shop', config: { services: [idle('web')] } });
   const core = await h.createCore();
   const [billing, shop] = core.listRepos().map((r) => r.id) as [string, string];
-  return { core, billing, shop };
+  return { core, billing, shop, billingPath };
 }
 
 describe('createServiceSet', () => {
@@ -353,28 +354,111 @@ describe('startServiceSet', () => {
     ]);
   });
 
-  it('skips an entry whose Service is not found and starts the rest', async () => {
-    const { core, billing } = await setup();
-    const set = await core.createServiceSet({
-      name: 'Project X',
-      services: [
-        { repoId: billing, serviceId: 'gone' },
-        { repoId: billing, serviceId: 'api' },
-      ],
-    });
-
-    const result = await core.startServiceSet(set.id);
-
-    expect(result.notRunning).toEqual([]);
-    expect(statusOf(core, billing, 'api')).toBe('running');
-  });
-
   it('refuses a Service Set that does not exist', async () => {
     const { core } = await setup();
 
     expect(await codeOf(core.startServiceSet('no-such-set'))).toBe('serviceSetNotFound');
   });
 });
+
+describe('Services of a Service Set that are not found', () => {
+  it('a Service removed from its config stays in the Set, not found, and is skipped and reported on start', async () => {
+    const { core, billing, shop, billingPath } = await setup();
+    const api = { repoId: billing, serviceId: 'api' };
+    const web = { repoId: shop, serviceId: 'web' };
+    const set = await core.createServiceSet({ name: 'Project X', services: [api, web] });
+    const changes = recordServiceSetChanges(core);
+
+    const changed = nextServiceSetsChange(core);
+    writeConfig(billingPath, [idle('worker')]);
+    await changed;
+
+    const gone = { ref: api, repoName: 'billing', serviceName: 'Billing API', found: false };
+    expect(core.snapshot().serviceSets[0]!.services).toEqual([gone, { ref: web, repoName: 'shop', serviceName: 'web', found: true }]);
+    expect(changes).toEqual([[false, true]]);
+
+    const reports: unknown[] = [];
+    core.on('serviceSetStartReported', (e) => reports.push(e));
+    const result = await core.startServiceSet(set.id);
+
+    expect(result).toEqual({ notFound: [api], notRunning: [] });
+    expect(statusOf(core, shop, 'web')).toBe('running');
+    expect(reports).toEqual([
+      { id: set.id, name: 'Project X', notFound: [{ ref: api, repoName: 'billing', serviceName: 'Billing API' }], notRunning: [] },
+    ]);
+  });
+
+  it('a Service whose config entry comes back is found again and started with the Set', async () => {
+    const { core, billing, billingPath } = await setup();
+    const api = { repoId: billing, serviceId: 'api' };
+    const set = await core.createServiceSet({ name: 'Project X', services: [api] });
+    const changes = recordServiceSetChanges(core);
+    let changed = nextServiceSetsChange(core);
+    writeConfig(billingPath, [idle('worker')]);
+    await changed;
+
+    changed = nextServiceSetsChange(core);
+    writeConfig(billingPath, [idle('api', 'Billing API'), idle('worker')]);
+    await changed;
+
+    expect(changes).toEqual([[false], [true]]);
+    expect(await core.startServiceSet(set.id)).toEqual({ notFound: [], notRunning: [] });
+    expect(statusOf(core, billing, 'api')).toBe('running');
+  });
+
+  it('a Service of a removed Repo stays in the Set, not found, and is found again when the Repo is added back at the same path', async () => {
+    const { core, billing, billingPath } = await setup();
+    const api = { repoId: billing, serviceId: 'api' };
+    const set = await core.createServiceSet({ name: 'Project X', services: [api] });
+    const changes = recordServiceSetChanges(core);
+
+    await core.removeRepo(billing);
+
+    expect(changes).toEqual([[false]]);
+    expect(core.snapshot().serviceSets[0]!.services).toEqual([{ ref: api, repoName: 'billing', serviceName: 'Billing API', found: false }]);
+    expect(await core.startServiceSet(set.id)).toEqual({ notFound: [api], notRunning: [] });
+
+    await core.addRepo({ path: billingPath });
+
+    expect(changes).toEqual([[false], [true]]);
+    expect(await core.startServiceSet(set.id)).toEqual({ notFound: [], notRunning: [] });
+    expect(statusOf(core, billing, 'api')).toBe('running');
+  });
+
+  it('stays quiet about Workspace changes that do not touch any Set', async () => {
+    const { core, billing, shop } = await setup();
+    await core.createServiceSet({ name: 'Project X', services: [{ repoId: billing, serviceId: 'api' }] });
+    const changes = recordServiceSetChanges(core);
+
+    await core.removeRepo(shop);
+    await core.addRepo({ path: h.makeFolder('other') });
+
+    expect(changes).toEqual([]);
+  });
+});
+
+/** Writes a Repo Config with these Services into the Repo folder (the watcher reloads it). */
+function writeConfig(repoPath: string, services: unknown[]): void {
+  writeFileSync(path.join(repoPath, '.devpanel.yml'), stringify({ services }));
+}
+
+/** Records the `found` flags of the first Set's entries on every `serviceSetsChanged`. */
+function recordServiceSetChanges(core: DevPanelCore): boolean[][] {
+  const changes: boolean[][] = [];
+  core.on('serviceSetsChanged', (e) => changes.push(e.serviceSets[0]!.services.map((s) => s.found)));
+  return changes;
+}
+
+/** Resolves on the next `serviceSetsChanged`; fails after 10 s. */
+function nextServiceSetsChange(core: DevPanelCore): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('No serviceSetsChanged within 10 s')), 10_000);
+    core.once('serviceSetsChanged', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
 
 /** Spawns a `node listen.mjs <port>` outside DevPanel (owned by this test) and waits until it listens. */
 async function spawnListener(port: number): Promise<void> {

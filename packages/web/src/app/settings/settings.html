@@ -51,5 +51,17 @@
       <label for="dp-settings-open-tab">{{ strings.openTabOnStart.label }}</label>
       <span class="setting-hint" id="dp-settings-open-tab-hint">{{ strings.openTabOnStart.hint }}</span>
     </div>
+    <div class="setting-check">
+      <input
+        type="checkbox"
+        id="dp-settings-close-without-asking"
+        data-setting="closeWithoutAsking"
+        aria-describedby="dp-settings-close-without-asking-hint"
+        [checked]="closeWithoutAsking.enabled()"
+        (change)="chooseCloseWithoutAsking($event)"
+      />
+      <label for="dp-settings-close-without-asking">{{ strings.closeWithoutAsking.label }}</label>
+      <span class="setting-hint" id="dp-settings-close-without-asking-hint">{{ strings.closeWithoutAsking.hint }}</span>
+    </div>
   </div>
 }

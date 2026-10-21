@@ -14,6 +14,7 @@ import {
 } from '@angular/core';
 import type { ServiceRef, SessionView } from '@devpanel/shared';
 import { BackendService, type InstallTab } from '../backend/backend.service';
+import { CloseWithoutAskingSetting } from '../close-without-asking';
 import { InstallOutput } from '../install-output/install-output';
 import { repoColor } from '../repo-color';
 import { STRINGS } from '../ui-strings';
@@ -57,6 +58,7 @@ export class TerminalTabStrip {
   protected readonly strings = STRINGS;
   protected readonly tabs = inject(TerminalTabs);
   private readonly backend = inject(BackendService);
+  private readonly closeWithoutAsking = inject(CloseWithoutAskingSetting);
   private readonly injector = inject(Injector);
   private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');
 
@@ -143,7 +145,7 @@ export class TerminalTabStrip {
   protected close(tab: OpenTab): void {
     if (tab.kind === 'service') this.tabs.close(tab.ref);
     else if (tab.kind === 'install') this.backend.closeInstallTab(tab.install.repoId);
-    else if (tab.session.state === 'running') this.askToClose(tab.key);
+    else if (tab.session.state === 'running' && !this.closeWithoutAsking.enabled()) this.askToClose(tab.key);
     else this.backend.closeSession(tab.session.id);
   }
 

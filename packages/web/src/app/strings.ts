@@ -257,6 +257,11 @@ export const RU_STRINGS: UiStrings = {
     hint: 'Как бы Сервис ни запустили. Вкладка, на которую вы смотрите, остаётся на экране.',
   },
 
+  closeWithoutAsking: {
+    label: 'Закрывать вкладку работающей сессии без вопроса',
+    hint: 'Сессия завершается сразу, без подтверждения.',
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'После прошлого запуска DevPanel остались работающие процессы:',

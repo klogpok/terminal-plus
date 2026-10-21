@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { UI_LANGUAGES, type UiLanguage } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
+import { CloseWithoutAskingSetting } from '../close-without-asking';
 import { OpenTabOnStartSetting } from '../open-tab-on-start';
 import { THEMES, ThemeService, type Theme } from '../theme';
 import { STRINGS, loadedUiLanguage } from '../ui-strings';
@@ -33,6 +34,7 @@ export class Settings {
   protected readonly themeIcons: Record<Theme, string> = { system: '◐', light: '☀', dark: '☾' };
   protected readonly theme = inject(ThemeService);
   protected readonly openTabOnStart = inject(OpenTabOnStartSetting);
+  protected readonly closeWithoutAsking = inject(CloseWithoutAskingSetting);
 
   protected toggle(): void {
     this.open.update((open) => !open);
@@ -45,6 +47,10 @@ export class Settings {
 
   protected chooseOpenTabOnStart(event: Event): void {
     this.openTabOnStart.choose((event.target as HTMLInputElement).checked);
+  }
+
+  protected chooseCloseWithoutAsking(event: Event): void {
+    this.closeWithoutAsking.choose((event.target as HTMLInputElement).checked);
   }
 
   protected closeOnClickOutside(event: MouseEvent): void {

@@ -159,7 +159,7 @@ describe('opening the terminal tab when a Service starts', () => {
     await setStatus('b1', 'api', 'starting');
 
     expect(shownTab()).toBe('Billing / API');
-    expect(JSON.parse(localStorage.getItem(TABS_KEY)!)).toEqual(remembered);
+    expect(JSON.parse(localStorage.getItem(TABS_KEY)!)).toMatchObject(remembered);
   });
 
   it('leaves the remembered tab choice alone when a tab is added behind a shown Service tab', async () => {

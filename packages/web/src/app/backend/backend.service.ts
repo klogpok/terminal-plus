@@ -76,6 +76,9 @@ export class BackendService {
   private readonly installTabsState = signal<InstallTab[]>([]);
 
   readonly connection = this.connectionState.asReadonly();
+  private readonly syncedState = signal(false);
+  /** Whether the state holds the Server's snapshot (false before it arrives and once the connection drops). */
+  readonly synced = this.syncedState.asReadonly();
   /** Technical reason of the last disconnect. */
   readonly connectionDetails = this.connectionDetailsState.asReadonly();
   readonly repos = this.reposState.asReadonly();
@@ -366,6 +369,7 @@ export class BackendService {
         this.orphansState.set(snapshot.orphans ?? []);
         this.serviceSetsState.set(snapshot.serviceSets);
         this.followUiLanguage(snapshot.uiLanguage);
+        this.syncedState.set(true);
       },
       (error: UiErrorInfo) => this.showError(error),
     );
@@ -373,6 +377,7 @@ export class BackendService {
 
   private onClose(details: string): void {
     this.connectionState.set('closed');
+    this.syncedState.set(false);
     this.connectionDetailsState.set(details);
     const pending = [...this.pending.values()];
     this.pending.clear();

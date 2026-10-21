@@ -261,6 +261,11 @@ export const EN_STRINGS = {
     hint: 'However the Service is started. The tab you are looking at stays on screen.',
   },
 
+  closeWithoutAsking: {
+    label: "Close a running Session's tab without asking",
+    hint: 'The Session ends at once, without a confirmation.',
+  },
+
   /** Processes left over from a previous run (after a crash or a forced shutdown). */
   orphans: {
     title: 'Some processes from the previous DevPanel run are still running:',

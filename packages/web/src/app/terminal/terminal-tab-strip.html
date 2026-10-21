@@ -1,7 +1,15 @@
 @if (openTabs().length) {
-  <div class="strip" role="tablist" [attr.aria-label]="strings.terminal.tabsLabel">
+  <div
+    class="strip"
+    role="tablist"
+    [attr.aria-label]="strings.terminal.tabsLabel"
+    cdkDropList
+    cdkDropListOrientation="horizontal"
+    cdkDropListLockAxis="x"
+    (cdkDropListDropped)="drop($event)"
+  >
     @for (tab of openTabs(); track tab.key) {
-      <span class="tab-wrap" [class.active]="tab.key === activeKey()">
+      <span class="tab-wrap" cdkDrag [cdkDragDisabled]="confirming()?.key === tab.key" [class.active]="tab.key === activeKey()">
         <button
           type="button"
           class="tab"

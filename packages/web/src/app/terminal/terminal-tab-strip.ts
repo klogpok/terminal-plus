@@ -1,3 +1,4 @@
+import { CdkDrag, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,7 +18,14 @@ import { InstallOutput } from '../install-output/install-output';
 import { repoColor } from '../repo-color';
 import { STRINGS } from '../ui-strings';
 import { ServiceTerminal, type TerminalRef } from './service-terminal';
-import { TerminalTabs, installTabKey, sessionTabKey, shownTabKey, tabKey } from './terminal-tabs.service';
+import {
+  TerminalTabs,
+  arrangeTabKeys,
+  installTabKey,
+  sessionTabKey,
+  shownTabKey,
+  tabKey,
+} from './terminal-tabs.service';
 
 interface TabBase {
   key: string;
@@ -34,12 +42,13 @@ type OpenTab =
   | (TabBase & { kind: 'install'; install: InstallTab });
 
 /**
- * Right area: one tab per open Service terminal (and per `pnpm install` run), colored like its
- * Repo. Every open terminal stays mounted (hidden when not shown) so it keeps streaming.
+ * Right area: one tab per open Service terminal (and per Session and `pnpm install` run), colored
+ * like its Repo, in the order the user dragged them to. Every open terminal stays mounted (hidden
+ * when not shown) so it keeps streaming.
  */
 @Component({
   selector: 'dp-terminal-tabs',
-  imports: [ServiceTerminal, InstallOutput],
+  imports: [ServiceTerminal, InstallOutput, CdkDropList, CdkDrag],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './terminal-tab-strip.html',
   styleUrl: './terminal-tab-strip.css',
@@ -84,7 +93,8 @@ export class TerminalTabStrip {
       const color = repo ? repoColor(repo) : 'var(--muted)';
       result.push({ kind: 'install', key: installTabKey(install.repoId), title: label, repo: '', label, color, install });
     }
-    return result;
+    const byKey = new Map(result.map((tab) => [tab.key, tab]));
+    return arrangeTabKeys(this.tabs.order(), [...byKey.keys()]).map((key) => byKey.get(key)!);
   });
 
   /** The shown tab: the selected one, or the first open one. */
@@ -105,6 +115,20 @@ export class TerminalTabStrip {
       }
       known = repoIds;
     });
+    // Tabs that appear take their place at the end of the strip; gone ones give theirs up.
+    effect(() => {
+      if (!this.backend.synced()) return;
+      const keys = this.openTabs().map((t) => t.key);
+      untracked(() => this.tabs.remember(keys));
+    });
+  }
+
+  /** A tab was dragged to a new place in the strip. */
+  protected drop(event: CdkDragDrop<unknown>): void {
+    const tabs = this.openTabs();
+    const moved = tabs[event.previousIndex];
+    const target = tabs[event.currentIndex];
+    if (moved && target) this.tabs.move(moved.key, target.key);
   }
 
   /** Key of the running Session tab whose close awaits confirmation. */

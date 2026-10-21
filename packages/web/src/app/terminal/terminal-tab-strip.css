@@ -22,3 +22,9 @@ dp-service-terminal.hidden, dp-install-output.hidden { display: none; }
 .close-confirm button { height: 22px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--fg); cursor: pointer; font: inherit; font-size: 12px; }
 .close-confirm button:hover { border-color: var(--accent); }
 .close-confirm .danger { border-color: var(--error-border); }
+/* Dragging a tab: the tab follows the pointer over the strip, a faded copy marks where it lands. */
+.tab-wrap.cdk-drag-preview { background: var(--bg); border-color: var(--border); color: var(--fg); box-shadow: 0 4px 12px rgb(0 0 0 / 0.25); }
+.tab-wrap.cdk-drag-preview .close { opacity: 0; }
+.tab-wrap.cdk-drag-placeholder { opacity: 0.35; }
+.cdk-drop-list-dragging .tab-wrap:not(.cdk-drag-placeholder) { transition: transform 150ms ease; }
+.tab-wrap.cdk-drag-animating { transition: transform 150ms ease; }

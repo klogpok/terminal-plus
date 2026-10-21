@@ -24,6 +24,7 @@ export class StartingServiceTabOpener {
 
   private shownKey(): string | null {
     const keys = openTabKeys(
+      this.tabs.order(),
       this.tabs.tabs(),
       this.backend.repos(),
       this.backend.sessions(),

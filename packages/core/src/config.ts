@@ -23,6 +23,11 @@ const serviceSchema = z.object({
   cwd: z.string().min(1).optional(),
   port: z.number().int().min(1).max(65535).optional(),
   readyPattern: z.string().min(1).refine(isValidRegExp, 'readyPattern is not a valid regular expression').optional(),
+  /**
+   * An output line that means the build failed, on top of the built-in ones (see `build-errors.ts`).
+   * Set `readyPattern` with it: unless a success line clears it, the mark stays until the next restart.
+   */
+  errorPattern: z.string().min(1).refine(isValidRegExp, 'errorPattern is not a valid regular expression').optional(),
   healthUrl: z.string().url().optional(),
   url: z.string().url().optional(),
   dependsOn: z.array(z.string().min(1)).optional(),

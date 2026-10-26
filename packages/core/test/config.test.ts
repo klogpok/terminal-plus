@@ -110,6 +110,12 @@ describe('loading the Workspace and Repo Configs', () => {
     expect(core.listRepos()[0]!.configError).toMatch(/readyPattern/);
   });
 
+  it('reports a Repo-level error when errorPattern is not a valid regular expression', async () => {
+    h.addRepo({ name: 'billing', config: { services: [{ id: 'api', command: 'x', errorPattern: 'ERROR [' }] } });
+    const core = await h.createCore();
+    expect(core.listRepos()[0]!.configError).toMatch(/errorPattern is not a valid regular expression/);
+  });
+
   it('allows Services without port, healthUrl or readyPattern', async () => {
     h.addRepo({
       name: 'billing',

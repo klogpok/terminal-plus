@@ -75,8 +75,19 @@ export class RepoList {
         ...(s.status === 'crashed' ? [text.crashed(s.name)] : []),
         ...(s.status === 'unhealthy' ? [text.unhealthy(s.name)] : []),
         ...(s.portConflict ? [text.portConflict(s.name, s.portConflict.port)] : []),
+        ...(s.buildError ? [text.buildError(s.name)] : []),
       ]),
     ];
+  }
+
+  /** The status dot: its Status, or the Build Error look on top of it. */
+  protected dotClass(service: ServiceView): string {
+    return `status-dot status-${service.status}${service.buildError ? ' status-build-error' : ''}`;
+  }
+
+  /** What the status dot says: its Status, or the Build Error in its place. */
+  protected dotLabel(service: ServiceView): string {
+    return service.buildError ? this.strings.repos.buildError : this.strings.status[service.status];
   }
 
   /** The ❗ tooltip: one line per reason. */

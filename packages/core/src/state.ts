@@ -10,6 +10,7 @@ import type {
 } from '@devpanel/shared';
 import type { ServiceDefinition } from './config.js';
 import type { ServiceProcess } from './process.js';
+import type { BuildErrorWatch } from './build-errors.js';
 import type { ReadinessWatch } from './readiness.js';
 import { Terminal } from './terminal.js';
 
@@ -35,6 +36,10 @@ export class ServiceState extends Terminal {
   stopping?: Promise<void>;
   /** Readiness checks of the current run; present only while `starting` or `unhealthy`. */
   readiness?: ReadinessWatch;
+  /** Build Error detection of the current run; present only while `starting`, `running` or `unhealthy`. */
+  buildErrorWatch?: BuildErrorWatch;
+  /** The Build Error mark of the current run. */
+  buildError = false;
   /** How the Service ended by itself; present only while `crashed` or `exited`. */
   lastExit?: ExitDetails;
   /** A start in progress that is still waiting for dependencies (or the pnpm check) before spawning. */

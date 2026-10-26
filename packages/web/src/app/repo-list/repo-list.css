@@ -212,6 +212,27 @@
     border-color: #94a3b8;
 }
 
+/* Build Error: a mark on top of a live Status, so it comes last; the "!" tells it from crashed. */
+.status-dot.status-build-error {
+    width: 12px;
+    height: 12px;
+    /* Larger for the "!", but takes the place of a plain dot, so the name does not shift. */
+    margin: -1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #dc2626;
+    border-color: #991b1b;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.status-dot.status-build-error::after {
+    content: '!';
+}
+
 .install-button {
     align-self: flex-start;
     padding: 4px 10px;

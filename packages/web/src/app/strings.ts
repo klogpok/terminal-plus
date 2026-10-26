@@ -103,6 +103,8 @@ export const RU_STRINGS: UiStrings = {
     expandAll: 'Развернуть все',
     /** Tooltip of a status dot of a collapsed Repo, e.g. "api: Работает". */
     dotTitle: (serviceName: string, status: string) => `${serviceName}: ${status}`,
+    /** Tooltip of the status dot of a Service with a Build Error, in place of its Status. */
+    buildError: 'В сборке ошибки, смотрите терминал',
     /** Lines of the ❗ tooltip of a collapsed Repo that needs attention. */
     attention: {
       folderMissing: 'Папка не найдена',
@@ -110,6 +112,7 @@ export const RU_STRINGS: UiStrings = {
       crashed: (serviceName: string) => `${serviceName} упал`,
       unhealthy: (serviceName: string) => `${serviceName} не отвечает`,
       portConflict: (serviceName: string, port: number) => `${serviceName}: порт ${port} занят`,
+      buildError: (serviceName: string) => `${serviceName}: в сборке ошибки`,
     },
     dragHandle: 'Перетащите, чтобы изменить порядок',
     dragHandleLabel: (repoName: string) => `Переместить репо ${repoName}`,

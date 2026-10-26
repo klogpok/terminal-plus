@@ -106,6 +106,8 @@ export const EN_STRINGS = {
     expandAll: 'Expand all',
     /** Tooltip of a status dot of a collapsed Repo, e.g. "api: Running". */
     dotTitle: (serviceName: string, status: string) => `${serviceName}: ${status}`,
+    /** Tooltip of the status dot of a Service with a Build Error, in place of its Status. */
+    buildError: 'The build has errors, see the terminal',
     /** Lines of the ❗ tooltip of a collapsed Repo that needs attention. */
     attention: {
       folderMissing: 'The folder was not found',
@@ -113,6 +115,7 @@ export const EN_STRINGS = {
       crashed: (serviceName: string) => `${serviceName} crashed`,
       unhealthy: (serviceName: string) => `${serviceName} is not responding`,
       portConflict: (serviceName: string, port: number) => `${serviceName}: port ${port} is busy`,
+      buildError: (serviceName: string) => `${serviceName}: the build has errors`,
     },
   },
 

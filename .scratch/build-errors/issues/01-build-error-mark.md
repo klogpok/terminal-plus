@@ -4,19 +4,19 @@
 
 **Blocked by:** none.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] A `core` detection module recognizes the built-in failure and success lines from the spec table, handling ANSI, chunks split mid-line and Windows symbol variants. It adds `errorPattern` and `readyPattern`, applies "last line wins" and reports only changes.
-- [ ] The Service schema accepts an optional `errorPattern` validated as a regular expression; the "+ Add Service" form is unchanged.
-- [ ] `core` keeps the mark per run: none on spawn, removed on exit (Stop, crash, exit), and the Status and Readiness are unaffected.
-- [ ] `ServiceView.buildError` is in the Snapshot; `buildErrorChanged` is emitted by `core`, forwarded by the Server and applied by `BackendService`.
-- [ ] Web: Build Error dot (red with "!", distinct from `crashed`), tooltip, ❗ line of a collapsed Repo; strings in both UI string sets.
-- [ ] Tests:
+- [x] A `core` detection module recognizes the built-in failure and success lines from the spec table, handling ANSI, chunks split mid-line and Windows symbol variants. It adds `errorPattern` and `readyPattern`, applies "last line wins" and reports only changes.
+- [x] The Service schema accepts an optional `errorPattern` validated as a regular expression; the "+ Add Service" form is unchanged.
+- [x] `core` keeps the mark per run: none on spawn, removed on exit (Stop, crash, exit), and the Status and Readiness are unaffected.
+- [x] `ServiceView.buildError` is in the Snapshot; `buildErrorChanged` is emitted by `core`, forwarded by the Server and applied by `BackendService`.
+- [x] Web: Build Error dot (red with "!", distinct from `crashed`), tooltip, ❗ line of a collapsed Repo; strings in both UI string sets.
+- [x] Tests:
   - unit tests of the detection module on real tool lines;
   - a `core` test with a fixture Service;
   - a config test for an invalid `errorPattern`;
   - web specs through `FakeTransport`.
-- [ ] The dot and tooltip are checked by running the app in both Themes. `pnpm check` passes.
+- [x] The dot and tooltip are checked by running the app in both Themes. `pnpm check` passes.
 
 ## Русский перевод
 
@@ -26,16 +26,16 @@
 
 **Заблокирован:** нет.
 
-**Статус:** ready-for-agent
+**Статус:** resolved
 
-- [ ] Модуль распознавания в `core` узнаёт встроенные строки ошибки и успеха из таблицы спеки. Он учитывает ANSI, куски, разрезанные посреди строки, и Windows-варианты символов. Добавляет `errorPattern` и `readyPattern`, применяет правило «побеждает последняя строка» и сообщает только об изменениях.
-- [ ] Схема Сервиса принимает необязательный `errorPattern`, который проверяется как регулярное выражение; форма «+ Add Service» не меняется.
-- [ ] `core` хранит отметку для каждого запуска: при spawn её нет, при завершении (Стоп, падение, выход) она убирается, а Статус и Готовность не затрагиваются.
-- [ ] `ServiceView.buildError` есть в Snapshot. `buildErrorChanged` испускается `core`, пересылается Сервером и применяется в `BackendService`.
-- [ ] Web: точка Ошибки сборки (красная с «!», отличается от `crashed`), подсказка, строка в ❗ свёрнутого Репо; строки в обоих наборах строк UI.
-- [ ] Тесты:
+- [x] Модуль распознавания в `core` узнаёт встроенные строки ошибки и успеха из таблицы спеки. Он учитывает ANSI, куски, разрезанные посреди строки, и Windows-варианты символов. Добавляет `errorPattern` и `readyPattern`, применяет правило «побеждает последняя строка» и сообщает только об изменениях.
+- [x] Схема Сервиса принимает необязательный `errorPattern`, который проверяется как регулярное выражение; форма «+ Add Service» не меняется.
+- [x] `core` хранит отметку для каждого запуска: при spawn её нет, при завершении (Стоп, падение, выход) она убирается, а Статус и Готовность не затрагиваются.
+- [x] `ServiceView.buildError` есть в Snapshot. `buildErrorChanged` испускается `core`, пересылается Сервером и применяется в `BackendService`.
+- [x] Web: точка Ошибки сборки (красная с «!», отличается от `crashed`), подсказка, строка в ❗ свёрнутого Репо; строки в обоих наборах строк UI.
+- [x] Тесты:
   - unit-тесты модуля распознавания на реальных строках инструментов;
   - тест `core` с Сервисом-фикстурой;
   - тест конфига для некорректного `errorPattern`;
   - спеки web через `FakeTransport`.
-- [ ] Точка и подсказка проверены запуском приложения в обеих Темах. `pnpm check` проходит.
+- [x] Точка и подсказка проверены запуском приложения в обеих Темах. `pnpm check` проходит.

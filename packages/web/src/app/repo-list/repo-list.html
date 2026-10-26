@@ -26,10 +26,10 @@
             }
             @for (service of repo.services; track service.id) {
               <span
-                [class]="'status-dot status-' + service.status"
-                [title]="strings.repos.dotTitle(service.name, strings.status[service.status])"
+                [class]="dotClass(service)"
+                [title]="strings.repos.dotTitle(service.name, dotLabel(service))"
                 role="img"
-                [attr.aria-label]="strings.repos.dotTitle(service.name, strings.status[service.status])"
+                [attr.aria-label]="strings.repos.dotTitle(service.name, dotLabel(service))"
               ></span>
             }
           </div>
@@ -60,10 +60,10 @@
             <li class="service" [attr.data-service-id]="service.id">
               <span
                 class="status-dot"
-                [class]="'status-dot status-' + service.status"
-                [title]="strings.status[service.status]"
+                [class]="dotClass(service)"
+                [title]="dotLabel(service)"
                 role="img"
-                [attr.aria-label]="strings.status[service.status]"
+                [attr.aria-label]="dotLabel(service)"
               ></span>
               <span class="service-name">
                 <button

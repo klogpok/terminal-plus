@@ -7,6 +7,7 @@ import type {
   PortConflict,
   ServiceStatus,
   SuggestedService,
+  WorktreeView,
 } from '@devpanel/shared';
 import type { ServiceDefinition } from './config.js';
 import type { ServiceProcess } from './process.js';
@@ -77,6 +78,8 @@ export interface RepoState {
   unusedLocalConfig: boolean;
   folderMissing: boolean;
   branch?: string;
+  /** The Worktree the Repo runs from; absent = its own folder. Kept only in memory. */
+  worktree?: WorktreeView;
   services: Map<string, ServiceState>;
   /** Watches the Repo folder for config file changes. */
   watcher?: FSWatcher;

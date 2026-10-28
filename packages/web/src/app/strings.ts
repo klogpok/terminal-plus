@@ -77,6 +77,16 @@ export const RU_STRINGS: UiStrings = {
     cancel: 'Отмена',
     branch: (branch: string) => `ветка ${branch}`,
     branchTitle: 'Текущая git-ветка',
+    /** The folder switcher: the branch button in the Repo header opens it. */
+    switcherLabel: (repoName: string) => `Выбрать папку, из которой работает ${repoName}`,
+    runFrom: (repoName: string) => `Запускать ${repoName} из`,
+    /** The Repo's own folder in the switcher, with its branch. */
+    ownFolder: (branch: string | undefined) => (branch ? `Папка репо · ${branch}` : 'Папка репо'),
+    worktreeMark: 'Worktree',
+    worktreeTitle: (path: string) => `Работает из Worktree ${path}`,
+    switcherHint: 'Работающие сервисы перезапустятся в выбранной папке.',
+    switcherLoading: 'Ищем Worktree…',
+    switcherNone: 'У этого репо нет Worktree на ветках.',
     openFolder: 'Открыть папку',
     remove: 'Удалить',
     /** Accessible name of the Repo remove button, e.g. "Удалить репо Billing". */
@@ -225,6 +235,25 @@ export const RU_STRINGS: UiStrings = {
     deleteConfirm: (name: string) => `Удалить набор «${name}»? Это нельзя отменить.`,
     deleteYes: 'Да, удалить',
     deleteNo: 'Оставить',
+  },
+
+  /** Branch Check: the "Branches" panel in the header and the check in progress. */
+  branches: {
+    menu: 'Ветки',
+    hint: 'Worktree ваших репо по веткам',
+    loading: 'Ищем Worktree…',
+    none: 'Worktree не найдены. Когда у репо из Workspace появится git worktree на ветке, он будет здесь.',
+    check: 'Проверить',
+    /** Accessible name of a row's Check button, e.g. "Проверить ветку feat/x". */
+    checkLabel: (branch: string) => `Проверить ветку ${branch}`,
+    backToMain: 'Вернуть на основную',
+    backToMainTitle: 'Снова запускать все репо из их собственных папок',
+    footer: 'Репо без этой ветки продолжают работать как есть. Worktree в detached HEAD не показываются.',
+    /** Before the checked branch in the header: "Проверка ⎇ feat/x". */
+    checking: 'Проверка',
+    switching: 'Переключаем…',
+    /** Chip of a Repo whose own folder is on the branch. */
+    ownFolder: (repoName: string) => `${repoName} · папка репо`,
   },
 
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
@@ -402,6 +431,14 @@ export const RU_STRINGS: UiStrings = {
     serviceSetNameTaken: (p) => `Набор с именем «${p.name}» уже есть. Выберите другое имя.`,
     serviceSetEmpty: () => 'Отметьте хотя бы один сервис.',
     serviceSetNotFound: () => 'Этого набора больше нет. Возможно, его удалили в другом окне.',
+    worktreeNotFound: (p) =>
+      `${p.path} больше не Worktree репо ${p.repoName}. Откройте список заново и выберите другую папку.`,
+    branchNotFound: (p) => `Ветки ${p.branch} больше нет ни в одном репо. Откройте список «Ветки» заново.`,
+    worktreeFolderMissing: (p) =>
+      `Репо ${p.repoName} работает из Worktree ${p.path}, но этой папки больше нет. ` +
+      'Верните репо в его собственную папку кнопкой ветки в шапке репо.',
+    installRunning: (p) =>
+      `В репо ${p.repoName} сейчас устанавливаются зависимости. Дождитесь окончания и попробуйте снова.`,
     badCommand: () => 'DevPanel не понял команду. Обновите страницу.',
     internal: () => 'Что-то пошло не так внутри DevPanel.',
     connectionLost: () => 'Нет связи с DevPanel, команда не выполнена. Попробуйте ещё раз через пару секунд.',
@@ -413,6 +450,12 @@ export const RU_STRINGS: UiStrings = {
       (p.notFound.length
         ? ` Не найдены: ${serviceList(p.notFound)}. Их убрали из конфига репо или убрали сам репо из DevPanel.`
         : ''),
+    folderSwitchIncomplete: (p) =>
+      'После переключения запустилось не всё.' +
+      (p.notRunning.length
+        ? ` Не работают: ${serviceList(p.notRunning)}. Причина видна в списке сервисов; там же выбор, если порт занят.`
+        : '') +
+      (p.notFound.length ? ` Нет в конфиге новой папки: ${serviceList(p.notFound)}.` : ''),
     uiLanguageNotFollowed: () =>
       'Язык DevPanel изменился, но эта вкладка не может на него переключиться: браузер не даёт сайтам сохранять данные. ' +
       'Разрешите сохранение данных сайтов в настройках браузера и обновите страницу.',

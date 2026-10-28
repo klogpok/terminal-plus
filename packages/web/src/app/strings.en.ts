@@ -77,6 +77,16 @@ export const EN_STRINGS = {
     cancel: 'Cancel',
     branch: (branch: string) => `branch ${branch}`,
     branchTitle: 'Current git branch',
+    /** The folder switcher: the branch button in the Repo header opens it. */
+    switcherLabel: (repoName: string) => `Choose the folder ${repoName} runs from`,
+    runFrom: (repoName: string) => `Run ${repoName} from`,
+    /** The Repo's own folder in the switcher, with its branch. */
+    ownFolder: (branch: string | undefined) => (branch ? `Repo folder · ${branch}` : 'Repo folder'),
+    worktreeMark: 'Worktree',
+    worktreeTitle: (path: string) => `Runs from the Worktree ${path}`,
+    switcherHint: 'Running Services restart in the chosen folder.',
+    switcherLoading: 'Looking for Worktrees…',
+    switcherNone: 'This Repo has no Worktrees on a branch.',
     openFolder: 'Open folder',
     remove: 'Remove',
     /** Accessible name of the Repo remove button, e.g. "Remove Repo Billing". */
@@ -228,6 +238,25 @@ export const EN_STRINGS = {
     deleteConfirm: (name: string) => `Delete the Service Set "${name}"? This cannot be undone.`,
     deleteYes: 'Yes, delete',
     deleteNo: 'Keep it',
+  },
+
+  /** Branch Check: the "Branches" panel in the header and the check in progress. */
+  branches: {
+    menu: 'Branches',
+    hint: 'Worktrees of your Repos, grouped by branch',
+    loading: 'Looking for Worktrees…',
+    none: 'No Worktrees found. When a Repo of your Workspace gets a git worktree on a branch, it shows up here.',
+    check: 'Check',
+    /** Accessible name of a row's Check button, e.g. "Check branch feat/x". */
+    checkLabel: (branch: string) => `Check branch ${branch}`,
+    backToMain: 'Back to main',
+    backToMainTitle: 'Run every Repo from its own folder again',
+    footer: 'Repos without the branch keep running as they are. Detached Worktrees are hidden.',
+    /** Before the checked branch in the header: "Checking ⎇ feat/x". */
+    checking: 'Checking',
+    switching: 'Switching…',
+    /** Chip of a Repo whose own folder is on the branch. */
+    ownFolder: (repoName: string) => `${repoName} · Repo folder`,
   },
 
   /** "Exit DevPanel": stops every Service and Session, then the Server. */
@@ -411,6 +440,14 @@ export const EN_STRINGS = {
     serviceSetNameTaken: (p) => `A Service Set named "${p.name}" already exists. Choose another name.`,
     serviceSetEmpty: () => 'Check at least one Service.',
     serviceSetNotFound: () => 'This Service Set no longer exists. It may have been deleted in another window.',
+    worktreeNotFound: (p) =>
+      `${p.path} is no longer a Worktree of the ${p.repoName} Repo. Open the list again and choose another folder.`,
+    branchNotFound: (p) => `No Repo has the branch ${p.branch} any more. Open the Branches list again.`,
+    worktreeFolderMissing: (p) =>
+      `The ${p.repoName} Repo runs from the Worktree ${p.path}, but that folder is gone. ` +
+      'Switch the Repo back to its own folder with the branch button in its header.',
+    installRunning: (p) =>
+      `Dependencies are being installed in the ${p.repoName} Repo. Wait until it finishes, then try again.`,
     badCommand: () => 'DevPanel did not understand the command. Reload the page.',
     internal: () =>
       'Something went wrong inside DevPanel. Try again; if it happens again, open "Details" and show the text to a developer.',
@@ -423,6 +460,12 @@ export const EN_STRINGS = {
       (p.notFound.length
         ? ` Not found: ${serviceList(p.notFound)}. They were removed from their Repo's config, or their Repo from DevPanel.`
         : ''),
+    folderSwitchIncomplete: (p) =>
+      'After the switch, not everything came back up.' +
+      (p.notRunning.length
+        ? ` Not running: ${serviceList(p.notRunning)}. The list of Services shows why; a taken port offers its choice there.`
+        : '') +
+      (p.notFound.length ? ` Not in the config of the new folder: ${serviceList(p.notFound)}.` : ''),
     uiLanguageNotFollowed: () =>
       "DevPanel's language was changed, but this tab cannot switch to it: the browser does not let websites save data. " +
       'Allow websites to save data in the browser settings, then reload the page.',

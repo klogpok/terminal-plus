@@ -81,6 +81,14 @@ export interface ErrorParams {
   serviceSetEmpty: Record<string, never>;
   /** A command named a Service Set that no longer exists (deleted, maybe in another window). */
   serviceSetNotFound: Record<string, never>;
+  /** `switchRepoFolder`: the path is not (or no longer) a Worktree of the Repo on a branch. */
+  worktreeNotFound: { repoName: string; path: string };
+  /** `startBranchCheck`: no Repo has a Worktree on the branch, nor its own folder on it. */
+  branchNotFound: { branch: string };
+  /** The Worktree the Repo runs from is gone, so the action (e.g. starting a Service) is impossible. */
+  worktreeFolderMissing: { repoName: string; path: string };
+  /** `switchRepoFolder`, `startBranchCheck`: the Repo's dependencies are installing right now. */
+  installRunning: { repoName: string };
   /** A malformed or unknown command reached the Server. */
   badCommand: Record<string, never>;
   /** Anything unexpected. */

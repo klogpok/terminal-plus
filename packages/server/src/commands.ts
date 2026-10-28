@@ -185,6 +185,16 @@ export const COMMAND_HANDLERS: CommandHandlers = {
     payload: z.object({ id: z.string().min(1).max(100) }),
     run: (core, p) => core.startServiceSet(p.id),
   },
+  listWorktrees: { payload: empty, run: (core) => core.listWorktrees() },
+  switchRepoFolder: {
+    payload: repoRef.extend({ worktreePath: z.string().min(1).max(1000).nullable() }),
+    run: (core, p) => core.switchRepoFolder(p.repoId, p.worktreePath),
+  },
+  startBranchCheck: {
+    payload: z.object({ branch: z.string().min(1).max(500) }),
+    run: (core, p) => core.startBranchCheck(p.branch),
+  },
+  endBranchCheck: { payload: empty, run: (core) => core.endBranchCheck() },
   openTerminal: { payload: repoRef, run: (core, p) => core.openTerminal(p.repoId) },
   openClaude: { payload: repoRef, run: (core, p) => core.openClaude(p.repoId) },
   closeSession: {

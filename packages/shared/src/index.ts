@@ -151,6 +151,11 @@ export interface RepoView {
   folderMissing?: boolean;
   /** Current git branch (or short commit when detached); absent for non-git folders. */
   branch?: string;
+  /**
+   * The Worktree the Repo runs from (its Services, install and new Sessions); absent = its own
+   * folder. Never stored: a Server start puts every Repo back on its own folder.
+   */
+  worktree?: WorktreeView;
   /** Dependency install state; see `InstallState`. */
   install?: InstallState;
   /** Absent means 'none' (kept optional so older builders stay valid). */
@@ -232,6 +237,31 @@ export interface Snapshot {
   uiLanguage: UiLanguage;
   /** The Service Sets of this machine, in creation order. */
   serviceSets: ServiceSetView[];
+  /** The branch of the Branch Check in progress (absent = none). */
+  branchCheck?: string;
+}
+
+/** Worktree: a git worktree of a Repo's folder that DevPanel found. Never a Repo of its own. */
+export interface WorktreeView {
+  path: string;
+  branch: string;
+}
+
+/** The Worktrees of one Repo (`listWorktrees`). */
+export interface RepoWorktrees {
+  repoId: string;
+  /** The branch of the Repo's own folder, read now (absent: not a git folder, or detached). */
+  branch?: string;
+  /** Worktrees on a branch whose folder exists; not the Repo's folder, nor a folder of another Repo. */
+  worktrees: WorktreeView[];
+}
+
+/** What a folder switch or Branch Check could not bring back up (both empty: all of it runs). */
+export interface FolderSwitchResult {
+  /** Services that ran before the switch but are not in the config of the new folder. */
+  notFound: ServiceSetStartReportEntry[];
+  /** Services started in the new folder that did not reach `running`. */
+  notRunning: ServiceSetStartReportEntry[];
 }
 
 /** One Service of a Service Set. */
@@ -263,7 +293,7 @@ export interface ServiceSetStartResult {
   notRunning: ServiceRef[];
 }
 
-/** An entry of a Service Set named in a start report. */
+/** A Service named in a start report (of a Service Set, a folder switch or a Branch Check). */
 export interface ServiceSetStartReportEntry {
   ref: ServiceRef;
   repoName: string;
@@ -287,6 +317,11 @@ export interface ServiceSetStartReportedEvent {
  */
 export interface ServiceSetsChangedEvent {
   serviceSets: ServiceSetView[];
+}
+
+/** A Branch Check began, moved to another branch or ended (`branch` absent). */
+export interface BranchCheckChangedEvent {
+  branch?: string;
 }
 
 /** The current list of Orphans: found on Server start, then after each kill (empty = none left). */
@@ -419,6 +454,7 @@ export interface Events {
   uiLanguageChanged: UiLanguageChangedEvent;
   serviceSetsChanged: ServiceSetsChangedEvent;
   serviceSetStartReported: ServiceSetStartReportedEvent;
+  branchCheckChanged: BranchCheckChangedEvent;
 }
 
 export type EventType = keyof Events;
@@ -531,6 +567,26 @@ export interface Commands {
    * `serviceSetNotFound`.
    */
   startServiceSet: { payload: { id: string }; result: ServiceSetStartResult };
+  /** The Worktrees of every Repo whose folder exists, read now (`git worktree list`). */
+  listWorktrees: { payload: Record<string, never>; result: RepoWorktrees[] };
+  /**
+   * Runs the Repo from one of its Worktrees (`worktreePath`) or from its own folder (`null`): stops
+   * its Services, switches, reloads the config from the new folder, and starts again the Services
+   * that were starting, running or unhealthy (all of them when none was). Resolves once each started
+   * Service reached `running` or ended up otherwise. Ends a Branch Check in progress. Switching to
+   * the folder it already runs from does nothing. Fails with `worktreeNotFound`, or
+   * `installRunning` while its dependencies install.
+   */
+  switchRepoFolder: { payload: { repoId: string; worktreePath: string | null }; result: FolderSwitchResult };
+  /**
+   * Branch Check: switches every Repo that has `branch` (a Worktree on it, or its own folder on it)
+   * to it as `switchRepoFolder` does, and every Repo running from a Worktree of another branch back
+   * to its own folder; the other Repos are not touched. Emits `branchCheckChanged`. Fails with
+   * `branchNotFound` when no Repo has the branch.
+   */
+  startBranchCheck: { payload: { branch: string }; result: FolderSwitchResult };
+  /** Switches every Repo running from a Worktree back to its own folder; ends the Branch Check. */
+  endBranchCheck: { payload: Record<string, never>; result: FolderSwitchResult };
 }
 
 export type CommandType = keyof Commands;

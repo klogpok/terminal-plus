@@ -22,6 +22,10 @@ _Avoid_: repo settings
 The description of a Repo's Services that is saved only on the user's machine and never goes into the Repo. Used only while the Repo has no Repo Config. The user builds it from auto-detection suggestions and their own commands, adding and removing Services. A Local Config does not exist without Services.
 _Avoid_: auto-config
 
+**Worktree** (RU: Worktree):
+A git worktree of a Repo's folder, on a branch, that DevPanel found by itself. It is not a Repo and never goes into the Workspace; DevPanel never creates or removes it. A Repo can run from one of its Worktrees instead of its own folder: its Services, install and new Sessions then run there, with the Worktree's Repo Config, or else the Repo's Local Config. After a DevPanel Server restart every Repo runs from its own folder again.
+_Avoid_: copy, clone, checkout
+
 ## Processes
 
 **Service** (RU: Сервис):
@@ -49,6 +53,10 @@ Stopping every Service of one Repo or of all Repos. Sessions are not affected.
 **Service Set** (RU: Набор):
 A named list of Services from any Repos of the Workspace that the user starts with one click. Stored only on the user's machine and never goes into a Repo. Starting a Service Set starts its Services that are not running yet, with their Dependencies, and leaves the others alone; a Service that no longer exists stays in the Set as "not found" and is skipped.
 _Avoid_: template, preset, group
+
+**Branch Check** (RU: Проверка ветки):
+Running, with one click, every Repo that has a given branch from its Worktree on it (or from its own folder when that is on the branch); the Services that were running restart there. Repos without the branch keep running as they are; Repos on a Worktree of another branch go back to their own folders. At most one at a time; "Back to main" ends it, and so does switching a Repo's folder by hand.
+_Avoid_: feature, preview, test run
 
 **crashed**:
 The Service ended with a non-zero exit code although the user did not press Stop.
@@ -126,6 +134,10 @@ _Avoid_: настройки репо
 Описание Сервисов Репо, которое сохраняется только на машине пользователя и никогда не попадает в Репо. Используется, только пока у Репо нет Конфига репо. Пользователь сам собирает его из предложений автоопределения и своих команд, добавляя и удаляя Сервисы. Без Сервисов Локального конфига не существует.
 _Avoid_: автоконфиг
 
+**Worktree**:
+git worktree папки Репо на ветке, который DevPanel нашла сама. Это не Репо, и в Workspace он не попадает; DevPanel его не создаёт и не удаляет. Репо может работать из одного из своих Worktree вместо своей папки: тогда там запускаются его Сервисы, установка зависимостей и новые Сессии, с Конфигом репо из Worktree, а если его нет — с Локальным конфигом Репо. После перезапуска Сервера DevPanel каждый Репо снова работает из своей папки.
+_Avoid_: копия, клон, чекаут
+
 ## Процессы
 
 **Сервис (Service)**:
@@ -153,6 +165,10 @@ _Avoid_: проблемы, упал, crashed
 **Набор (Service Set)**:
 Именованный список Сервисов из любых Репо Workspace, который пользователь запускает одним кликом. Хранится только на машине пользователя и никогда не попадает в Репо. Запуск Набора стартует его незапущенные Сервисы с их Зависимостями и не трогает остальные; Сервис, которого больше нет, остаётся в Наборе как «не найден» и пропускается.
 _Avoid_: шаблон, пресет, группа
+
+**Проверка ветки (Branch Check)**:
+Запуск одним кликом всех Репо, у которых есть данная ветка, из их Worktree на ней (или из своей папки, если она сама на этой ветке); работавшие Сервисы перезапускаются там. Репо без этой ветки продолжают работать как есть; Репо на Worktree другой ветки возвращаются в свои папки. Одновременно не больше одной; заканчивается кнопкой «Вернуть на основную» или переключением папки Репо вручную.
+_Avoid_: фича, превью, тестовый запуск
 
 **crashed**:
 Сервис завершился с ненулевым кодом, хотя пользователь не нажимал «Стоп».

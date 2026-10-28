@@ -1,6 +1,6 @@
 [package]
 name = "devpanel-desktop"
-version = "0.2.0"
+version = "0.3.0"
 description = "DevPanel desktop shell: window, tray and dialogs around the Node sidecar (ADR-0003)"
 edition = "2021"
 rust-version = "1.90"

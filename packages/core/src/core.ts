@@ -6,6 +6,7 @@ import {
   DevPanelError,
   EXIT_TAIL_LINES,
   HOST_STRINGS,
+  type BuildErrorChangedEvent,
   type ConfigChangedEvent,
   type ExitEvent,
   type InstallChangedEvent,
@@ -57,6 +58,7 @@ import { repoIdFor } from './repo-id.js';
 import { readGitBranch } from './git.js';
 import { OutputTail } from './output-tail.js';
 import { watchReadiness } from './readiness.js';
+import { watchBuildErrors } from './build-errors.js';
 import { Sessions, type SessionEvents } from './sessions.js';
 import { PortConflicts } from './port-conflicts.js';
 import { ServiceSets, type FoundService, type ServiceSetEvents } from './service-sets.js';
@@ -132,6 +134,7 @@ export interface CoreEvents extends SessionEvents, ServiceSetEvents {
   installChanged: [InstallChangedEvent];
   portConflictChanged: [PortConflictChangedEvent];
   waitingChanged: [WaitingChangedEvent];
+  buildErrorChanged: [BuildErrorChangedEvent];
   orphansFound: [OrphansFoundEvent];
   uiLanguageChanged: [UiLanguageChangedEvent];
 }
@@ -799,13 +802,21 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       onUnhealthy: () => this.onReadinessChange(repo, service, 'unhealthy'),
     });
     service.readiness = readiness;
+    const buildErrorWatch = watchBuildErrors({
+      criteria: definition,
+      onChange: (buildError) => this.setBuildError(repo, service, buildError),
+    });
+    service.buildErrorWatch = buildErrorWatch;
     proc.onData((data) => {
       tail.push(data);
       readiness.feed(data);
       this.appendOutput(repo, service, data);
+      // After the output: a client sees the line that set the mark no later than the mark.
+      buildErrorWatch.feed(data);
     });
     proc.exited.then((exitCode) => {
       readiness.dispose();
+      this.endBuildErrors(repo, service);
       this.recorder.forget(runId);
       service.runId = undefined;
       service.readiness = undefined;
@@ -842,6 +853,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
     service.readiness?.dispose();
     service.readiness = undefined;
+    this.endBuildErrors(repo, service);
     this.setStatus(repo, service, 'stopping');
     service.stopping = proc
       .stop(gracefulMs)
@@ -1118,7 +1130,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       ...(repo.branch !== undefined && { branch: repo.branch }),
       ...this.installView(repo),
       services: [...repo.services.values()].map((service) => {
-        const { definition: d, status, lastExit, pending, removed, portConflict } = service;
+        const { definition: d, status, lastExit, pending, removed, portConflict, buildError } = service;
         const waitingFor = this.waitingNames(repo, service);
         return {
           id: d.id,
@@ -1134,6 +1146,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
           ...(removed && { removedFromConfig: true }),
           ...(portConflict !== undefined && { portConflict }),
           ...(waitingFor !== undefined && { waitingFor }),
+          ...(buildError && { buildError: true }),
         };
       }),
     };
@@ -1310,6 +1323,19 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private appendOutput(repo: RepoState, service: ServiceState, data: string): void {
     service.output.append(data);
     this.emit('log', { repoId: repo.id, serviceId: service.definition.id, data });
+  }
+
+  /** The run stops being live (Stop, or its exit): Build Error detection ends and the mark goes. */
+  private endBuildErrors(repo: RepoState, service: ServiceState): void {
+    service.buildErrorWatch?.dispose();
+    service.buildErrorWatch = undefined;
+    this.setBuildError(repo, service, false);
+  }
+
+  private setBuildError(repo: RepoState, service: ServiceState, buildError: boolean): void {
+    if (service.buildError === buildError) return;
+    service.buildError = buildError;
+    this.emit('buildErrorChanged', { repoId: repo.id, serviceId: service.definition.id, buildError });
   }
 
   private setStatus(repo: RepoState, service: ServiceState, status: ServiceStatus): void {

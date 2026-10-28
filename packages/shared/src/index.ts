@@ -49,6 +49,11 @@ export interface ServiceView {
    * Status stays `stopped` meanwhile; stopping the Service cancels the start.
    */
   waitingFor?: string[];
+  /**
+   * Build Error: the Service's output says its last build failed (set only while true). A mark on
+   * top of a live Status, never a Status itself; a new run starts without it.
+   */
+  buildError?: boolean;
 }
 
 /**
@@ -370,6 +375,11 @@ export interface WaitingChangedEvent extends ServiceRef {
   waitingFor?: string[];
 }
 
+/** A Service's Build Error mark was set or removed. */
+export interface BuildErrorChangedEvent extends ServiceRef {
+  buildError: boolean;
+}
+
 /** A Session was opened or finished by itself: its new state. */
 export interface SessionChangedEvent {
   session: SessionView;
@@ -391,6 +401,7 @@ export interface SessionOutputEvent {
 export interface Events {
   portConflictChanged: PortConflictChangedEvent;
   waitingChanged: WaitingChangedEvent;
+  buildErrorChanged: BuildErrorChangedEvent;
   statusChanged: StatusChangedEvent;
   exit: ExitEvent;
   repoChanged: RepoChangedEvent;

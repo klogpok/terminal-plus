@@ -77,6 +77,43 @@ describe('status dots', () => {
   });
 });
 
+describe('Build Error', () => {
+  function dot(serviceId: string): HTMLElement {
+    return serviceRow(serviceId).querySelector<HTMLElement>('.status-dot')!;
+  }
+
+  it('a Snapshot with buildError shows the Build Error dot and tooltip, keeping the live buttons', async () => {
+    await transport.connectWith({
+      repos: [aRepo({ id: 'b1', services: [aService({ id: 'web', name: 'Web', status: 'running', buildError: true })] })],
+    });
+    await stable();
+
+    expect(dot('web').classList).toContain('status-build-error');
+    expect(dot('web').classList).not.toContain('status-crashed');
+    expect(dot('web').title).toBe('The build has errors, see the terminal');
+    expect(dot('web').getAttribute('aria-label')).toBe('The build has errors, see the terminal');
+    const buttons = [...serviceRow('web').querySelectorAll('button')];
+    expect(buttons.find((b) => b.getAttribute('aria-label') === 'Stop Web')!.disabled).toBe(false);
+    expect(buttons.find((b) => b.getAttribute('aria-label') === 'Start Web')!.disabled).toBe(true);
+  });
+
+  it('buildErrorChanged sets and removes it', async () => {
+    await transport.connectWith({ repos: [aRepo({ id: 'b1', services: [aService({ id: 'web', status: 'starting' })] })] });
+    await stable();
+    expect(dot('web').classList).not.toContain('status-build-error');
+
+    transport.emit('buildErrorChanged', { repoId: 'b1', serviceId: 'web', buildError: true });
+    await stable();
+    expect(dot('web').classList).toContain('status-build-error');
+
+    transport.emit('buildErrorChanged', { repoId: 'b1', serviceId: 'web', buildError: false });
+    await stable();
+    expect(dot('web').classList).not.toContain('status-build-error');
+    expect(dot('web').classList).toContain('status-starting');
+    expect(dot('web').getAttribute('aria-label')).toBe('Starting');
+  });
+});
+
 describe('a Service waiting for its dependencies', () => {
   it('says which dependencies it waits for and can be stopped (cancelling the start)', async () => {
     await transport.connectWith({ repos: [aRepo({ id: 'b1', services: [aService({ id: 'api', name: 'API', status: 'stopped' })] })] });

@@ -45,7 +45,8 @@ export class OutputTail {
   }
 }
 
-function toPlainLine(raw: string): string {
+/** One raw pty line as it ends up on screen: ANSI stripped, only what follows the last bare `\r`. */
+export function toPlainLine(raw: string): string {
   const line = stripAnsi(raw.replace(/\r+$/, ''));
   const lastCr = line.lastIndexOf('\r');
   return (lastCr === -1 ? line : line.slice(lastCr + 1)).trimEnd();

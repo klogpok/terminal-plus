@@ -39,6 +39,10 @@ One of: stopped, starting, running, unhealthy, stopping, crashed, exited.
 The Service's process is alive, but Readiness never came within the allotted time.
 _Avoid_: hung, crashed
 
+**Build Error** (RU: Ошибка сборки):
+A mark on a live Service (starting, running or unhealthy): the tool that watches its files reported that the last build failed, or that the app it restarted after a build exited. It is not a Status. It goes away on the next successful build, on Stop and on restart.
+_Avoid_: failing, problems, crashed
+
 **Stop all** (RU: Остановить всё):
 Stopping every Service of one Repo or of all Repos. Sessions are not affected.
 
@@ -138,6 +142,10 @@ _Avoid_: вкладка, консоль
 **unhealthy**:
 Процесс Сервиса жив, но Готовность так и не наступила за отведённое время.
 _Avoid_: завис, упал
+
+**Ошибка сборки (Build Error)**:
+Отметка на живом Сервисе (starting, running или unhealthy): инструмент, который следит за его файлами, сообщил, что последняя сборка не прошла или что приложение, перезапущенное им после сборки, завершилось. Это не Статус. Отметка снимается следующей успешной сборкой, по «Стоп» и при перезапуске.
+_Avoid_: проблемы, упал, crashed
 
 **Остановить всё (Stop all)**:
 Остановка всех Сервисов одного Репо или всех Репо. Сессии при этом не затрагиваются.

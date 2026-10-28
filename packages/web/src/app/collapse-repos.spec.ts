@@ -148,6 +148,24 @@ describe('❗ in a collapsed Repo', () => {
     ]);
   });
 
+  it('names a Service with a Build Error, whose dot shows it too', async () => {
+    await transport.connectWith({ repos: [billing] });
+    await stable();
+    toggle('b1').click();
+    await stable();
+
+    transport.emit('buildErrorChanged', { repoId: 'b1', serviceId: 'api', buildError: true });
+    await stable();
+    expect(attention('b1')!.title).toBe('api: the build has errors');
+    const dot = card('b1').querySelector<HTMLElement>('.collapsed-dots .status-dot')!;
+    expect(dot.classList).toContain('status-build-error');
+    expect(dot.title).toBe('api: The build has errors, see the terminal');
+
+    transport.emit('buildErrorChanged', { repoId: 'b1', serviceId: 'api', buildError: false });
+    await stable();
+    expect(attention('b1')).toBeNull();
+  });
+
   it('does not show while the Repo is expanded', async () => {
     await transport.connectWith({ repos: [{ ...billing, folderMissing: true }] });
     await stable();

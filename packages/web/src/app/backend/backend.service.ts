@@ -453,6 +453,13 @@ export class BackendService {
         );
         break;
       }
+      case 'buildErrorChanged': {
+        const { repoId, serviceId, buildError } = event.payload;
+        this.updateService(repoId, serviceId, ({ buildError: _old, ...service }) =>
+          buildError ? { ...service, buildError } : service,
+        );
+        break;
+      }
       case 'configChanged': {
         const { repo } = event.payload;
         this.reposState.update((repos) => repos.map((r) => (r.id === repo.id ? repo : r)));

@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import type {
   CommandPayload,
   CommandResult,
@@ -6,10 +6,12 @@ import type {
   EventMessage,
   EventType,
   Events,
+  FolderSwitchResult,
   NewService,
   Orphan,
   RepoChangedEvent,
   RepoView,
+  RepoWorktrees,
   ServerMessage,
   ServiceConfig,
   ServiceRef,
@@ -90,6 +92,12 @@ export class BackendService {
   private readonly serviceSetsState = signal<ServiceSetView[]>([]);
   /** The Service Sets of the Server's machine, in creation order. */
   readonly serviceSets = this.serviceSetsState.asReadonly();
+  private readonly branchCheckState = signal<string | undefined>(undefined);
+  /** The branch of the Branch Check in progress (undefined: none). */
+  readonly branchCheck = this.branchCheckState.asReadonly();
+  private readonly switchesState = signal(0);
+  /** Whether a folder switch or Branch Check sent from this tab is still in progress. */
+  readonly switching = computed(() => this.switchesState() > 0);
   private readonly exitState = signal<ExitState>('none');
   /** "Exit DevPanel" progress in this tab. */
   readonly exit = this.exitState.asReadonly();
@@ -227,6 +235,46 @@ export class BackendService {
    */
   startServiceSet(id: string): void {
     this.run('startServiceSet', { id });
+  }
+
+  /** The Worktrees of every Repo, read now; rejects with `UiErrorInfo`. */
+  listWorktrees(): Promise<RepoWorktrees[]> {
+    return this.command('listWorktrees', {});
+  }
+
+  /** Runs a Repo from one of its Worktrees (`null`: its own folder); what did not come back up is shown. */
+  switchRepoFolder(repoId: string, worktreePath: string | null): void {
+    this.runSwitch(this.command('switchRepoFolder', { repoId, worktreePath }));
+  }
+
+  /** Branch Check: every Repo that has the branch runs from it; what did not come back up is shown. */
+  startBranchCheck(branch: string): void {
+    this.runSwitch(this.command('startBranchCheck', { branch }));
+  }
+
+  /** "Back to main": every Repo runs from its own folder again. */
+  endBranchCheck(): void {
+    this.runSwitch(this.command('endBranchCheck', {}));
+  }
+
+  private runSwitch(done: Promise<FolderSwitchResult>): void {
+    this.switchesState.update((n) => n + 1);
+    done
+      .then(
+        ({ notFound, notRunning }) => {
+          if (!notFound.length && !notRunning.length) return;
+          const refs = notFound.concat(notRunning).map((e) => `${e.ref.repoId}/${e.ref.serviceId}`);
+          this.showError({
+            code: 'folderSwitchIncomplete',
+            params: { notFound, notRunning },
+            details: `Not found or not running after the switch: ${refs.join(', ')}`,
+          });
+        },
+        (error: UiErrorInfo) => {
+          if (error.code !== 'portTaken') this.showError(error);
+        },
+      )
+      .finally(() => this.switchesState.update((n) => n - 1));
   }
 
   /** Removes a Service from the Repo's Local Config (the Server stops it first when it runs). */
@@ -368,6 +416,7 @@ export class BackendService {
         this.sessionsState.set(snapshot.sessions);
         this.orphansState.set(snapshot.orphans ?? []);
         this.serviceSetsState.set(snapshot.serviceSets);
+        this.branchCheckState.set(snapshot.branchCheck);
         this.followUiLanguage(snapshot.uiLanguage);
         this.syncedState.set(true);
       },
@@ -489,6 +538,9 @@ export class BackendService {
         break;
       case 'serviceSetStartReported':
         this.showServiceSetStartReport(event.payload);
+        break;
+      case 'branchCheckChanged':
+        this.branchCheckState.set(event.payload.branch);
         break;
     }
   }

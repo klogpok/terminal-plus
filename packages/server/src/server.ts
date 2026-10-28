@@ -34,6 +34,7 @@ export const FORWARDED_EVENTS = [
   'uiLanguageChanged',
   'serviceSetsChanged',
   'serviceSetStartReported',
+  'branchCheckChanged',
 ] as const satisfies readonly (EventType & keyof CoreEvents)[];
 
 // Compile-time check: what `core` emits for a forwarded event fits the `shared` event payload.
@@ -58,6 +59,7 @@ const forwardedEventsMatch: CheckForwarded = {
   uiLanguageChanged: true,
   serviceSetsChanged: true,
   serviceSetStartReported: true,
+  branchCheckChanged: true,
 };
 void forwardedEventsMatch;
 

@@ -5,6 +5,7 @@ import { BackendService } from '../backend/backend.service';
 import { CollapsedRepos } from '../repo-list/collapsed-repos.service';
 import { STRINGS } from '../ui-strings';
 import { TerminalTabs, sessionTabKey } from '../terminal/terminal-tabs.service';
+import { FolderSwitcher } from './folder-switcher';
 
 /** Statuses in which a Service has a live process that removing the Repo would stop. */
 const LIVE: ReadonlySet<ServiceStatus> = new Set(['starting', 'running', 'unhealthy', 'stopping']);
@@ -14,11 +15,11 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
 /**
  * Top of a Repo card: the ⋮⋮ drag handle (of the card's `cdkDrag` in the Repo list), ▾/▸ (and the
  * name) to collapse the card, name, git
- * branch, "Open folder", "Remove" with a confirmation listing what runs, and for a missing folder the "Folder not found" notice with "Choose the new location".
+ * branch (the folder switcher), "Open folder", "Remove" with a confirmation listing what runs, and for a missing folder the "Folder not found" notice with "Choose the new location".
  */
 @Component({
   selector: 'dp-repo-header',
-  imports: [CdkDragHandle],
+  imports: [CdkDragHandle, FolderSwitcher],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="repo-head">
@@ -44,9 +45,6 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
         (click)="toggle()"
       >{{ collapsed() ? '▸' : '▾' }}</button>
       <span class="repo-name" [title]="repo().name" (click)="toggle()">{{ repo().name }}</span>
-      @if (repo().branch; as branch) {
-        <span class="repo-branch" [title]="strings.repos.branchTitle">⎇ {{ branch }}</span>
-      }
       <span class="repo-actions">
         @if (!repo().folderMissing) {
           <button type="button" [title]="strings.repos.openClaudeLabel(repo().name)" [attr.aria-label]="strings.repos.openClaudeLabel(repo().name)" (click)="openSession('claude')">{{ strings.repos.openClaude }}</button>
@@ -61,6 +59,11 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
         >✕</button>
       </span>
     </div>
+    @if (repo().branch || repo().worktree) {
+      <div class="branch-row">
+        <dp-folder-switcher class="folder-switcher" [repo]="repo()" />
+      </div>
+    }
     @if (repo().services.length && !collapsed()) {
       <div class="run-actions">
         <button
@@ -109,7 +112,9 @@ const STARTABLE: ReadonlySet<ServiceStatus> = new Set(['stopped', 'crashed', 'ex
     .repo-toggle { flex: none; width: 12px; border: none; background: none; color: var(--muted); padding: 0; margin: 0 -6px; font-size: 12px; }
     .repo-toggle:not(:disabled):hover { color: var(--fg); }
     .repo-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-    .repo-branch { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    /* Its own line under the name: the header row has no room left for long branch names. */
+    .branch-row { display: flex; min-width: 0; margin: 2px 0 0 14px; }
+    .folder-switcher { min-width: 0; max-width: 100%; }
     .repo-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }
     button { border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 12px; padding: 2px 6px; }
     button:not(:disabled):hover { border-color: var(--accent); }

@@ -6,9 +6,11 @@ import {
   DevPanelError,
   EXIT_TAIL_LINES,
   HOST_STRINGS,
+  type BranchCheckChangedEvent,
   type BuildErrorChangedEvent,
   type ConfigChangedEvent,
   type ExitEvent,
+  type FolderSwitchResult,
   type InstallChangedEvent,
   type InstallOutputEvent,
   type InstallResult,
@@ -21,8 +23,10 @@ import {
   type RepoChangedEvent,
   type ReposReorderedEvent,
   type RepoView,
+  type RepoWorktrees,
   type ServiceConfig,
   type ServiceRef,
+  type ServiceSetStartReportEntry,
   type ServiceSetStartResult,
   type ServiceSetView,
   type ServiceStatus,
@@ -32,6 +36,7 @@ import {
   type UiLanguage,
   type UiLanguageChangedEvent,
   type WaitingChangedEvent,
+  type WorktreeView,
 } from '@devpanel/shared';
 import {
   LOCAL_CONFIG_DIR,
@@ -59,10 +64,11 @@ import { readGitBranch } from './git.js';
 import { OutputTail } from './output-tail.js';
 import { watchReadiness } from './readiness.js';
 import { watchBuildErrors } from './build-errors.js';
-import { Sessions, type SessionEvents } from './sessions.js';
+import { Sessions, type SessionEvents, type SessionRepo } from './sessions.js';
 import { PortConflicts } from './port-conflicts.js';
 import { ServiceSets, type FoundService, type ServiceSetEvents } from './service-sets.js';
 import { ServiceState, type InstallRun, type Launch, type RepoState } from './state.js';
+import { readWorktrees, samePath } from './worktrees.js';
 import {
   DEFAULT_ENVIRONMENT,
   PNPM_LOCK_FILE,
@@ -137,6 +143,7 @@ export interface CoreEvents extends SessionEvents, ServiceSetEvents {
   buildErrorChanged: [BuildErrorChangedEvent];
   orphansFound: [OrphansFoundEvent];
   uiLanguageChanged: [UiLanguageChangedEvent];
+  branchCheckChanged: [BranchCheckChangedEvent];
 }
 
 /** Files in a Repo root whose change triggers a config reload. */
@@ -147,6 +154,17 @@ const CONFIG_RELOAD_DEBOUNCE_MS = 100;
 /** Has a process (possibly stopping); its definition must not change under it. */
 function isLive(service: ServiceState): boolean {
   return service.process !== undefined;
+}
+
+/** Up or on its way up (starting, running, unhealthy, or a start waiting for its dependencies). */
+function isUp(service: ServiceState): boolean {
+  const { status, launch } = service;
+  return status === 'starting' || status === 'running' || status === 'unhealthy' || (launch !== undefined && !launch.abort.signal.aborted);
+}
+
+/** The folder a Repo's Services, install and new Sessions run in: its Worktree, else its own folder. */
+function runFolder(repo: RepoState): string {
+  return repo.worktree?.path ?? repo.path;
 }
 
 function sameDefinition(a: ServiceDefinition, b: ServiceDefinition): boolean {
@@ -214,6 +232,8 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private orphans: { orphan: Orphan; records: PidRecord[] }[] = [];
   /** The stored UI Language, read by `load`. */
   private storedUiLanguage: UiLanguage = 'en';
+  /** The branch of the Branch Check in progress; never stored. */
+  private checkedBranch: string | undefined;
 
   constructor(options: CoreOptions) {
     super();
@@ -298,16 +318,23 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     this.refreshTimer = undefined;
   }
 
-  /** Re-reads folder presence and branch of one Repo; emits `repoChanged` when either changed. */
+  /**
+   * Re-reads folder presence and branch of one Repo, and the branch of its Worktree; emits
+   * `repoChanged` when any of them changed.
+   */
   private async refreshRepo(repo: RepoState): Promise<void> {
     const missing = !(await isFolder(repo.path));
     const branch = missing ? repo.branch : await readGitBranch(repo.path);
-    if (this.repos.get(repo.id) !== repo) return; // removed or relocated meanwhile
-    if (missing === repo.folderMissing && branch === repo.branch) return;
+    const { worktree } = repo;
+    const worktreeBranch = worktree && ((await readGitBranch(worktree.path)) ?? worktree.branch);
+    if (this.repos.get(repo.id) !== repo || repo.worktree !== worktree) return; // changed meanwhile
+    const worktreeMoved = worktree !== undefined && worktreeBranch !== worktree.branch;
+    if (missing === repo.folderMissing && branch === repo.branch && !worktreeMoved) return;
     const cameBack = repo.folderMissing && !missing;
     const wentAway = !repo.folderMissing && missing;
     repo.folderMissing = missing;
     repo.branch = branch;
+    if (worktree && worktreeBranch) repo.worktree = { path: worktree.path, branch: worktreeBranch };
     if (wentAway || cameBack) this.unwatchRepo(repo);
     if (cameBack) {
       // The folder is back (e.g. a drive reconnected): its config may only now be readable, and
@@ -434,11 +461,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     return view;
   }
 
-  /** Opens the Repo folder in Explorer (through the backend, never the browser). */
+  /** Opens the folder the Repo runs from in Explorer (through the backend, never the browser). */
   async openFolder(repoId: string): Promise<void> {
     const repo = this.getRepo(repoId);
-    await this.requireRepoFolder(repo);
-    await this.runShell(() => this.shell.openFolder(repo.path));
+    await this.requireRunFolder(repo);
+    const folder = runFolder(repo);
+    await this.runShell(() => this.shell.openFolder(folder));
   }
 
   /** Opens a Service's configured `url` in the default browser (through the backend). */
@@ -473,6 +501,18 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       this.emit('repoChanged', { repoId: repo.id, repo: this.repoView(repo) });
     }
     throw new DevPanelError('repoFolderMissing', { repoName: repo.name }, `Folder not found: ${repo.path}`);
+  }
+
+  /** `requireRepoFolder`, then throws `worktreeFolderMissing` when the Worktree it runs from is gone. */
+  private async requireRunFolder(repo: RepoState): Promise<void> {
+    await this.requireRepoFolder(repo);
+    const { worktree } = repo;
+    if (!worktree || (await isFolder(worktree.path))) return;
+    throw new DevPanelError(
+      'worktreeFolderMissing',
+      { repoName: repo.name, path: worktree.path },
+      `Worktree folder not found: ${worktree.path}`,
+    );
   }
 
   /** Builds a Repo's state (folder presence, branch, config); the caller starts watching it. */
@@ -529,7 +569,134 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       ...(orphans.length && { orphans }),
       uiLanguage: this.storedUiLanguage,
       serviceSets: this.listServiceSets(),
+      ...(this.checkedBranch !== undefined && { branchCheck: this.checkedBranch }),
     };
+  }
+
+  // --- Worktrees and Branch Check ---------------------------------------------------------------
+
+  /** The Worktrees of every Repo whose folder exists (see `Commands.listWorktrees`). */
+  async listWorktrees(): Promise<RepoWorktrees[]> {
+    const repos = [...this.repos.values()];
+    const paths = repos.map((r) => r.path);
+    const listed = repos.filter((r) => !r.folderMissing);
+    const found = await Promise.all(listed.map((r) => readWorktrees(r.path, paths)));
+    return listed.map((repo, i) => ({ repoId: repo.id, ...found[i]! }));
+  }
+
+  /**
+   * Runs the Repo from one of its Worktrees, or from its own folder (`null`), restarting what ran
+   * (see `Commands.switchRepoFolder`). Ends a Branch Check in progress.
+   */
+  async switchRepoFolder(repoId: string, worktreePath: string | null): Promise<FolderSwitchResult> {
+    const repo = this.getRepo(repoId);
+    let target: WorktreeView | undefined;
+    if (worktreePath !== null) {
+      const { worktrees } = await readWorktrees(repo.path, [...this.repos.values()].map((r) => r.path));
+      target = worktrees.find((w) => samePath(w.path, worktreePath));
+      if (!target) {
+        throw new DevPanelError(
+          'worktreeNotFound',
+          { repoName: repo.name, path: worktreePath },
+          `${worktreePath} is not a Worktree of Repo "${repo.name}" on a branch`,
+        );
+      }
+      this.requireStillListed(repo);
+    }
+    if (!samePath(runFolder(repo), target?.path ?? repo.path)) this.setBranchCheck(undefined);
+    return this.switchFolder(repo, target);
+  }
+
+  /**
+   * Branch Check: Repos that have `branch` switch to it, Repos on a Worktree of another branch go
+   * back to their own folders (see `Commands.startBranchCheck`).
+   */
+  async startBranchCheck(branch: string): Promise<FolderSwitchResult> {
+    const moves = new Map<RepoState, WorktreeView | undefined>();
+    for (const entry of await this.listWorktrees()) {
+      const repo = this.repos.get(entry.repoId);
+      if (!repo) continue;
+      const worktree = entry.worktrees.find((w) => w.branch === branch);
+      if (worktree || entry.branch === branch) moves.set(repo, worktree);
+    }
+    if (moves.size === 0) {
+      throw new DevPanelError('branchNotFound', { branch }, `No Repo has a Worktree on branch "${branch}"`);
+    }
+    for (const repo of this.repos.values()) if (repo.worktree && !moves.has(repo)) moves.set(repo, undefined);
+    this.setBranchCheck(branch);
+    return this.switchFolders(moves);
+  }
+
+  /** Every Repo running from a Worktree goes back to its own folder; the Branch Check ends. */
+  async endBranchCheck(): Promise<FolderSwitchResult> {
+    this.setBranchCheck(undefined);
+    const moves = new Map<RepoState, WorktreeView | undefined>();
+    for (const repo of this.repos.values()) if (repo.worktree) moves.set(repo, undefined);
+    return this.switchFolders(moves);
+  }
+
+  /** Switches several Repos in parallel; one failing does not hold back the others. */
+  private async switchFolders(moves: Map<RepoState, WorktreeView | undefined>): Promise<FolderSwitchResult> {
+    const results = await Promise.allSettled([...moves].map(([repo, target]) => this.switchFolder(repo, target)));
+    const failure = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failure) throw failure.reason;
+    const done = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+    return {
+      notFound: done.flatMap((r) => r.notFound),
+      notRunning: done.flatMap((r) => r.notRunning),
+    };
+  }
+
+  /**
+   * Stops the Repo's Services, makes `target` (`undefined`: its own folder) the folder it runs from,
+   * reloads the config from there and starts again the Services that were up (all, when none was).
+   */
+  private async switchFolder(repo: RepoState, target: WorktreeView | undefined): Promise<FolderSwitchResult> {
+    if (samePath(runFolder(repo), target?.path ?? repo.path)) return { notFound: [], notRunning: [] };
+    if (repo.install?.process) {
+      throw new DevPanelError('installRunning', { repoName: repo.name }, `Repo "${repo.name}" is installing dependencies`);
+    }
+    const wereUp = [...repo.services.values()].filter((s) => !s.removed && isUp(s));
+    const report = (serviceId: string, serviceName: string): ServiceSetStartReportEntry => ({
+      ref: { repoId: repo.id, serviceId },
+      repoName: repo.name,
+      serviceName,
+    });
+    const before = new Map(wereUp.map((s) => [s.definition.id, s.name]));
+    await this.stopAll(repo.id);
+    this.requireStillListed(repo);
+
+    this.unwatchRepo(repo);
+    repo.worktree = target;
+    repo.install = undefined; // a finished install was for the other folder
+    this.watchRepo(repo);
+    await this.reloadNow(repo);
+
+    const available = [...repo.services.values()].filter((s) => !s.removed);
+    const toStart = before.size ? available.filter((s) => before.has(s.definition.id)) : available;
+    const notFound = [...before].filter(([id]) => !available.some((s) => s.definition.id === id));
+    const running = await Promise.all(toStart.map((s) => this.startAndSettle(repo, s)));
+    return {
+      notFound: notFound.map(([id, name]) => report(id, name)),
+      notRunning: toStart.filter((_, i) => !running[i]).map((s) => report(s.definition.id, s.name)),
+    };
+  }
+
+  /** Starts a Service and waits until it settles; true when it reached `running`. Never rejects. */
+  private async startAndSettle(repo: RepoState, service: ServiceState): Promise<boolean> {
+    try {
+      await this.startService(repo.id, service.definition.id);
+      return (await this.settledStatus(service, new AbortController().signal)) === 'running';
+    } catch {
+      // A refused start: the Service shows why on its own (Status, port-conflict choice).
+      return false;
+    }
+  }
+
+  private setBranchCheck(branch: string | undefined): void {
+    if (branch === this.checkedBranch) return;
+    this.checkedBranch = branch;
+    this.emit('branchCheckChanged', branch === undefined ? {} : { branch });
   }
 
   /** Every Service Set, in creation order (without building a snapshot). */
@@ -652,7 +819,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const service = this.getService(repo, serviceId);
     if (service.process) return;
     if (service.launch && !service.launch.abort.signal.aborted) return service.launch.done;
-    await this.requireRepoFolder(repo);
+    await this.requireRunFolder(repo);
     this.requireStillListed(repo);
     if (service.process) return;
     if (service.launch && !service.launch.abort.signal.aborted) return service.launch.done;
@@ -770,7 +937,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   private spawn(repo: RepoState, service: ServiceState): void {
     const serviceId = service.definition.id;
     const { definition } = service;
-    const cwd = path.resolve(repo.path, definition.cwd ?? '.');
+    const cwd = path.resolve(runFolder(repo), definition.cwd ?? '.');
     if (service.output.text()) this.appendOutput(repo, service, restartSeparator(service.output.text(), this.storedUiLanguage));
     service.lastExit = undefined;
     this.setStatus(repo, service, 'starting');
@@ -906,14 +1073,15 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   }
 
   /**
-   * Runs the install command (`pnpm install`) in the folder of a pnpm Repo, in a pty, streaming
+   * Runs the install command (`pnpm install`) in the folder a pnpm Repo runs from, in a pty, streaming
    * `installOutput` and announcing `installChanged`. Resolves when it has finished; a call while an
    * install of the same Repo runs joins that install.
    */
   async installDependencies(repoId: string): Promise<InstallResult> {
     const repo = this.getRepo(repoId);
     if (repo.install?.process) return repo.install.done;
-    if (!isPnpmRepo(repo.path)) {
+    const folder = runFolder(repo);
+    if (!isPnpmRepo(folder)) {
       throw new DevPanelError(
         'notPnpmRepo',
         { repoName: repo.name },
@@ -926,12 +1094,12 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
     const command = this.environment.installCommand;
     let proc: ServiceProcess;
     try {
-      proc = spawnService({ command, cwd: repo.path });
+      proc = spawnService({ command, cwd: folder });
     } catch (err) {
       throw new DevPanelError(
         'spawnFailed',
         { repoName: repo.name, serviceName: command },
-        `Failed to spawn "${command}" in ${repo.path}: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to spawn "${command}" in ${folder}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
     proc.onData((data) => this.emit('installOutput', { repoId: repo.id, data }));
@@ -951,23 +1119,31 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   // --- Sessions -------------------------------------------------------------------------------
 
-  /** Opens a shell Session in the Repo folder. */
+  /** Opens a shell Session in the folder the Repo runs from. */
   async openTerminal(repoId: string): Promise<SessionView> {
     const repo = this.getRepo(repoId);
-    await this.requireRepoFolder(repo);
+    await this.requireRunFolder(repo);
     this.requireStillListed(repo);
-    return this.sessions.open(repo, 'shell', this.environment.shellCommand);
+    return this.sessions.open(this.sessionRepo(repo), 'shell', this.environment.shellCommand);
   }
 
-  /** Opens a Claude Code Session (`claude` through `cmd.exe`) in the Repo folder, after `where claude`. */
+  /**
+   * Opens a Claude Code Session (`claude` through `cmd.exe`) in the folder the Repo runs from, after
+   * `where claude`.
+   */
   async openClaude(repoId: string): Promise<SessionView> {
     const repo = this.getRepo(repoId);
-    await this.requireRepoFolder(repo);
+    await this.requireRunFolder(repo);
     if (!(await this.environment.isClaudeAvailable())) {
       throw new DevPanelError('claudeMissing', {}, '"where claude" found nothing on PATH');
     }
     this.requireStillListed(repo);
-    return this.sessions.open(repo, 'claude', this.environment.claudeCommand);
+    return this.sessions.open(this.sessionRepo(repo), 'claude', this.environment.claudeCommand);
+  }
+
+  /** A new Session opens where the Repo runs from; open ones stay where they are. */
+  private sessionRepo(repo: RepoState): SessionRepo {
+    return { id: repo.id, name: repo.name, path: runFolder(repo) };
   }
 
   /**
@@ -1022,7 +1198,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   private installState(repo: RepoState): InstallState | undefined {
     if (repo.install?.process) return { state: 'running' };
-    if (!needsInstall(repo.path)) return undefined;
+    if (!needsInstall(runFolder(repo))) return undefined;
     const exitCode = repo.install?.exitCode;
     return exitCode !== undefined && exitCode !== 0 ? { state: 'failed', exitCode } : { state: 'needed' };
   }
@@ -1038,7 +1214,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   /** In a pnpm Repo, fails with a coded error (shown with a hint) when pnpm is not on PATH. */
   private async ensurePnpm(repo: RepoState): Promise<void> {
-    if (!isPnpmRepo(repo.path)) return;
+    if (!isPnpmRepo(runFolder(repo))) return;
     if (await this.environment.isPnpmAvailable()) return;
     throw new DevPanelError(
       'pnpmMissing',
@@ -1096,7 +1272,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   /** The Repo's Local Config as stored (empty when there is none yet), if the user may edit it. */
   private async editableLocalConfig(repo: RepoState): Promise<RepoConfig> {
-    const repoResult = await readRepoConfig(repo.path);
+    const repoResult = await readRepoConfig(runFolder(repo));
     if (!repoResult.ok || repoResult.config !== undefined) {
       throw new DevPanelError(
         'repoConfigInUse',
@@ -1128,6 +1304,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       ...(repo.unusedLocalConfig && { unusedLocalConfig: true }),
       ...(repo.folderMissing && { folderMissing: true }),
       ...(repo.branch !== undefined && { branch: repo.branch }),
+      ...(repo.worktree !== undefined && { worktree: { ...repo.worktree } }),
       ...this.installView(repo),
       services: [...repo.services.values()].map((service) => {
         const { definition: d, status, lastExit, pending, removed, portConflict, buildError } = service;
@@ -1153,15 +1330,16 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
   }
 
   /**
-   * Re-reads the Repo's config. A Repo Config takes precedence; without one the Local Config is
-   * used; the two are never merged. An invalid file only sets `configError`: the last valid
-   * Services stay active.
+   * Re-reads the Repo's config. A Repo Config (in the folder the Repo runs from) takes precedence;
+   * without one the Local Config (always the Repo's own) is used; the two are never merged. An
+   * invalid file only sets `configError`: the last valid Services stay active.
    */
   private async reloadConfig(repo: RepoState): Promise<void> {
+    const folder = runFolder(repo);
     // A missing folder (deleted, drive disconnected) keeps the last known config: the Repo stays
     // listed as missing with its Services until it comes back or is relocated.
-    if (!(await isFolder(repo.path))) return;
-    const repoResult = await readRepoConfig(repo.path);
+    if (!(await isFolder(folder))) return;
+    const repoResult = await readRepoConfig(folder);
     const localResult = await readLocalConfig(this.appDataDir, repo.path);
     const exists = (r: ConfigResult) => !r.ok || r.config !== undefined;
 
@@ -1176,7 +1354,7 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
       repo.configSource = 'none';
     }
     repo.unusedLocalConfig = repo.configSource === 'repo' && exists(localResult);
-    repo.suggestions = repo.configSource === 'repo' ? undefined : await detectServices(repo.path);
+    repo.suggestions = repo.configSource === 'repo' ? undefined : await detectServices(folder);
 
     if (result && !result.ok) {
       repo.configError = result.error;
@@ -1251,10 +1429,10 @@ export class DevPanelCore extends EventEmitter<CoreEvents> {
 
   private localConfigWatcher?: FSWatcher;
 
-  /** Watches the Repo folder (top level only) for changes of its config files. */
+  /** Watches the folder the Repo runs from (top level only) for changes of its config files. */
   private watchRepo(repo: RepoState): void {
     try {
-      repo.watcher = watch(repo.path, { persistent: false }, (_event, filename) => {
+      repo.watcher = watch(runFolder(repo), { persistent: false }, (_event, filename) => {
         if (filename === null || WATCHED_REPO_FILES.has(path.basename(filename))) this.scheduleReload(repo);
       });
       repo.watcher.on('error', () => undefined);

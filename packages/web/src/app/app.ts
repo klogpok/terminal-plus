@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { ServiceStatus } from '@devpanel/shared';
 import { BackendService } from './backend/backend.service';
+import { BranchesMenu } from './branches/branches-menu';
 import { ErrorMessage } from './error-message/error-message';
 import { RepoList } from './repo-list/repo-list';
 import { ServiceSetsMenu } from './service-sets/service-sets-menu';
@@ -20,7 +21,7 @@ const LEFT_WIDTH_STEP = 16;
 
 @Component({
   selector: 'dp-root',
-  imports: [RepoList, ErrorMessage, ServiceSetsMenu, Settings, TerminalTabStrip],
+  imports: [RepoList, ErrorMessage, ServiceSetsMenu, BranchesMenu, Settings, TerminalTabStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.css',

@@ -12,6 +12,11 @@ export interface ClientErrorParams {
     notFound: ServiceSetStartReportEntry[];
     notRunning: ServiceSetStartReportEntry[];
   };
+  /** A folder switch or Branch Check left Services not found or not running (its result). */
+  folderSwitchIncomplete: {
+    notFound: ServiceSetStartReportEntry[];
+    notRunning: ServiceSetStartReportEntry[];
+  };
   /** The connection to the Server dropped while a command was in flight, or was never open. */
   connectionLost: Record<string, never>;
   /** The Server's UI Language changed, but this tab cannot cache it, so it cannot reload in it. */

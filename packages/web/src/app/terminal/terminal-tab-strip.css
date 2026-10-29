@@ -1,6 +1,7 @@
 :host { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-/* The bottom line is an inset shadow, so the active tab can cover it and join the panel below. */
-.strip { display: flex; gap: 2px; overflow-x: auto; box-shadow: inset 0 -1px 0 var(--border); flex: none; }
+/* Each row of tabs has its own bottom line, a stripe repeated every row (a 30px tab, its 1px top
+   border, the 2px gap), so the active tab covers it and joins the panel below in any row. */
+.strip { display: flex; flex-wrap: wrap; gap: 2px; background: repeating-linear-gradient(transparent 0 30px, var(--border) 30px 31px, transparent 31px 33px); flex: none; }
 .tab-wrap { display: inline-flex; align-items: center; flex: none; max-width: 240px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; color: var(--muted); }
 .tab-wrap:hover { background: color-mix(in srgb, var(--border) 45%, transparent); color: var(--fg); }
 .tab-wrap.active { background: var(--bg); border-color: var(--border); color: var(--fg); }

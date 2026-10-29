@@ -99,6 +99,50 @@ describe('Branches panel', () => {
     ]);
   });
 
+  it('puts the branches a Repo runs on first and marks those Repos', async () => {
+    const onY = { ...client, worktree: { path: 'C:\\wt\\client\\y', branch: 'feat/y' } };
+    await transport.connectWith({ repos: [onY, server] });
+    await fixture.whenStable();
+    await openPanel();
+
+    const rows = [...panel()!.querySelectorAll('[data-branch]')].map((row) => [
+      row.getAttribute('data-branch'),
+      [...row.querySelectorAll('.chip.here')].map((chip) => text(chip)),
+    ]);
+    expect(rows).toEqual([
+      ['feat/y', ['client']],
+      ['feat/x', []],
+    ]);
+  });
+
+  it('filters the rows by branch or Repo, and Enter checks the first one left', async () => {
+    await transport.connectWith({ repos: [client, backend, server] });
+    await fixture.whenStable();
+    await openPanel();
+    const filter = panel()!.querySelector<HTMLInputElement>('input[type=search]')!;
+    const shown = () => [...panel()!.querySelectorAll('[data-branch]')].map((row) => row.getAttribute('data-branch'));
+    const type = async (value: string) => {
+      filter.value = value;
+      filter.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    };
+
+    await type('Y');
+    expect(shown()).toEqual(['feat/y']);
+    await type('backend');
+    expect(shown()).toEqual(['feat/x']);
+    await type('nope');
+    expect(shown()).toEqual([]);
+    expect(text(panel())).toContain('No branch matches "nope"');
+
+    await type('y');
+    filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+
+    expect(transport.lastCommand('startBranchCheck').payload).toEqual({ branch: 'feat/y' });
+    expect(panel()).toBeNull();
+  });
+
   it('says so when no Repo has a Worktree', async () => {
     await transport.connectWith({ repos: [server] });
     await fixture.whenStable();

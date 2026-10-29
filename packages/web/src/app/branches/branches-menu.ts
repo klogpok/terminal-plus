@@ -1,25 +1,37 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import type { RepoView, RepoWorktrees } from '@devpanel/shared';
 import { BackendService } from '../backend/backend.service';
 import { repoColor } from '../repo-color';
 import { STRINGS } from '../ui-strings';
 import type { UiErrorInfo } from '../ui-errors';
 
-/** A branch of the Branches panel and the Repos that have it. */
+/** A branch of the Branches panel and the Repos that have it; `here` = the Repo runs on it now. */
 interface BranchRow {
   branch: string;
-  repos: { repoId: string; label: string; color: string }[];
+  repos: { repoId: string; label: string; color: string; here: boolean }[];
 }
 
 /**
  * One row per branch that has a Worktree in some Repo, with those Repos and, after them, the Repos
- * whose own folder is on it. The checked branch first, the rest by name.
+ * whose own folder is on it. The checked branch first, then the branches a Repo runs on, the rest
+ * by name.
  */
 function branchRows(found: RepoWorktrees[], repos: RepoView[], checked: string | undefined): BranchRow[] {
   const rows = new Map<string, BranchRow>();
   const join = (branch: string, repo: RepoView, label: string) => {
     const row = rows.get(branch);
-    if (row && !row.repos.some((r) => r.repoId === repo.id)) row.repos.push({ repoId: repo.id, label, color: repoColor(repo) });
+    const here = (repo.worktree?.branch ?? repo.branch) === branch;
+    if (row && !row.repos.some((r) => r.repoId === repo.id)) row.repos.push({ repoId: repo.id, label, color: repoColor(repo), here });
   };
   for (const entry of found) {
     const repo = repos.find((r) => r.id === entry.repoId);
@@ -33,7 +45,7 @@ function branchRows(found: RepoWorktrees[], repos: RepoView[], checked: string |
     const repo = repos.find((r) => r.id === entry.repoId);
     if (repo && entry.branch) join(entry.branch, repo, STRINGS.branches.ownFolder(repo.name));
   }
-  const rank = (row: BranchRow) => (row.branch === checked ? 0 : 1);
+  const rank = (row: BranchRow) => (row.branch === checked ? 0 : row.repos.some((r) => r.here) ? 1 : 2);
   return [...rows.values()].sort((a, b) => rank(a) - rank(b) || a.branch.localeCompare(b.branch));
 }
 
@@ -75,12 +87,29 @@ function branchRows(found: RepoWorktrees[], repos: RepoView[], checked: string |
       <span class="switching" role="status">{{ strings.branches.switching }}</span>
     }
     @if (open()) {
-      <div #panel class="branches-panel" role="dialog" [attr.aria-label]="strings.branches.menu" (keydown.escape)="close(true)">
+      <div
+        #panel
+        class="branches-panel"
+        role="dialog"
+        [attr.aria-label]="strings.branches.menu"
+        (keydown.escape)="close(true)"
+        (keydown.arrowdown)="$event.preventDefault(); moveFocus(1)"
+        (keydown.arrowup)="$event.preventDefault(); moveFocus(-1)"
+      >
         <div class="head">
           <strong>{{ strings.branches.menu }}</strong>
-          <span class="muted">{{ strings.branches.hint }}</span>
+          <input
+            #filter
+            type="search"
+            class="filter"
+            [placeholder]="strings.branches.filter"
+            [attr.aria-label]="strings.branches.filter"
+            [value]="query()"
+            (input)="query.set(filter.value)"
+            (keydown.enter)="checkFirst()"
+          />
         </div>
-        @if (rows(); as rows) {
+        @if (visible(); as rows) {
           <div class="rows">
             @for (row of rows; track row.branch) {
               <div class="row" [class.active]="row.branch === backend.branchCheck()" [attr.data-branch]="row.branch">
@@ -88,7 +117,12 @@ function branchRows(found: RepoWorktrees[], repos: RepoView[], checked: string |
                   <span class="branch" [title]="row.branch">⎇ {{ row.branch }}</span>
                   <span class="chips">
                     @for (repo of row.repos; track repo.repoId) {
-                      <span class="chip"><span class="dot" aria-hidden="true" [style.background]="repo.color"></span>{{ repo.label }}</span>
+                      <span
+                        class="chip"
+                        [class.here]="repo.here"
+                        [style.border-color]="repo.here ? repo.color : null"
+                        [attr.title]="repo.here ? strings.branches.hereTitle : null"
+                      ><span class="dot" aria-hidden="true" [style.background]="repo.color"></span>{{ repo.label }}</span>
                     }
                   </span>
                 </div>
@@ -111,7 +145,7 @@ function branchRows(found: RepoWorktrees[], repos: RepoView[], checked: string |
                 }
               </div>
             } @empty {
-              <div class="none">{{ strings.branches.none }}</div>
+              <div class="none">{{ query().trim() ? strings.branches.noMatch(query().trim()) : strings.branches.none }}</div>
             }
           </div>
           <div class="foot muted">{{ strings.branches.footer }}</div>
@@ -133,7 +167,9 @@ function branchRows(found: RepoWorktrees[], repos: RepoView[], checked: string |
     .checking .back { flex: none; height: 20px; padding: 0 8px; border-radius: 10px; border-color: var(--accent); color: var(--accent); background: var(--panel); }
     .switching { color: var(--muted); font-size: 12px; white-space: nowrap; }
     .branches-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; width: 420px; max-width: calc(100vw - 32px); border: 1px solid var(--border); border-radius: 6px; background: var(--panel); box-shadow: 0 4px 16px rgb(0 0 0 / 0.2); }
-    .head { display: flex; flex-direction: column; padding: 10px 12px 8px; border-bottom: 1px solid var(--border); }
+    .head { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 8px; border-bottom: 1px solid var(--border); }
+    .filter { height: 26px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 12px; }
+    .filter:focus { outline: none; border-color: var(--accent); }
     .rows { max-height: min(420px, 60vh); overflow: auto; }
     .row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
     .row.active { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent); }
@@ -141,6 +177,7 @@ function branchRows(found: RepoWorktrees[], repos: RepoView[], checked: string |
     .info .branch { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .chips { display: flex; flex-wrap: wrap; gap: 4px; }
     .chip { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: 1px solid var(--border); border-radius: 9px; font-size: 11px; color: var(--fg); }
+    .chip.here { font-weight: 600; }
     .dot { width: 7px; height: 7px; border-radius: 50%; }
     .check, .back { flex: none; height: 26px; padding: 0 12px; }
     .check { border-color: var(--accent); color: var(--accent); font-weight: 600; }
@@ -164,6 +201,14 @@ export class BranchesMenu {
   protected readonly open = signal(false);
   /** The rows read when the panel opened; undefined while reading. */
   protected readonly rows = signal<BranchRow[] | undefined>(undefined);
+  /** The filter typed in the panel: rows whose branch or a Repo contains it, ignoring case. */
+  protected readonly query = signal('');
+  protected readonly visible = computed(() => {
+    const rows = this.rows();
+    const query = this.query().trim().toLowerCase();
+    if (!rows || !query) return rows;
+    return rows.filter((row) => row.branch.toLowerCase().includes(query) || row.repos.some((r) => r.label.toLowerCase().includes(query)));
+  });
 
   protected toggle(): void {
     if (this.open()) {
@@ -171,15 +216,16 @@ export class BranchesMenu {
       return;
     }
     this.rows.set(undefined);
+    this.query.set('');
     this.open.set(true);
+    // The panel renders on the next change detection; focus the filter then.
+    afterNextRender(() => this.panel()?.nativeElement.querySelector<HTMLElement>('.filter')?.focus(), {
+      injector: this.injector,
+    });
     this.backend.listWorktrees().then(
       (found) => {
         if (!this.open()) return;
         this.rows.set(branchRows(found, this.backend.repos(), this.backend.branchCheck()));
-        // The rows render on the next change detection; focus the first button then.
-        afterNextRender(() => this.panel()?.nativeElement.querySelector<HTMLElement>('button')?.focus(), {
-          injector: this.injector,
-        });
       },
       (error: UiErrorInfo) => {
         this.close(false);
@@ -196,6 +242,19 @@ export class BranchesMenu {
   protected check(branch: string): void {
     this.close(true);
     this.backend.startBranchCheck(branch);
+  }
+
+  /** Enter in the filter: Check the first row left, other than the branch already checked. */
+  protected checkFirst(): void {
+    const row = this.visible()?.find((r) => r.branch !== this.backend.branchCheck());
+    if (row && !this.backend.switching()) this.check(row.branch);
+  }
+
+  protected moveFocus(step: number): void {
+    const items = [...(this.panel()?.nativeElement.querySelectorAll<HTMLElement>('.filter, .rows button:not(:disabled)') ?? [])];
+    if (!items.length) return;
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    items[(current + step + items.length) % items.length]!.focus();
   }
 
   protected backToMain(): void {

@@ -240,9 +240,12 @@ export const RU_STRINGS: UiStrings = {
   /** Branch Check: the "Branches" panel in the header and the check in progress. */
   branches: {
     menu: 'Ветки',
-    hint: 'Worktree ваших репо по веткам',
+    filter: 'Фильтр по ветке или репо',
     loading: 'Ищем Worktree…',
     none: 'Worktree не найдены. Когда у репо из Workspace появится git worktree на ветке, он будет здесь.',
+    noMatch: (query: string) => `Нет веток по запросу «${query}»`,
+    /** Title of the chip of a Repo that runs on the row's branch. */
+    hereTitle: 'Сейчас работает на этой ветке',
     check: 'Проверить',
     /** Accessible name of a row's Check button, e.g. "Проверить ветку feat/x". */
     checkLabel: (branch: string) => `Проверить ветку ${branch}`,

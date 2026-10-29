@@ -4,8 +4,7 @@
     role="tablist"
     [attr.aria-label]="strings.terminal.tabsLabel"
     cdkDropList
-    cdkDropListOrientation="horizontal"
-    cdkDropListLockAxis="x"
+    cdkDropListOrientation="mixed"
     (cdkDropListDropped)="drop($event)"
   >
     @for (tab of openTabs(); track tab.key) {

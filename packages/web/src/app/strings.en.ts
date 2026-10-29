@@ -243,9 +243,12 @@ export const EN_STRINGS = {
   /** Branch Check: the "Branches" panel in the header and the check in progress. */
   branches: {
     menu: 'Branches',
-    hint: 'Worktrees of your Repos, grouped by branch',
+    filter: 'Filter by branch or Repo',
     loading: 'Looking for Worktrees…',
     none: 'No Worktrees found. When a Repo of your Workspace gets a git worktree on a branch, it shows up here.',
+    noMatch: (query: string) => `No branch matches "${query}"`,
+    /** Title of the chip of a Repo that runs on the row's branch. */
+    hereTitle: 'Runs on this branch now',
     check: 'Check',
     /** Accessible name of a row's Check button, e.g. "Check branch feat/x". */
     checkLabel: (branch: string) => `Check branch ${branch}`,

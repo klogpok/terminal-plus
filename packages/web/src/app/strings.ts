@@ -87,6 +87,8 @@ export const RU_STRINGS: UiStrings = {
     switcherHint: 'Работающие сервисы перезапустятся в выбранной папке.',
     switcherLoading: 'Ищем Worktree…',
     switcherNone: 'У этого репо нет Worktree на ветках.',
+    switcherFilter: 'Фильтр по ветке или папке',
+    switcherNoMatch: (query: string) => `Нет папок по запросу «${query}»`,
     openFolder: 'Открыть папку',
     remove: 'Удалить',
     /** Accessible name of the Repo remove button, e.g. "Удалить репо Billing". */

@@ -87,6 +87,8 @@ export const EN_STRINGS = {
     switcherHint: 'Running Services restart in the chosen folder.',
     switcherLoading: 'Looking for Worktrees…',
     switcherNone: 'This Repo has no Worktrees on a branch.',
+    switcherFilter: 'Filter by branch or folder',
+    switcherNoMatch: (query: string) => `No folder matches "${query}"`,
     openFolder: 'Open folder',
     remove: 'Remove',
     /** Accessible name of the Repo remove button, e.g. "Remove Repo Billing". */

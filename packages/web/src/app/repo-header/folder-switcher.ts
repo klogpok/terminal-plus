@@ -62,24 +62,38 @@ const samePath = (a: string | undefined, b: string) => a?.toLowerCase() === b.to
         (keydown.arrowup)="$event.preventDefault(); moveFocus(-1)"
       >
         <div class="caption">{{ strings.repos.runFrom(repo().name) }}</div>
-        @if (options(); as options) {
-          @for (option of options; track option.path) {
-            <button
-              type="button"
-              role="menuitemradio"
-              [attr.aria-checked]="option.current"
-              [attr.data-folder]="option.path"
-              [disabled]="backend.switching()"
-              (click)="choose(option)"
-            >
-              <span class="mark" aria-hidden="true">{{ option.current ? '✓' : '' }}</span>
-              <span class="text">
-                <span class="title">{{ option.title }}</span>
-                <span class="path">{{ option.path }}</span>
-              </span>
-            </button>
-          }
-          @if (options.length === 1) {
+        <input
+          #filter
+          type="search"
+          class="filter"
+          [placeholder]="strings.repos.switcherFilter"
+          [attr.aria-label]="strings.repos.switcherFilter"
+          [value]="query()"
+          (input)="query.set(filter.value)"
+          (keydown.enter)="chooseFirst()"
+        />
+        @if (visible(); as options) {
+          <div class="options">
+            @for (option of options; track option.path) {
+              <button
+                type="button"
+                role="menuitemradio"
+                [attr.aria-checked]="option.current"
+                [attr.data-folder]="option.path"
+                [disabled]="backend.switching()"
+                (click)="choose(option)"
+              >
+                <span class="mark" aria-hidden="true">{{ option.current ? '✓' : '' }}</span>
+                <span class="text">
+                  <span class="title">{{ option.title }}</span>
+                  <span class="path">{{ option.path }}</span>
+                </span>
+              </button>
+            } @empty {
+              <div class="none">{{ strings.repos.switcherNoMatch(query().trim()) }}</div>
+            }
+          </div>
+          @if (!query().trim() && options.length === 1) {
             <div class="none">{{ strings.repos.switcherNone }}</div>
           }
         } @else {
@@ -98,6 +112,9 @@ const samePath = (a: string | undefined, b: string) => a?.toLowerCase() === b.to
     .switcher { position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; display: flex; flex-direction: column; width: 280px; max-width: calc(100vw - 32px); padding: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); box-shadow: 0 4px 16px rgb(0 0 0 / 0.2); }
     .caption, .hint, .none { padding: 6px 8px; color: var(--muted); font-size: 12px; }
     .hint { border-top: 1px solid var(--border); margin-top: 4px; }
+    .filter { flex: none; margin: 0 4px 4px; height: 26px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 12px; }
+    .filter:focus { outline: none; border-color: var(--accent); }
+    .options { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; max-height: 420px; overflow: auto; }
     .switcher button { display: flex; align-items: flex-start; gap: 6px; border: 0; border-radius: 4px; background: transparent; color: var(--fg); cursor: pointer; text-align: left; padding: 6px 8px; }
     .switcher button:not(:disabled):hover, .switcher button:focus-visible { background: var(--bg); outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
     .switcher button:disabled { opacity: 0.5; cursor: default; }
@@ -119,6 +136,14 @@ export class FolderSwitcher {
   protected readonly open = signal(false);
   /** The folders read when the switcher opened; undefined while reading. */
   protected readonly options = signal<FolderOption[] | undefined>(undefined);
+  /** The filter typed in the switcher: folders whose title or path contains it, ignoring case. */
+  protected readonly query = signal('');
+  protected readonly visible = computed(() => {
+    const options = this.options();
+    const query = this.query().trim().toLowerCase();
+    if (!options || !query) return options;
+    return options.filter((o) => o.title.toLowerCase().includes(query) || o.path.toLowerCase().includes(query));
+  });
   /** The branch the Repo runs on: its Worktree's, else its folder's. */
   protected readonly branch = computed(() => this.repo().worktree?.branch ?? this.repo().branch);
 
@@ -128,7 +153,20 @@ export class FolderSwitcher {
       return;
     }
     this.options.set(undefined);
+    this.query.set('');
     this.open.set(true);
+    // The switcher renders on the next change detection; focus the filter then, and keep the
+    // switcher above the window's bottom edge (its list scrolls in what is left).
+    afterNextRender(
+      () => {
+        const menu = this.menu()?.nativeElement;
+        if (!menu) return;
+        // 16px: the switcher's padding and border (max-height bounds its content box) and an 8px gap.
+        menu.style.maxHeight = `${window.innerHeight - menu.getBoundingClientRect().top - 16}px`;
+        menu.querySelector<HTMLElement>('.filter')?.focus();
+      },
+      { injector: this.injector },
+    );
     this.backend.listWorktrees().then(
       (found) => {
         if (!this.open()) return;
@@ -143,7 +181,6 @@ export class FolderSwitcher {
             current: samePath(repo.worktree?.path, w.path),
           })),
         ]);
-        afterNextRender(() => this.items()[0]?.focus(), { injector: this.injector });
       },
       (error: UiErrorInfo) => {
         this.close(false);
@@ -162,8 +199,14 @@ export class FolderSwitcher {
     if (!option.current) this.backend.switchRepoFolder(this.repo().id, option.worktreePath);
   }
 
+  /** Enter in the filter: choose the first folder left, other than the one it runs from. */
+  protected chooseFirst(): void {
+    const option = this.visible()?.find((o) => !o.current);
+    if (option && !this.backend.switching()) this.choose(option);
+  }
+
   protected moveFocus(step: number): void {
-    const items = this.items();
+    const items = [...(this.menu()?.nativeElement.querySelectorAll<HTMLElement>('.filter, [role=menuitemradio]:not(:disabled)') ?? [])];
     if (!items.length) return;
     const current = items.indexOf(document.activeElement as HTMLElement);
     items[(current + step + items.length) % items.length]!.focus();
@@ -171,9 +214,5 @@ export class FolderSwitcher {
 
   protected closeOnOutsideClick(event: MouseEvent): void {
     if (this.open() && !this.host.nativeElement.contains(event.target as Node)) this.open.set(false);
-  }
-
-  private items(): HTMLElement[] {
-    return [...(this.menu()?.nativeElement.querySelectorAll<HTMLElement>('[role=menuitemradio]') ?? [])];
   }
 }

@@ -291,6 +291,33 @@ describe('Folder switcher', () => {
     expect(text(repoCard('c1').querySelector('.repo-branch'))).toContain('main');
   });
 
+  it('filters the folders by branch or path, and Enter chooses the first one left', async () => {
+    await transport.connectWith({ repos: [client] });
+    await fixture.whenStable();
+
+    const menu = await openSwitcher();
+    const filter = menu.querySelector<HTMLInputElement>('input[type=search]')!;
+    const type = async (value: string) => {
+      filter.value = value;
+      filter.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    };
+
+    await type('FEAT/X');
+    expect(options(menu).map(([folder]) => folder)).toEqual(['C:\\wt\\client\\x']);
+    await type('wt\\client');
+    expect(options(menu).map(([folder]) => folder)).toEqual(['C:\\wt\\client\\y', 'C:\\wt\\client\\x']);
+    await type('nope');
+    expect(options(menu)).toEqual([]);
+    expect(text(menu.querySelector('.none'))).toBe('No folder matches "nope"');
+
+    await type('x');
+    filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+
+    expect(transport.lastCommand('switchRepoFolder').payload).toEqual({ repoId: 'c1', worktreePath: 'C:\\wt\\client\\x' });
+  });
+
   it('choosing the folder it already runs from sends nothing', async () => {
     await transport.connectWith({ repos: [client] });
     await fixture.whenStable();

@@ -238,12 +238,15 @@ describe('Branches panel', () => {
 describe('Folder switcher', () => {
   const onWorktree = { ...client, worktree: { path: 'C:\\wt\\client\\x', branch: 'feat/x' } };
 
+  /** The switcher opens in a CDK overlay, outside the Repo card. */
+  const switcher = () => document.querySelector<HTMLElement>('.switcher[role=menu]');
+
   async function openSwitcher(): Promise<HTMLElement> {
     buttonIn(repoCard('c1'), 'Choose the folder client runs from').click();
     await fixture.whenStable();
     await transport.reply(transport.lastCommand('listWorktrees'), found);
     await fixture.whenStable();
-    return repoCard('c1').querySelector<HTMLElement>('[role=menu]')!;
+    return switcher()!;
   }
 
   function options(menu: HTMLElement): [string | null, string, string | null][] {
@@ -269,7 +272,7 @@ describe('Folder switcher', () => {
     await fixture.whenStable();
 
     expect(transport.lastCommand('switchRepoFolder').payload).toEqual({ repoId: 'c1', worktreePath: 'C:\\wt\\client\\x' });
-    expect(repoCard('c1').querySelector('[role=menu]')).toBeNull();
+    expect(switcher()).toBeNull();
   });
 
   it('shows the Worktree branch with a mark, and switches back to the Repo folder', async () => {
@@ -316,6 +319,28 @@ describe('Folder switcher', () => {
     await fixture.whenStable();
 
     expect(transport.lastCommand('switchRepoFolder').payload).toEqual({ repoId: 'c1', worktreePath: 'C:\\wt\\client\\x' });
+  });
+
+  it('closes on a click outside it, on its button, or on Escape, which gives focus back', async () => {
+    await transport.connectWith({ repos: [client] });
+    await fixture.whenStable();
+    const trigger = buttonIn(repoCard('c1'), 'Choose the folder client runs from');
+
+    await openSwitcher();
+    document.body.click();
+    await fixture.whenStable();
+    expect(switcher()).toBeNull();
+
+    await openSwitcher();
+    trigger.click();
+    await fixture.whenStable();
+    expect(switcher()).toBeNull();
+
+    const menu = await openSwitcher();
+    menu.querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await fixture.whenStable();
+    expect(switcher()).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('choosing the folder it already runs from sends nothing', async () => {
